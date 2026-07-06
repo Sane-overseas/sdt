@@ -1,0 +1,1054 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Redirect;
+use App\Models\Video;
+use App\Models\Image;
+use App\Models\Completion;
+use App\Models\District;
+use App\Models\School;
+use App\Models\Block;
+use App\Models\User;
+use App\Models\Cordinator;
+use App\Models\Distribution;
+use App\Models\AsignedSchool;
+use App\Models\PaidSchool;
+use App\Models\AdvancePayment;
+use App\Models\Holiday;
+use View;
+use Session;
+use Config;
+use DB;
+use Carbon\Carbon;
+use DateTime;
+
+class AdminController extends BaseController
+{
+    use AuthorizesRequests, ValidatesRequests;
+    //adding and updating the trainer detail and calculating the total amount as received the amount and extra amount
+    public function addTrainers()
+    {
+        $trainers = User::where('role', '!=', 1)->get();
+
+        foreach ($trainers as $trainer) {
+            $trainer->total_amount = $trainer->amount + $trainer->extra_amount;
+            $trainer->save();
+        }
+
+
+
+        $cordinator = Cordinator::get();
+        $district = District::get()->toArray();
+        return view('admin.trainers')
+            ->with('trainers', $trainers)
+            ->with('district', $district)
+            ->with('cordinator', $cordinator);
+    }
+    public function OnGoingTrainers()
+    {
+        $a_schools = AsignedSchool::get()->toArray();
+        $schools = School::get();
+        $trainers = User::where('role', 0)->get();
+        $district = District::get()->toArray();
+        $distribution = Distribution::get()->toArray();
+        $cordinator  = Cordinator::get()->toArray();
+        $trainersWithAssigned = User::with('asigned_schools')->get()->toArray();
+        return view('TrainersReporting.ongoing-trainers')
+            ->with('schools', $schools)
+            ->with('trainers', $trainers)
+            ->with('a_schools', $a_schools)
+            ->with('trainersWithAssigned', $trainersWithAssigned)
+            ->with('district', $district)
+            ->with('cordinator', $cordinator);
+    }
+    public function NotWorkingTrainers()
+    {
+        $a_schools = AsignedSchool::get()->toArray();
+        $schools = School::get();
+        $trainers = User::where('role', 0)->get();
+        $district = District::get()->toArray();
+        $distribution = Distribution::get()->toArray();
+        $cordinator  = Cordinator::get()->toArray();
+        $trainersWithAssigned = User::with('asigned_schools')->get()->toArray();
+
+        return view('TrainersReporting.notworking-trainers')
+            ->with('schools', $schools)
+            ->with('trainers', $trainers)
+            ->with('a_schools', $a_schools)
+            ->with('trainersWithAssigned', $trainersWithAssigned)
+            ->with('district', $district)
+            ->with('cordinator', $cordinator);
+    }
+    public function TrainersSchoolsData()
+    {
+        $this->schoolCompleteStatus();
+
+        $a_schools = AsignedSchool::get()->toArray();
+        $schools = School::get();
+        $trainers = User::where('role', 0)->get();
+        $district = District::get()->toArray();
+        $distribution = Distribution::get()->toArray();
+        $cordinator  = Cordinator::get()->toArray();
+        $trainersWithAssigned = User::with('asigned_schools')->get()->toArray();
+
+        return view('TrainersReporting.trainers-schools-data')
+            ->with('schools', $schools)
+            ->with('trainers', $trainers)
+            ->with('a_schools', $a_schools)
+            ->with('trainersWithAssigned', $trainersWithAssigned)
+            ->with('district', $district)
+            ->with('cordinator', $cordinator);
+    }
+
+    public function Cordinators()
+    {
+        $trainers = User::where('role', 0)->get();
+        $cordinator = User::where('role', 2)->get();
+        $new_cordinator  = Cordinator::get()->toArray();
+        $district = District::get()->toArray();
+        return view('admin.cordinator')
+            ->with('district', $district)
+            ->with('trainers', $trainers)
+            ->with('new_cordinator', $new_cordinator)
+            ->with('cordinator', $cordinator);
+    }
+
+    public function ClaimTraniers()
+    {
+        $a_schools = AsignedSchool::get()->toArray();
+        $schools = School::get();
+        $trainers = User::where('role', '!=', 1)->with('asigned_schools')->get()->toArray();
+        $district = District::get()->toArray();
+        $distribution = Distribution::get()->toArray();
+        $cordinator  = Cordinator::get()->toArray();
+        $trainersWithAssigned = User::with('asigned_schools')->get()->toArray();
+        $paidschools = School::where('paid_status', 1)->get()->toArray();
+        $total_amount = User::sum('total_amount');
+        return view('TrainersReporting.claim-traniers')
+            ->with('schools', $schools)
+            ->with('trainers', $trainers)
+            ->with('a_schools', $a_schools)
+            ->with('trainersWithAssigned', $trainersWithAssigned)
+            ->with('district', $district)
+            ->with('total_amount', $total_amount)
+            ->with('cordinator', $cordinator);
+    }
+
+    public function paidSchools()
+    {
+        $schools = School::get()->toArray();
+        $trainers = User::get()->toArray();
+        $district = District::get()->toArray();
+
+        $paidSchools = DB::table('paid_schools')
+            ->join('asigned_schools', 'asigned_schools.school_name', '=', 'paid_schools.school_id')
+            ->select('paid_schools.*', 'asigned_schools.*')
+            ->get()->toArray();
+
+        return view('SchoolsReporting.paid-schools')
+            ->with('paidSchools', $paidSchools)
+            ->with('schools', $schools)
+            ->with('district', $district)
+            ->with('trainers', $trainers);
+    }
+
+    public function unPaidSchools()
+    {
+        $schools = School::get()->toArray();
+        $trainers = User::get()->toArray();
+        $district = District::get()->toArray();
+
+        $unpaid_schools = DB::table('asigned_schools')
+            ->join('users', 'users.id', '=', 'asigned_schools.user_id')
+            ->where('users.claim_note', '!=', null)
+            ->where('asigned_schools.paid_status', '=', 0)
+            ->where('asigned_schools.route_date', '!=', null)
+            ->where('asigned_schools.status', '=', 1)
+            ->select('users.*', 'asigned_schools.*')
+            ->get()->toArray();
+
+        return view('SchoolsReporting.unpaid-schools')
+            ->with('unpaid_schools', $unpaid_schools)
+            ->with('schools', $schools)
+            ->with('district', $district)
+            ->with('trainers', $trainers);
+    }
+
+    public function todayAssignedSchools(Request $request)
+    {
+        $schools = School::get()->toArray();
+        $trainers = User::get()->toArray();
+        $district = District::get()->toArray();
+
+        if ($request->custom_date == null) {
+            $a_schools = AsignedSchool::whereDate('created_at', date('Y-m-d'))->orderBy('created_at', 'DESC')->get()->toArray();
+        } else {
+            $a_schools = AsignedSchool::whereDate('created_at', date('Y-m-d', strtotime($request->custom_date)))->orderBy('created_at', 'DESC')->get()->toArray();
+        }
+
+        return view('SchoolsReporting.assigned-schools')
+            ->with('a_schools', $a_schools)
+            ->with('schools', $schools)
+            ->with('district', $district)
+            ->with('trainers', $trainers);
+    }
+
+    public function routePlanSchools(Request $request)
+    {
+        $schools = School::get()->toArray();
+        $trainers = User::get()->toArray();
+        $district = District::get()->toArray();
+
+        if ($request->custom_date == null) {
+            $addRoutePlan = AsignedSchool::whereDate('add_route_plan_date', date('Y-m-d'))
+                ->orderBy('add_route_plan_date', 'DESC')->get()->toArray();
+        } else {
+            $addRoutePlan = AsignedSchool::whereDate('add_route_plan_date', date('Y-m-d', strtotime($request->custom_date)))
+                ->orderBy('add_route_plan_date', 'DESC')->get()->toArray();
+        }
+
+        return view('SchoolsReporting.route-plan-schools')
+            ->with('addRoutePlan', $addRoutePlan)
+            ->with('schools', $schools)
+            ->with('district', $district)
+            ->with('trainers', $trainers);
+    }
+
+    public function cordinatorStore(Request $request)
+    {
+        $request->validate([
+            'cordinator_name' => 'required',
+            'code' => 'required',
+        ]);
+
+        $cordinator = new Cordinator;
+        $cordinator->cordinator_name = $request->cordinator_name;
+        $cordinator->cordinator_code = $request->code;
+        $cordinator->save();
+
+        return Response::json($cordinator);
+    }
+
+    public function cordinatorData($id)
+    {
+        $user = User::where('id', $id)->first();
+        $trainers = User::where('cordinator_id', $user['cordinator_id'])->where('role', 0)->with('asigned_schools')->get();
+        return view('admin.cdr-trainers')
+            ->with('trainers', $trainers);
+    }
+
+    public function trainersLogs(Request $request)
+    {
+        $district = District::get()->toArray();
+        $schools = School::get();
+        $today_logs = DB::table('asigned_schools')
+            ->join('users', 'users.id', '=', 'asigned_schools.user_id')
+            ->where('asigned_schools.end_date', '=', Carbon::now()->format('d/m/Y'))
+            ->select('users.*', 'asigned_schools.*')
+            ->get()->toArray();
+
+        $previous_logs = DB::table('asigned_schools')
+            ->join('users', 'users.id', '=', 'asigned_schools.user_id')
+            ->where('asigned_schools.end_date', '>=', Carbon::yesterday()->format('d/m/y'))
+            ->where('asigned_schools.uc_submitted', '=', 0)
+            ->select('users.*', 'asigned_schools.*')
+            ->get()->toArray();
+
+        $tommarow_logs = DB::table('asigned_schools')
+            ->join('users', 'users.id', '=', 'asigned_schools.user_id')
+            ->where('asigned_schools.end_date', '=', Carbon::tomorrow()->format('d/m/Y'))
+            ->select('users.*', 'asigned_schools.*')
+            ->get()->toArray();
+
+        $custom_date = (explode("-", $request->route_date));
+        $custom_log = [];
+        if ($custom_date[0] != '') {
+            $start = trim($custom_date[0]);
+            $end = trim($custom_date[1]);
+            $custom_log = DB::table('asigned_schools')
+                ->join('users', 'users.id', '=', 'asigned_schools.user_id')
+                ->where('asigned_schools.end_date', '>=', $start)
+                ->where('asigned_schools.end_date', '<=', $end)
+                ->get()->toArray();
+        }
+
+        return view('admin.logs')
+            ->with('today_logs', $today_logs)
+            ->with('previous_logs', $previous_logs)
+            ->with('tommarow_logs', $tommarow_logs)
+            ->with('custom_log', $custom_log)
+            ->with('district', $district)
+            ->with('schools', $schools);
+    }
+
+    public function salaryStatus(Request $request)
+    {
+
+        if ($request->paid_status != null) {
+            $salary_status = User::findOrFail($request->id);
+            $total_salary = $salary_status->amount * count($request->paid_status);
+            $salary_status->salary_status = 1;
+            if ($salary_status->paid_schools == null) {
+                $salary_status->paid_schools = count($request->paid_status);
+            } else {
+                $salary_status->paid_schools = $salary_status->paid_schools + count($request->paid_status);
+            }
+
+            if ($salary_status->total_amount == null) {
+                if ($request->extra_amount == null) {
+                    $salary_status->total_amount = $salary_status->total_amount + $total_salary;
+                } else {
+                    $salary_status->total_amount = $total_salary + $request->extra_amount;
+                }
+            } else {
+                if ($request->extra_amount == null) {
+                    $salary_status->total_amount = $salary_status->total_amount + $total_salary;
+                } else {
+                    $salary_status->total_amount = $salary_status->total_amount + $request->extra_amount + $total_salary;
+                }
+            }
+
+            if ($request->extra_amount != null) {
+                if ($salary_status->payment_history == null) {
+                    $salary_status->payment_history = date('d-m-Y', strtotime($request->paid_date)) . " - " . $total_salary . ' + ' . $request->extra_amount;
+                } else {
+                    $salary_status->payment_history = $salary_status->payment_history . " OR " . date('d-m-Y', strtotime($request->paid_date)) . " - " . $total_salary . ' + ' . $request->extra_amount;;
+                }
+                $salary_status->save();
+            } else {
+                if ($salary_status->payment_history == null) {
+                    $salary_status->payment_history = date('d-m-Y', strtotime($request->paid_date)) . " - " . $total_salary;
+                } else {
+                    $salary_status->payment_history = $salary_status->payment_history . " OR " . date('d-m-Y', strtotime($request->paid_date)) . " - " . $total_salary;
+                }
+                $salary_status->save();
+            }
+
+            foreach ($request->paid_status as $key => $school) {
+                $paid_schools = new PaidSchool;
+                $paid_schools->user_id = $request->id;
+                $paid_schools->school_id = $school;
+                $paid_schools->paid_by = Auth::user()->id;
+                $paid_schools->paid_date = date('d-m-Y', strtotime($request->paid_date));
+                $paid_schools->save();
+            }
+        } else {
+
+            $salary_status = User::findOrFail($request->id);
+            if ($request->extra_amount != null) {
+                if ($salary_status->total_amount == null) {
+                    $salary_status->total_amount = $request->extra_amount;
+                } else {
+                    $salary_status->total_amount = $salary_status->total_amount + $request->extra_amount;
+                }
+                if ($salary_status->payment_history == null) {
+                    $salary_status->payment_history = date('d-m-Y', strtotime($request->paid_date)) . " - " . $request->extra_amount;
+                } else {
+                    $salary_status->payment_history = $salary_status->payment_history . " OR " . date('d-m-Y', strtotime($request->paid_date)) . " - " . $request->extra_amount;
+                }
+                $salary_status->salary_status = 1;
+                $salary_status->save();
+            }
+        }
+
+        return redirect()->back();
+    }
+
+    public function trainerDetail($id)
+    {
+        $trainer_data = User::where('id', $id)->with('videos', 'images', 'completions', 'distributions', 'asigned_schools')->first()->toArray();
+        $user = User::get()->toArray();
+        $district = District::get();
+        $school = School::get();
+        $cordinator = Cordinator::get();
+        return view('admin.trainer-data')
+            ->with('user', $user)
+            ->with('trainer_data', $trainer_data)
+            ->with('school', $school)
+            ->with('cordinator', $cordinator)
+            ->with('district', $district);
+    }
+
+    public function asignedSchoolDelete($id, $sid)
+    {
+
+        $school = School::where('id', $sid)->first()->toArray();
+        $video = Video::where('school_name', $school['school_name'])->first();
+        $image = Image::where('school_name', $school['school_name'])->first();
+        $uc = Completion::where('school_name', $school['school_name'])->first();
+        $dc = Distribution::where('school_name', $school['school_name'])->first();
+        if ($video == null && $image == null && $uc == null && $dc == null) {
+            AsignedSchool::find($id)->delete($id);
+            $t_school = School::find($sid);
+            $t_school->asigned_school = 0;
+            $t_school->update();
+
+            return response()->json([
+                'success' => 'Record deleted successfully!'
+            ]);
+        } else {
+            return redirect()->back()->with('error', 'Some data add in this School Please Check!');
+        }
+    }
+
+    public function videoStatus(Request $request)
+    {
+        $vid = Video::where('id', $request->video_id)->first()->toArray();
+
+        if ($vid != null) {
+            $video = Video::findOrFail($request->video_id);
+            $video->status = $request->video_status;
+            $video->save();
+
+            $school_image = School::findOrFail($vid['school_id']);
+            $school_image->video_status = $request->video_status;
+            $school_image->save();
+            return response()->json(['success' => 'User status updated successfully.']);
+        } else {
+            return redirect()->back()->with('error', 'Somethig Wrong Please Check!');
+        }
+    }
+
+    public function fstvideoDetail($id)
+    {
+        $video = Video::findOrFail($id);
+        $video->fst_video = null;
+        $video->status = 0;
+        $video->save();
+        return response()->json($video);
+    }
+
+    public function sndvideoDetail($id)
+    {
+        $video = Video::findOrFail($id);
+        $video->snd_video = null;
+        $video->status = 0;
+        $video->save();
+        return response()->json($video);
+    }
+
+    public function deleteVideos($id, $sid)
+    {
+        $video = Video::find($id)->delete($id);
+
+        $videoStatus = School::findOrFail($sid);
+        $videoStatus->video_status = 0;
+        $videoStatus->save();
+
+        return response()->json($video);
+    }
+
+
+    public function imageStatus(Request $request)
+    {
+        $img = Image::where('id', $request->image_id)->first()->toArray();
+
+        if ($img != null) {
+            $image = Image::findOrFail($request->image_id);
+            $image->status = $request->image_status;
+            $image->save();
+
+            $school_image = School::findOrFail($img['school_id']);
+            $school_image->image_status = $request->image_status;
+            $school_image->save();
+            return response()->json(['success' => 'User status updated successfully.']);
+        } else {
+            return redirect()->back()->with('error', 'Somethig Wrong Please Check!');
+        }
+    }
+
+    public function imagesDetail($id, $imgid)
+    {
+
+        if ($imgid == 1) {
+            $image = Image::findOrFail($id);
+            $image->ifsb_image = null;
+            $image->status = 0;
+            $image->save();
+        } elseif ($imgid == 2) {
+            $image = Image::findOrFail($id);
+            $image->group_image = null;
+            $image->status = 0;
+            $image->save();
+        } elseif ($imgid == 3) {
+            $image = Image::findOrFail($id);
+            $image->fst_aimage = null;
+            $image->status = 0;
+            $image->save();
+        } elseif ($imgid == 4) {
+            $image = Image::findOrFail($id);
+            $image->snd_aimage = null;
+            $image->status = 0;
+            $image->save();
+        } else {
+            $image = Image::findOrFail($id);
+            $image->trd_aimage = null;
+            $image->status = 0;
+            $image->save();
+        }
+
+        return response()->json($image);
+    }
+
+    public function deleteImages($id, $sid)
+    {
+        $image = Image::find($id)->delete($id);
+
+        $imageStatus = School::findOrFail($sid);
+        $imageStatus->image_status = 0;
+        $imageStatus->save();
+
+        return response()->json($image);
+    }
+
+    public function completionStatus(Request $request)
+    {
+        $uc = Completion::where('id', $request->completion_id)->first();
+        if ($uc != null) {
+            $completion = Completion::findOrFail($request->completion_id);
+            $completion->status = $request->completion_status;
+            $completion->save();
+
+            $school_completion = School::findOrFail($uc['school_id']);
+            $school_completion->completion_status = $request->completion_status;
+            $school_completion->save();
+            return response()->json(['success' => 'User status updated successfully.']);
+        } else {
+            return redirect()->back()->with('error', 'Somethig Wrong Please Check!');
+        }
+    }
+
+    public function completionDetail($id, $sid)
+    {
+        $completion = Completion::find($id)->delete($id);
+        AsignedSchool::where('school_name', $sid)->update(array('uc_submitted' => 0));
+        return response()->json($completion);
+    }
+
+    public function distributionsStatus(Request $request)
+    {
+        $dc = Distribution::where('id', $request->distributions_id)->first();
+        if ($dc != null) {
+            $distributions = Distribution::findOrFail($request->distributions_id);
+            $distributions->status = $request->distributions_status;
+            $distributions->save();
+
+            $school_distributions = School::findOrFail($dc['school_id']);
+            $school_distributions->distribution_status = $request->distributions_status;
+            $school_distributions->save();
+            return response()->json(['success' => 'User status updated successfully.']);
+        } else {
+            return redirect()->back()->with('error', 'Somethig Wrong Please Check!');
+        }
+    }
+
+    public function distributionDetail($id)
+    {
+        $distribution = Distribution::find($id)->delete($id);
+        return response()->json($distribution);
+    }
+
+    public function getSchools()
+    {
+        $this->schoolCompleteStatus();
+
+        $district = District::get();
+        return view('admin.schools')
+            ->with('schools', $schools)
+            ->with('district', $district);
+    }
+
+    public function videoNote(Request $request)
+    {
+        $request->validate([
+            'video_note' => 'required',
+        ]);
+
+        $video = Video::findOrFail($request->id);
+        $video->video_note = $request->video_note;
+        $video->save();
+        return redirect()->back();
+    }
+
+    public function imageNote(Request $request)
+    {
+        $request->validate([
+            'image_note' => 'required',
+        ]);
+
+        $video = Image::findOrFail($request->id);
+        $video->image_note = $request->image_note;
+        $video->save();
+        return redirect()->back();
+    }
+
+    public function distributionNote(Request $request)
+    {
+        $request->validate([
+            'distribution_note' => 'required',
+        ]);
+
+        $video = Distribution::findOrFail($request->id);
+        $video->distribution_note = $request->distribution_note;
+        $video->save();
+        return redirect()->back();
+    }
+
+    public function completionNote(Request $request)
+    {
+        $request->validate([
+            'completion_note' => 'required',
+        ]);
+
+        if ($request->emergency_approved) {
+            $completion_note = Completion::findOrFail($request->id);
+            $completion_note->completion_note = $request->completion_note;
+            $completion_note->status = 1;
+            $completion_note->emergency_approved = 1;
+            $completion_note->save();
+        } else {
+            $completion_note = Completion::findOrFail($request->id);
+            $completion_note->completion_note = $request->completion_note;
+            $completion_note->status = 0;
+            $completion_note->emergency_approved = 0;
+            $completion_note->save();
+        }
+        return redirect()->back();
+    }
+
+    public function trainerData($id)
+    {
+        $trainer_data = User::where('id', $id)->with('videos', 'images', 'completions', 'distributions', 'asigned_schools')->first()->toArray();
+
+        $district = District::get();
+        $school = School::get();
+        $cordinator = Cordinator::get();
+        return view('trainerLogs.trainer-details')
+            ->with('trainer_data', $trainer_data)
+            ->with('school', $school)
+            ->with('cordinator', $cordinator)
+            ->with('district', $district);
+    }
+
+    public function remarkNote(Request $request)
+    {
+        $remark = AsignedSchool::findOrFail($request->id);
+        if ($remark->remark == null) {
+            $remark->remark = date("d/m/y") . " - " . $request->remark;
+        } else {
+            $remark->remark = $remark->remark . " OR " . date("d/m/y") . " - " . $request->remark;
+        }
+
+        $remark->save();
+        return redirect()->back();
+    }
+
+    public function uploadedData(Request $request)
+    {
+        if ($request->custom_date_data != null) {
+            $videos = Video::orderBy('created_at', 'DESC')
+                ->whereDate('created_at', $request->custom_date_data)->get()->toArray();
+            $images = Image::orderBy('created_at', 'DESC')
+                ->whereDate('created_at', $request->custom_date_data)->get()->toArray();
+            $completion = Completion::orderBy('created_at', 'DESC')
+                ->whereDate('created_at', $request->custom_date_data)->get()->toArray();
+            $distributions = Distribution::orderBy('created_at', 'DESC')
+                ->whereDate('created_at', $request->custom_date)->get()->toArray();
+        } elseif ($request->all_recordes != null) {
+            $videos = Video::orderBy('created_at', 'DESC')->get()->toArray();
+            $images = Image::orderBy('created_at', 'DESC')->get()->toArray();
+            $completion = Completion::orderBy('created_at', 'DESC')->get()->toArray();
+            $distributions = Distribution::orderBy('created_at', 'DESC')->get()->toArray();
+        } elseif ($request->route_date != null) {
+            $custom_date = (explode("/", $request->route_date));
+            $startDate = trim($custom_date[0]);
+            $endDate = trim($custom_date[1]);
+            $videos = Video::whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])->get()->toArray();
+            $images = Image::whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])->get()->toArray();
+            $completion = Completion::whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])->get()->toArray();
+            $distributions = Distribution::whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])->get()->toArray();
+        } else {
+            $videos = Video::orderBy('created_at', 'DESC')
+                ->whereDate('created_at', date('Y-m-d'))->get()->toArray();
+            $images = Image::orderBy('created_at', 'DESC')
+                ->whereDate('created_at', date('Y-m-d'))->get()->toArray();
+            $completion = Completion::orderBy('created_at', 'DESC')
+                ->whereDate('created_at', date('Y-m-d'))->get()->toArray();
+            $distributions = Distribution::orderBy('created_at', 'DESC')
+                ->whereDate('created_at', date('Y-m-d'))->get()->toArray();
+        }
+        $user = User::get();
+        $schools = School::get()->toArray();
+        return view('uploadedData.uploaded-data')
+            ->with('videos', $videos)
+            ->with('images', $images)
+            ->with('completion', $completion)
+            ->with('distributions', $distributions)
+            ->with('schools', $schools)
+            ->with('user', $user);
+    }
+
+    public function trainerSchoolsData($id)
+    {
+        $trainer_data = User::where('id', $id)->with('videos', 'images', 'completions', 'distributions', 'asigned_schools')->first()->toArray();
+        $district = District::get();
+        $schools = School::get();
+        $cordinator = Cordinator::get();
+
+        $months_data = AsignedSchool::where('user_id', $id)->where('route_date', '!=', null)->select('id', 'created_at', 'end_date', 'status', 'route_date', 'end_date')
+            ->get()
+            ->groupBy(function ($date) {
+                return Carbon::parse($date->end_date)->format('m');
+            });
+        // dd($months_data->toArray());
+        $usermcount = [];
+        $userArr = [];
+
+        foreach ($months_data->toArray() as $key => $value) {
+            $usermcount[(int)$key] = count($value);
+        }
+
+        $month = ['Jan 2024', 'Feb 2024', 'Mar 2024', 'Apr 2024', 'May 2024', 'Jun 2024', 'Jul 2024', 'Aug 2024', 'Sep 2024', 'Oct 2023', 'Nov 2023', 'Dec 2023'];
+
+        for ($i = 1; $i <= 12; $i++) {
+            if (!empty($usermcount[$i])) {
+                $userArr[$i]['count'] = $usermcount[$i] ?? 0;
+            } else {
+                $userArr[$i]['count'] = 0;
+            }
+            $userArr[$i]['month'] = $month[$i - 1];
+        }
+        // dd($userArr);
+        return view('TrainersReporting.trainer-schools-details')
+            ->with('trainer_data', $trainer_data)
+            ->with('schools', $schools)
+            ->with('cordinator', $cordinator)
+            ->with('district', $district)
+            ->with('userArr', $userArr);
+    }
+
+    public function schoolsReportingByDistricts()
+    {
+        $district = District::get()->toArray();
+
+        $schoolsWithAssigned = DB::table('asigned_schools')
+            ->join('schools', 'schools.id', '=', 'asigned_schools.school_name')
+            ->select('schools.*', 'asigned_schools.*')
+            ->get()->toArray();
+
+        $months_data = AsignedSchool::where('status', 1)->select('id', 'created_at', 'end_date', 'status', 'route_date', 'end_date')
+            ->get()
+            ->groupBy(function ($date) {
+                return Carbon::parse($date->end_date)->format('m');
+            });
+
+        $usermcount = [];
+        $totalSchools = [];
+
+        foreach ($months_data->toArray() as $key => $value) {
+            $usermcount[(int)$key] = count($value);
+        }
+
+        $month = ['Jan 2024', 'Feb 2024', 'Mar 2024', 'Apr 2024', 'May 2024', 'Jun 2024', 'Jul 2024', 'Aug 2024', 'Sep 2024', 'Oct 2023', 'Nov 2023', 'Dec 2023'];
+
+        for ($i = 1; $i <= 12; $i++) {
+            if (!empty($usermcount[$i])) {
+                $totalSchools[$i]['count'] = $usermcount[$i] ?? 0;
+            } else {
+                $totalSchools[$i]['count'] = 0;
+            }
+            $totalSchools[$i]['month'] = $month[$i - 1];
+        }
+
+        $workingTrainers = AsignedSchool::all()->unique('user_id')->toArray();
+        $distribution = Distribution::get()->toArray();
+
+        return view('districtReporting.by-districts')
+            ->with('totalSchools', $totalSchools)
+            ->with('distribution', $distribution)
+            ->with('district', $district)
+            ->with('workingTrainers', $workingTrainers)
+            ->with('schoolsWithAssigned', $schoolsWithAssigned);
+    }
+
+    public function districtsData($id)
+    {
+        $asigned_schools = AsignedSchool::where('district', $id)->get()->toArray();
+        $schools = School::where('district_id', $id)->get();
+        $district = District::get()->toArray();
+
+        foreach ($district as $dis) {
+            if ($dis['id'] == $id) {
+                $districtNmae = $dis['district'];
+            }
+        }
+
+        $distribution = Distribution::where('district', $districtNmae)->get()->toArray();
+        $trainers = User::get();
+        $not_startde_schools = AsignedSchool::where('district', $id)->where('route_date', null)->get()->toArray();
+
+        $ongoing_schools = AsignedSchool::where('district', $id)->where('route_date', '!=', null)->get()->toArray();
+
+
+        $months_data = AsignedSchool::where('district', $id)->where('status', 1)->select('id', 'created_at', 'end_date', 'status', 'route_date', 'end_date')
+            ->get()
+            ->groupBy(function ($date) {
+                return Carbon::parse($date->end_date)->format('m');
+            });
+
+        $usermcount = [];
+        $totalSchools = [];
+
+        foreach ($months_data->toArray() as $key => $value) {
+            $usermcount[(int)$key] = count($value);
+        }
+
+        $month = ['Jan 2024', 'Feb 2024', 'Mar 2024', 'Apr 2024', 'May 2024', 'Jun 2024', 'Jul 2024', 'Aug 2024', 'Sep 2024', 'Oct 2023', 'Nov 2023', 'Dec 2023'];
+
+        for ($i = 1; $i <= 12; $i++) {
+            if (!empty($usermcount[$i])) {
+                $totalSchools[$i]['count'] = $usermcount[$i] ?? 0;
+            } else {
+                $totalSchools[$i]['count'] = 0;
+            }
+            $totalSchools[$i]['month'] = $month[$i - 1];
+        }
+
+        return view('districtReporting.district-data')
+            ->with('asigned_schools', $asigned_schools)
+            ->with('schools', $schools)
+            ->with('district', $district)
+            ->with('distribution', $distribution)
+            ->with('trainers', $trainers)
+            ->with('ongoing_schools', $ongoing_schools)
+            ->with('totalSchools', $totalSchools)
+            ->with('not_startde_schools', $not_startde_schools);
+    }
+
+
+
+    public function schoolAssignedStatus(Request $request)
+    {
+        $completion = User::findOrFail($request->cordinator_id);
+        $completion->school_assigned_status = $request->status;
+        $completion->save();
+        return response()->json(['message' => 'User status updated successfully.']);
+    }
+
+    public function dataUploadStatus(Request $request)
+    {
+        $completion = User::findOrFail($request->cordinator_id);
+        $completion->data_upload_status = $request->status;
+        $completion->save();
+        return response()->json(['message' => 'User status updated successfully.']);
+    }
+
+    public function trainerStatusDetail(Request $request)
+    {
+        $user = User::findOrFail($request->trainer_id);
+        $user->active_status = $request->active_status;
+        $user->save();
+        return response()->json($user);
+    }
+
+    public function schoolPaidStatus(Request $request)
+    {
+        $user = School::findOrFail($request->school_id);
+        $user->paid_status = $request->paid_status;
+        $user->save();
+        $a_user = AsignedSchool::where('school_name', $request->school_id)->first();
+        $a_user->paid_status = $request->paid_status;
+        $a_user->save();
+        return response()->json($user);
+    }
+
+    public function advancePayment(Request $request)
+    {
+        $advance_payments = AdvancePayment::get()->toArray();
+        $trainers = User::get()->toArray();
+        return view('admin.advance-payments')
+            ->with('advance_payments', $advance_payments)
+            ->with('trainers', $trainers);
+    }
+
+    public function addAdvancePayment(Request $request)
+    {
+        $request->validate([
+            'user' => 'required',
+            'role' => 'required',
+            'payment' => 'required',
+            'paid_date' => 'required'
+        ]);
+
+        $advance_payments = new AdvancePayment;
+        $advance_payments->user_id = $request->user;
+        $advance_payments->role = $request->role;
+        $advance_payments->payment = $request->payment;
+        $advance_payments->payment_date = date('d-m-Y', strtotime($request->paid_date));
+        $advance_payments->save();
+        return response()->json($advance_payments);
+    }
+
+    public function schoolCompleteStatus()
+    {
+        $schools = School::get();
+        foreach ($schools as $school) {
+            if ($school['image_status'] == 1 && $school['video_status'] == 1 && $school['completion_status'] == 1) {
+                $school_status = School::findOrFail($school['id']);
+                $school_status->status = 1;
+                $school_status->save();
+            } else {
+                $school_status = School::findOrFail($school['id']);
+                $school_status->status = 0;
+                $school_status->save();
+            }
+        }
+
+        foreach ($schools as $school) {
+            if ($school['image_status'] == 1 && $school['video_status'] == 1 && $school['completion_status'] == 1) {
+                $school_status = AsignedSchool::where('school_name', $school['id'])->first();
+                if ($school_status != null) {
+                    $school_status->status = 1;
+                    $school_status->save();
+                }
+            } else {
+                $school_status = AsignedSchool::where('school_name', $school['id'])->first();
+                if ($school_status != null) {
+                    $school_status->status = 0;
+                    $school_status->save();
+                }
+            }
+        }
+    }
+
+    public function addAssigndData(Request $request)
+    {
+        if ($request->school_name !== null) {
+
+            foreach ($request->school_name as $school) {
+                $trainer_school = new AsignedSchool();
+                $trainer_school->user_id = Auth::user()->id;
+                $trainer_school->district = $request->input('district');
+                $trainer_school->block = $request->input('block');
+                $trainer_school->school_name = $school;
+                $trainer_school->asigned_by = Auth::user()->id;
+                $trainer_school->start_route_plan = null;
+                $trainer_school->end_route_plan = null;
+                $trainer_school->save();
+            }
+
+            foreach ($request->school_name as $school) {
+                $t_school = School::find($school);
+                $t_school->asigned_school = 1;
+                $t_school->update();
+            }
+            return response()->json(['success' => 'Schools Add successfully.']);
+        } else {
+            return redirect()->back()->with('error', 'Somethig Wrong Please Check!');
+        }
+    }
+
+    public function rejectedUC()
+    {
+        $completion = Completion::orderBy('created_at', 'DESC')->where('completion_note', '!=', null)
+            ->where('emergency_approved', 0)->get()->toArray();
+        $user = User::get();
+        $schools = School::get()->toArray();
+
+        return view('uploadedData.rejected-uc')
+            ->with('completion', $completion)
+            ->with('schools', $schools)
+            ->with('user', $user);
+    }
+
+    public function approvalPendingUC()
+    {
+        $completion = Completion::orderBy('created_at', 'DESC')->where('status', 0)->where('completion_note', null)->get()->toArray();
+        $user = User::get();
+        $schools = School::get()->toArray();
+
+        return view('uploadedData.approval-pending-uc')
+            ->with('completion', $completion)
+            ->with('schools', $schools)
+            ->with('user', $user);
+    }
+
+    public function emergencyApprovedUC()
+    {
+        $completion = Completion::orderBy('created_at', 'DESC')->where('emergency_approved', 1)->get()->toArray();
+        $user = User::get();
+        $schools = School::get()->toArray();
+
+        return view('uploadedData.emergency-approved-uc')
+            ->with('completion', $completion)
+            ->with('schools', $schools)
+            ->with('user', $user);
+    }
+
+    public function holidays()
+    {
+        $holidays = Holiday::orderBy('holiday_date', 'desc')->get();
+
+        return view('admin.holidays', compact('holidays'));
+    }
+
+    public function storeHoliday(Request $request)
+    {
+        $request->validate([
+            'holiday_date' => 'required|date|unique:holidays,holiday_date',
+            'title' => 'nullable|string|max:255',
+        ]);
+
+        Holiday::create([
+            'holiday_date' => $request->holiday_date,
+            'title' => $request->title,
+            'created_by' => Auth::id(),
+        ]);
+
+        return redirect()->back()->with('success', 'Holiday added successfully.');
+    }
+
+    public function deleteHoliday($id)
+    {
+        Holiday::findOrFail($id)->delete();
+
+        return redirect()->back()->with('success', 'Holiday removed successfully.');
+    }
+
+    public function updateHoliday(Request $request, $id)
+    {
+        $holiday = Holiday::findOrFail($id);
+
+        $request->validate([
+            'holiday_date' => 'required|date|unique:holidays,holiday_date,'.$holiday->id,
+            'title' => 'nullable|string|max:255',
+        ]);
+
+        $holiday->update([
+            'holiday_date' => $request->holiday_date,
+            'title' => $request->title,
+        ]);
+
+        return redirect()->back()->with('success', 'Holiday updated successfully.');
+    }
+
+    public function holidaysList()
+    {
+        $holidays = Holiday::orderBy('holiday_date')->get(['holiday_date', 'title'])->map(function ($holiday) {
+            return [
+                'date' => $holiday->holiday_date->format('Y-m-d'),
+                'title' => $holiday->title,
+            ];
+        });
+
+        return response()->json(['holidays' => $holidays]);
+    }
+}

@@ -1,0 +1,158 @@
+(function () {
+    var holidayDates = [];
+    var holidayMap = {};
+
+    function fetchHolidays() {
+        return $.get('/holidays/list').then(function (data) {
+            holidayDates = data.holidays.map(function (h) { return h.date; });
+            holidayMap = {};
+            data.holidays.forEach(function (h) {
+                holidayMap[h.date] = h.title || 'Holiday';
+            });
+            return data.holidays;
+        });
+    }
+
+    function toDateStr(date) {
+        var y = date.getFullYear();
+        var m = String(date.getMonth() + 1).padStart(2, '0');
+        var d = String(date.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function isSunday(date) {
+        return date.getDay() === 0;
+    }
+
+    function isSecondSaturday(date) {
+        return date.getDay() === 6 && Math.ceil(date.getDate() / 7) === 2;
+    }
+
+    function isGlobalHoliday(dateStr) {
+        var date = new Date(dateStr + 'T00:00:00');
+        return isSunday(date) || isSecondSaturday(date);
+    }
+
+    function holidayLabel(dateStr) {
+        var date = new Date(dateStr + 'T00:00:00');
+        if (isSunday(date)) {
+            return 'Sunday';
+        }
+        if (isSecondSaturday(date)) {
+            return '2nd Saturday';
+        }
+        return holidayMap[dateStr] || 'Holiday';
+    }
+
+    function isHoliday(dateStr) {
+        return holidayDates.indexOf(dateStr) !== -1 || isGlobalHoliday(dateStr);
+    }
+
+    function calculateEndDate(startStr, workingDays) {
+        if (!startStr || !workingDays) {
+            return null;
+        }
+
+        var current = new Date(startStr + 'T00:00:00');
+        var count = 0;
+
+        while (count < workingDays) {
+            var ds = toDateStr(current);
+            if (!isHoliday(ds)) {
+                count++;
+            }
+            if (count < workingDays) {
+                current.setDate(current.getDate() + 1);
+            }
+        }
+
+        return toDateStr(current);
+    }
+
+    function formatDisplayDate(dateStr) {
+        if (!dateStr) {
+            return '';
+        }
+        var parts = dateStr.split('-');
+        return parts[2] + '/' + parts[1] + '/' + parts[0];
+    }
+
+    function countHolidaysBetween(startStr, endStr) {
+        var count = 0;
+        var cur = new Date(startStr + 'T00:00:00');
+        var end = new Date(endStr + 'T00:00:00');
+
+        while (cur <= end) {
+            if (isHoliday(toDateStr(cur))) {
+                count++;
+            }
+            cur.setDate(cur.getDate() + 1);
+        }
+
+        return count;
+    }
+
+    function initRoutePlanForm($form) {
+        var $start = $form.find('.route-plan-start');
+        var $workingDays = $form.find('.route-plan-working-days');
+        var $endDisplay = $form.find('.route-plan-end-display');
+        var $holidayNote = $form.find('.route-plan-holiday-note');
+
+        function updateEndDate() {
+            var start = $start.val();
+            var days = parseInt($workingDays.val(), 10);
+
+            if (!start || !days) {
+                $endDisplay.val('');
+                $holidayNote.text('');
+                return;
+            }
+
+            if (isHoliday(start)) {
+                $holidayNote.html('<span class="text-danger">Start date is a holiday (' + holidayLabel(start) + '). Choose a working day.</span>');
+                $endDisplay.val('');
+                return;
+            }
+
+            var end = calculateEndDate(start, days);
+            $endDisplay.val(formatDisplayDate(end));
+
+            var holidayCount = countHolidaysBetween(start, end);
+            if (holidayCount > 0) {
+                $holidayNote.text(days + ' working days — ' + holidayCount + ' holiday(s) excluded (includes Sundays, 2nd Saturdays & public holidays).');
+            } else {
+                $holidayNote.text(days + ' working days — no holidays in this range.');
+            }
+        }
+
+        $start.on('change input', updateEndDate);
+        $workingDays.on('change input', updateEndDate);
+
+        $form.on('submit', function (e) {
+            var start = $start.val();
+            var days = parseInt($workingDays.val(), 10);
+
+            if (!start || !days) {
+                e.preventDefault();
+                alert('Please enter start date and working days.');
+                return;
+            }
+
+            if (isHoliday(start)) {
+                e.preventDefault();
+                alert('Start date cannot be a holiday (' + holidayLabel(start) + '). Please choose a working day.');
+                return;
+            }
+        });
+
+        updateEndDate();
+    }
+
+    $(document).ready(function () {
+        fetchHolidays().always(function () {
+            $('form[id="uplodeForm"]').each(function () {
+                initRoutePlanForm($(this));
+            });
+        });
+    });
+})();
