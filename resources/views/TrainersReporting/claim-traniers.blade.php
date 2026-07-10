@@ -19,6 +19,11 @@
 		<p>{{ $message }}</p>
 	</div>
 	@endif
+	@if(isset($isReadOnlySessionView) && $isReadOnlySessionView)
+	<div class="alert alert-warning">
+		Archive session is read-only. Payments are locked.
+	</div>
+	@endif
 	<div class="card-body">
 		<table class="table table-bordered" id="trainerClaim">
 			<thead>
@@ -45,25 +50,28 @@
 				    <td>{{$data['district']}}</td>
 				    <td>{{$data['claim_note']}}</td> 
 				    <td>
-				    	<?php $complete_schools = 0; ?>		
+				    	@php($complete_schools = 0)
 						@foreach($data['asigned_schools'] as  $a_schools)
                         	@if($a_schools['status'] == 1)
-                        		<?php $complete_schools++ ?> 
+                        		@php($complete_schools++) 
                         	@endif 	
 	                    @endforeach
-	                   	<?php 
+	                   	@php
 	                   		$totalAmount =  number_format($data['amount'] *$complete_schools, 2);
-	                   		$pedding_schools = $complete_schools - $data['paid_schools'];
+	                   		$paidSchoolsInSession = $sessionPaidCounts[$data['id']] ?? 0;
+	                   		$pedding_schools = $complete_schools - $paidSchoolsInSession;
+	                   		if($pedding_schools < 0){ $pedding_schools = 0; }
 	                   		$newAmount =  number_format($data['amount'] *$pedding_schools, 2);
-	                   	?>
-	                   	@if($data['paid_schools'] == null)
+	                   		$advanceAmount = $sessionAdvanceTotals[$data['id']] ?? 0;
+	                   	@endphp
+	                   	@if($paidSchoolsInSession == 0)
 	                   		{{$totalAmount}}
 	                   	@else
 	                   		{{$newAmount}}
 	                   	@endif
 	                  
 	                </td>
-	                <td>{{number_format($data['total_amount'], 2)}}</td> 
+	                <td>{{number_format(($data['amount'] * ($sessionPaidCounts[$data['id']] ?? 0)) + $advanceAmount, 2)}}</td> 
             		<td class="{{$data['id']}}"> 
                         <a href="#" id="suspendd" data-toggle="modal" data-target="#demoModal{{ $data['id'] }}" class="send_btn ml-3">Check</i></a>
                             <form id="uplodeForm" action="{{ route('paid_status')}}" method="POST">
@@ -81,21 +89,15 @@
                                             </button>
                                         </div>
                                         <div class="modal-body">
-                                        	@if(isset($data['payment_history']))
-	                                        	<strong>Payment History</strong></br>
-	                                        		<div class="mt-2 mb-2">
-							                    	<?php
-							                    		$paymentHistory = (explode("OR", $data['payment_history']));
-							                    	?>
-							                    	@foreach($paymentHistory as $key => $pHistory)
-							                    		<span class="remark">{{$pHistory}}</span></br>
-							                    	@endforeach
-							                    	</div>
-							            		@endif
+                        	<strong>Payment History (Current Session)</strong></br>
+                        	<div class="mt-2 mb-2">
+                        		<span class="remark">Paid Schools: {{ $sessionPaidCounts[$data['id']] ?? 0 }}</span></br>
+                        		<span class="remark">Advance: {{ number_format($sessionAdvanceTotals[$data['id']] ?? 0, 2) }}</span></br>
+                        	</div>
 											<div class="form-row">
 												 <div class="form-group col">
 												 	<label for="inputEmail4">Extra Amount</label>
-											      	<input class="ml-2 checkExtraAmount" type="checkbox" >
+											      	<input class="ml-2 checkExtraAmount" type="checkbox" {{ (isset($isReadOnlySessionView) && $isReadOnlySessionView) ? 'disabled' : '' }}>
 											      	<input type="input" class="form-control enabled" name="extra_amount" value="{{$data['extra_amount']}}" disabled>
 											    </div>
 											</div>
@@ -125,7 +127,7 @@
 	                   							@endif 
 											    <div class="form-group col">
 											    	<label for="inputEmail4">Paid Date</label>
-											      	<input type="date" class="form-control" name="paid_date" required>
+											      	<input type="date" class="form-control" name="paid_date" required {{ (isset($isReadOnlySessionView) && $isReadOnlySessionView) ? 'disabled' : '' }}>
 											    </div>
 											    <input type="hidden" class="form-control" name="id" value="{{$data['id']}}">
 											</div>
@@ -139,7 +141,7 @@
                                     		</tbody>
                                     		<tbody>
                                     			@foreach($data['asigned_schools'] as  $a_schools)
-                                    				@if($a_schools['status'] == 1 && $a_schools['paid_status'] == 0)
+	                                    				@if($a_schools['status'] == 1 && $a_schools['paid_status'] == 0)
 													<tr>
 														<td>
 															@foreach($schools as $school)
@@ -151,7 +153,7 @@
 														<td style="text-align: center;">
 														 	@foreach($schools as $school)
 										                        @if($a_schools['school_name'] == $school['id'])
-										                        	<input type="checkbox" data-id="{{$school['id']}}" name="paid_status[]" class="paid-status" value="{{$school['id']}}" {{$school['paid_status'] == 1 ? 'checked' : '' }}>
+										                        	<input type="checkbox" data-id="{{$school['id']}}" name="paid_status[]" class="paid-status" value="{{$school['id']}}" {{$a_schools['paid_status'] == 1 ? 'checked' : '' }} {{ (isset($isReadOnlySessionView) && $isReadOnlySessionView) ? 'disabled' : '' }}>
 										                        @endif
 										                    @endforeach 
 										                </td>    
@@ -163,7 +165,7 @@
                                         <div class="modal-footer">
                                             <button type="button" class="close-btn"
                                                 data-dismiss="modal">Close</button>
-                                            <button  type="submit" class="up-save" >Paid</button>    	
+                                            <button  type="submit" class="up-save" {{ (isset($isReadOnlySessionView) && $isReadOnlySessionView) ? 'disabled' : '' }}>Paid</button>    	
                                         </div>
                                     </div>
                                 </div>
@@ -172,7 +174,7 @@
                         </form>
                     </td>
                     <td>
-                    @if($data['salary_status'] == 1)
+                    @if(($sessionPaidCounts[$data['id']] ?? 0) > 0 || ($sessionAdvanceTotals[$data['id']] ?? 0) > 0)
                     	<span class="compete">Paid</span>
                     @else
                     	<span class="pending">Unpaid</span>
@@ -191,6 +193,7 @@
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
 <script src="https://cdn.datatables.net/buttns/2.4.2/js/buttons.print.min.js"></script>
 <script type="text/javascript">
+const isReadOnlySessionView = @json(isset($isReadOnlySessionView) && $isReadOnlySessionView);
 
 $('.checkExtraAmount').change(function () {
 	let status = $(this).prop('checked') === true ? 1 : 0;
@@ -217,6 +220,9 @@ paidStatus.forEach(function(html) {
 });
 
 $(document).ready(function(){
+    if (isReadOnlySessionView) {
+    return;
+    }
     $('.paid-status').change(function () {
         let status = $(this).prop('checked') === true ? 1 : 0;
         let school_id = $(this).data('id');

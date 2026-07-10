@@ -137,6 +137,19 @@ Route::post('/holidays', [AdminController::class, 'storeHoliday'])->name('holida
 Route::put('/holidays/{id}', [AdminController::class, 'updateHoliday'])->name('holidays.update');
 Route::delete('/holidays/{id}', [AdminController::class, 'deleteHoliday'])->name('holidays.destroy');
 
+Route::get('/academic-sessions', [AdminController::class, 'academicSessions'])->name('academic-sessions');
+Route::post('/academic-sessions', [AdminController::class, 'storeAcademicSession'])->name('academic-sessions.store');
+Route::post('/academic-sessions/switch', [AdminController::class, 'switchAcademicSession'])->name('academic-sessions.switch');
+Route::get('/academic-sessions/reset-view', [AdminController::class, 'resetAcademicSessionView'])->name('academic-sessions.reset-view');
+Route::post('/academic-sessions/{id}/activate', [AdminController::class, 'activateAcademicSession'])->name('academic-sessions.activate');
+Route::post('/academic-sessions/{id}/close', [AdminController::class, 'closeAcademicSession'])->name('academic-sessions.close');
+
+Route::get('/states', [AdminController::class, 'states'])->name('states');
+Route::post('/states', [AdminController::class, 'storeState'])->name('states.store');
+Route::put('/states/{id}', [AdminController::class, 'updateState'])->name('states.update');
+Route::post('/states/switch', [AdminController::class, 'switchState'])->name('states.switch');
+Route::get('/states/reset-view', [AdminController::class, 'resetStateView'])->name('states.reset-view');
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

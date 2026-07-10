@@ -5,7 +5,7 @@
     <div class="row margin-tb mb-3">
         <div class="col-md-8">
             <h2 class="heading">Manage Holidays</h2>
-            <p class="text-muted mb-0">Set holidays in advance. Trainers' route plans will exclude these dates from working days.</p>
+            <!-- <p class="text-muted mb-0">Set holidays in advance. Trainers' route plans will exclude these dates from working days.</p> -->
             <p class="text-muted mb-0"><strong>Auto holidays:</strong> Every Sunday and 2nd Saturday of each month are always excluded.</p>
         </div>
     </div>

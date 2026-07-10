@@ -9,6 +9,7 @@ use App\Models\School;
 use App\Models\Completion;
 use App\Models\AsignedSchool;
 use App\Imports\SchoolImport;
+use App\Services\StateService;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -16,20 +17,22 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 
 class SchoolController extends Controller
 {
     // Show the add school form
     public function create()
     {
-        $district['districts'] = District::all();
+        $district['districts'] = StateService::districtsQuery()->orderBy('district')->get();
+
         return view('admin.add', $district);
     }
 
     // Fetch districts dynamically
     public function fetchDistricts()
     {
-        return response()->json(District::all());
+        return response()->json(StateService::districtsQuery()->orderBy('district')->get());
     }
 
 
@@ -37,12 +40,25 @@ class SchoolController extends Controller
     public function storeDistrict(Request $request)
 {
     try {
+        $stateId = StateService::scopeStateId();
+        if (!$stateId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please select a state first.',
+            ], 422);
+        }
+
         $request->validate([
-            'district' => 'required|string|unique:districts,district',
+            'district' => [
+                'required',
+                'string',
+                Rule::unique('districts', 'district')->where(fn ($query) => $query->where('state_id', $stateId)),
+            ],
         ]);
 
         $district = District::create([
-            'district' => $request->district
+            'district' => $request->district,
+            'state_id' => $stateId,
         ]);
 
         return response()->json([
@@ -65,6 +81,8 @@ class SchoolController extends Controller
     // Fetch blocks based on selected district
     public function fetchBlocks($district_id)
     {
+        StateService::assertDistrictInScope((int) $district_id);
+
         return response()->json(Block::where('district_id', $district_id)->get());
     }
 
@@ -102,6 +120,8 @@ class SchoolController extends Controller
     // Add a new school
     public function store(Request $request)
     {
+        StateService::assertDistrictInScope((int) $request->district_id);
+
         $school = new School();
         $school->district_id = $request->district_id;
         $school->block = $request->block;
@@ -123,6 +143,8 @@ class SchoolController extends Controller
             'file' => 'required|file|mimes:xlsx,csv,xls'
         ]);
 
+        StateService::assertDistrictInScope((int) $request->district_id);
+
         try {
             // Import the schools
             Excel::import(new SchoolImport($request->district_id), $request->file('file'));
@@ -143,7 +165,8 @@ class SchoolController extends Controller
     }
     public function showImportForm()
     {
-        $districts = District::all();
+        $districts = StateService::districtsQuery()->orderBy('district')->get();
+
         return view('schools.import', compact('districts'));
     }
 
@@ -250,8 +273,9 @@ class SchoolController extends Controller
 
     public function manageSchools()
     {
-        $districts = District::all();
-        $schools = School::with(['images', 'videos', 'completions', 'assignedSchools.user'])
+        $districts = StateService::districtsQuery()->orderBy('district')->get();
+        $schools = StateService::schoolsQuery()
+            ->with(['images', 'videos', 'completions', 'assignedSchools.user'])
             ->get()
             ->map(fn ($school) => $this->enrichSchoolMeta($school));
 
@@ -336,7 +360,9 @@ class SchoolController extends Controller
     // Filter schools by district
     public function filterByDistrict($district_id)
     {
+        StateService::assertDistrictInScope((int) $district_id);
         $schools = School::where('district_id', $district_id)->get();
+
         return response()->json($schools);
     }
 

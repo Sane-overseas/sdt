@@ -33,6 +33,7 @@ class User extends Authenticatable
         'password',
         'instructor_number',
         'cordinator_id',
+        'state_id',
         'district',
         'block',
         'school_name',
@@ -85,5 +86,10 @@ class User extends Authenticatable
     public function asigned_schools()
     {
         return $this->hasMany(AsignedSchool::class);
+    }
+
+    public function state()
+    {
+        return $this->belongsTo(State::class);
     }
 }

@@ -9,5 +9,14 @@ class Cordinator extends Model
 {
     use HasFactory;
 
-     protected $fillable = ['cordinators'];
+     protected $fillable = [
+        'cordinator_name',
+        'cordinator_code',
+        'state_id',
+    ];
+
+    public function state()
+    {
+        return $this->belongsTo(State::class);
+    }
 }

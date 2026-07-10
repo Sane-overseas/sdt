@@ -10,9 +10,12 @@ use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
 use App\Models\User;
 use App\Models\School;
+use App\Models\District;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Response;
 use App\Models\AsignedSchool;
+use App\Services\SchoolAssignmentService;
+use App\Services\StateService;
 
 class ProfileController extends Controller
 {
@@ -75,6 +78,15 @@ class ProfileController extends Controller
             'district_name' => 'required',
         ]);
 
+        StateService::assertCordinatorInScope((int) $request->cordinator);
+
+        $district = District::where('district', $request->district_name)->first();
+        if ($district) {
+            StateService::assertDistrictInScope((int) $district->id);
+        }
+
+        $stateId = StateService::scopeStateId();
+
         $trainer = User::create([
             'instructor_name' => $request->trainer_name,
             'email' => $request->email,
@@ -85,6 +97,8 @@ class ProfileController extends Controller
             'amount' => $request->amount,
             'district' => $request->district_name,
             'extra_amount' => $request->extra_amount,
+            'state_id' => $stateId,
+            'role' => 0,
         ]);
 
         return Response::json( $trainer);
@@ -101,6 +115,13 @@ class ProfileController extends Controller
             'district_name' => 'required',
         ]);
 
+        StateService::assertCordinatorInScope((int) $request->cordinator);
+
+        $district = District::where('district', $request->district_name)->first();
+        if ($district) {
+            StateService::assertDistrictInScope((int) $district->id);
+        }
+
         $trainer = User::find($request->id);
         $trainer->instructor_name = $request->trainer_name ;
         $trainer->email = $request->email ;
@@ -113,22 +134,16 @@ class ProfileController extends Controller
         $trainer->update();
 
         if($request->school_name !== null){
-            foreach($request->school_name as $school){     
-                $trainer_school = new AsignedSchool();
-                $trainer_school->user_id = $request->input('id');
-                $trainer_school->district = $request->input('district');
-                $trainer_school->block = $request->input('block');
-                $trainer_school->school_name = $school;
-                $trainer_school->asigned_by = Auth::user()->id;
-                $trainer_school->start_route_plan = null;
-                $trainer_school->end_route_plan = null;
-                $trainer_school->save();
-            }
+            $result = SchoolAssignmentService::assignSchools(
+                $request->school_name,
+                (int) $request->input('id'),
+                $request->input('district'),
+                $request->input('block'),
+                Auth::user()->id
+            );
 
-            foreach($request->school_name as $school){    
-                $t_school = School::find($school);
-                $t_school->asigned_school = 1;
-                $t_school->update();
+            if (isset($result['error'])) {
+                return response()->json(['message' => $result['error']], 422);
             }
         }
            

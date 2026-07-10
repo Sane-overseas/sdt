@@ -17,6 +17,11 @@
                 <h3>Add New School</h3>
             </div>
             <div class="card-body">
+                @if(isset($currentState) && $currentState)
+                <div class="alert alert-info py-2">
+                    Adding schools for state: <strong>{{ $currentState->name }}</strong> ({{ $currentState->code }})
+                </div>
+                @endif
                 @if (session('success'))
                     <div class="alert alert-success">{{ session('success') }}</div>
                 @endif

@@ -17,6 +17,11 @@
         <p>{{ $message }}</p>
     </div>
     @endif
+    @if(isset($currentState) && $currentState)
+    <div class="alert alert-info py-2">
+        Showing trainers for state: <strong>{{ $currentState->name }}</strong> ({{ $currentState->code }})
+    </div>
+    @endif
     <div class="card-body">
         <table class="table table-bordered" id="trainerTable">
             <thead>

@@ -9,9 +9,14 @@
             <h2 class="heading ">Advance Payments</h2>
         </div>
         <div class="col-md-3">
-        <a class="btn btn-info" onClick="add()" href="javascript:void(0)" style="margin-left: 24%;">Add Advance Payment</a>
+        <a class="btn btn-info {{ (isset($isReadOnlySessionView) && $isReadOnlySessionView) ? 'disabled' : '' }}" onClick="{{ (isset($isReadOnlySessionView) && $isReadOnlySessionView) ? 'return false;' : 'add()' }}" href="javascript:void(0)" style="margin-left: 24%;">Add Advance Payment</a>
         </div>
     </div>
+    @if(isset($isReadOnlySessionView) && $isReadOnlySessionView)
+    <div class="alert alert-warning">
+        Archive session is read-only. Advance payments are locked.
+    </div>
+    @endif
     @if ($message = Session::get('success'))
     <div class="alert alert-success">
         <p>{{ $message }}</p>

@@ -26,6 +26,14 @@
                             {{ session()->get('message') }}
                         </div>
                     @endif
+                    @if(session()->has('error'))
+                        <div class="alert alert-danger">
+                            {{ session()->get('error') }}
+                        </div>
+                    @endif
+                    @if(isset($activeAcademicSession) && $activeAcademicSession)
+                    <p class="text-muted small mb-3">Uploading for session: <strong>{{ $activeAcademicSession->name }}</strong></p>
+                    @endif
                 <form id="documentsForm"  enctype="multipart/form-data">
                         {{ csrf_field() }}
                         <input type="hidden" name="id" class="form-control" value="{{$school_data['id']}}"> 

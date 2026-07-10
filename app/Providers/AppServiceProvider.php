@@ -2,23 +2,27 @@
 
 namespace App\Providers;
 
+use App\Services\AcademicSessionService;
+use App\Services\StateService;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        //
+        View::composer('*', function ($view) {
+            $view->with('currentAcademicSession', AcademicSessionService::current());
+            $view->with('activeAcademicSession', AcademicSessionService::active());
+            $view->with('allAcademicSessions', AcademicSessionService::all());
+            $view->with('isReadOnlySessionView', AcademicSessionService::isArchiveView());
+            $view->with('currentState', StateService::current());
+            $view->with('allStates', StateService::all());
+        });
     }
 }

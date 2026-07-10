@@ -21,7 +21,10 @@ use App\Models\User;
 use App\Models\Cordinator;
 use App\Models\AsignedSchool;
 use App\Models\PaidSchool;
+use App\Services\AcademicSessionService;
 use App\Services\HolidayService;
+use App\Services\SessionUploadService;
+use App\Services\StateService;
 use View;
 use Session;
 use Config;
@@ -41,11 +44,13 @@ class Controller extends BaseController
 
     public function index(Request $request)
     {
-        $schools = School::get()->toArray();
+        $schools = StateService::schoolsQuery()->get()->toArray();
 
         if (Auth::user() == null) {
             return redirect()->route('login');
         }elseif(Auth::user()->role == 0){
+
+            $activeSession = AcademicSessionService::active();
 
             $a1 = AsignedSchool::where('user_id', Auth::user()->id)->where('status', 0)
             ->where('end_date', '<=', Carbon::yesterday()->format('d-m-Y'))
@@ -62,7 +67,7 @@ class Controller extends BaseController
             $distribution = Distribution::where('user_id', Auth::user()->id)->get()->toArray();
 
             $first_time_login = true;
-            $schools = School::get();
+            $schools = StateService::schoolsQuery()->get();
             $user = User::where('id', Auth::user()->id)->with('asigned_schools')->first()->toArray();
             return view('trainer.upload_data')
             ->with('asigned_schools', $asigned_schools)
@@ -72,8 +77,11 @@ class Controller extends BaseController
             ->with('images', $images)
             ->with('completion', $completion)
             ->with('distribution', $distribution)
-            ->with('schools', $schools);
+            ->with('schools', $schools)
+            ->with('activeAcademicSession', $activeSession);
         }elseif(Auth::user()->role == 2){
+             $activeSession = AcademicSessionService::active();
+
              $a1 = AsignedSchool::where('user_id', Auth::user()->id)->where('status', 0)
             ->where('end_date', '<=', Carbon::yesterday()->format('d-m-Y'))
             ->get()->toArray();
@@ -82,18 +90,19 @@ class Controller extends BaseController
             ->get()->toArray();
 
             $asigned_schools = array_merge($a1,$a2);
-            $schools = School::get();
+            $schools = StateService::schoolsQuery()->get();
             $user = User::where('id', Auth::user()->id)->with('asigned_schools')->first()->toArray();
             return view('trainer.upload_data')
             ->with('asigned_schools', $asigned_schools)
             ->with('user', $user)
-            ->with('schools', $schools);
+            ->with('schools', $schools)
+            ->with('activeAcademicSession', $activeSession);
         }elseif(Auth::user()->role == 4){
             $trainer_data = User::where('id' , Auth::user()->id)->with('videos', 'images' ,'completions', 'distributions','asigned_schools')->first()->toArray();
-            $district = District::get();
-            $school = School::get();
-            $cordinator = Cordinator::get();
-            $user = User::get()->toArray();
+            $district = StateService::districtsQuery()->get();
+            $school = StateService::schoolsQuery()->get();
+            $cordinator = StateService::cordinatorsQuery()->get();
+            $user = User::where('state_id', StateService::scopeStateId())->get()->toArray();
             return view('admin.upload_data_new')
             ->with('trainer_data', $trainer_data)
             ->with('school', $school)
@@ -101,23 +110,27 @@ class Controller extends BaseController
             ->with('district', $district)
             ->with('user', $user);
         }else{
-            $trainers = User::where('role' ,'!=', 1)->get();
-            $cordinator = Cordinator::get();
-            $totalStudents = School::sum('total_students');
+            $trainers = User::where('role' ,'!=', 1)->where('state_id', StateService::scopeStateId())->get();
+            $cordinator = StateService::cordinatorsQuery()->get();
+            $schoolScope = StateService::schoolsQuery();
+            $schoolIds = $schoolScope->pluck('id')->all();
+            $totalStudents = StateService::schoolsQuery()->sum('total_students');
             $completeStudents = Distribution::sum('complete_students');
-            $totalScholls = School::get()->count();
-            $completeScholls = School::where('status' , 1)->get()->count();
+            // Schools are master data; keep counts same across sessions.
+            $totalScholls = StateService::schoolsQuery()->count();
+            $completeScholls = StateService::schoolsQuery()->where('status' , 1)->count();
             $distribution = Distribution::get()->count();
-            $trainersWithAssigned = User::with('asigned_schools')->get()->toArray();
-            $ucReceived = Completion::get()->count();
-            $notAssignrdUc = Completion::where('status', 0)->where('completion_note', null)->get()->count();
-            $approvedUc = Completion::where('status', 1)->get()->count();
-            $totalasignedSchools = AsignedSchool::get()->count();
-            $activeAsignedSchools = AsignedSchool::where('route_date', '!=' ,null)->get()->count();
-            $asignedSchools =  AsignedSchool::get();
-            $paidSchools = PaidSchool::get()->count();
-            $holdTrainers = User::where('active_status' , 0)->get()->count();
-            $rejecteduc = Completion::where('completion_note','!=', null)->where('emergency_approved', 0)->get()->count();
+            $trainersWithAssigned = User::where('state_id', StateService::scopeStateId())->with('asigned_schools')->get()->toArray();
+            $ucReceived = Completion::whereIn('school_id', $schoolIds ?: [0])->count();
+            $notAssignrdUc = Completion::whereIn('school_id', $schoolIds ?: [0])->where('status', 0)->where('completion_note', null)->count();
+            $approvedUc = Completion::whereIn('school_id', $schoolIds ?: [0])->where('status', 1)->count();
+            $districtIds = StateService::districtIds();
+            $totalasignedSchools = AsignedSchool::whereIn('district', $districtIds ?: [0])->count();
+            $activeAsignedSchools = AsignedSchool::whereIn('district', $districtIds ?: [0])->where('route_date', '!=' ,null)->count();
+            $asignedSchools =  AsignedSchool::whereIn('district', $districtIds ?: [0])->get();
+            $paidSchools = PaidSchool::whereIn('school_id', $schoolIds ?: [0])->count();
+            $holdTrainers = User::where('state_id', StateService::scopeStateId())->where('active_status' , 0)->count();
+            $rejecteduc = Completion::whereIn('school_id', $schoolIds ?: [0])->where('completion_note','!=', null)->where('emergency_approved', 0)->count();
 
             return view('dashboard')
             ->with('totalStudents', $totalStudents)
@@ -144,7 +157,7 @@ class Controller extends BaseController
     public function uploadData()
     {
         $this->schoolCompleteStatus();
-         $schools = School::get();
+         $schools = StateService::schoolsQuery()->get();
         if(Auth::user() == null) {
             return redirect()->route('login');
         }else{
@@ -154,8 +167,9 @@ class Controller extends BaseController
             $images = Image::where('user_id', Auth::user()->id)->get()->toArray();
             $completion = Completion::where('user_id', Auth::user()->id)->get()->toArray();
             $distribution = Distribution::where('user_id', Auth::user()->id)->get()->toArray();
-            $district = District::get()->toArray();
+            $district = StateService::districtsQuery()->get()->toArray();
             $cordinators = Cordinator::where('id' , Auth::user()->cordinator_id )->first()->toArray();
+            $activeSession = AcademicSessionService::active();
             return view('trainer.dashboard')
             ->with('user', $user)
             ->with('videos', $videos)
@@ -164,19 +178,27 @@ class Controller extends BaseController
             ->with('distribution', $distribution)
             ->with('district', $district)
             ->with('cordinators', $cordinators)
-            ->with('schools', $schools);
+            ->with('schools', $schools)
+            ->with('activeAcademicSession', $activeSession);
         }
     }
 
     public function blockData(Request $request)
     {
+        StateService::assertDistrictInScope((int) $request->id);
         $block['block'] =  Block::where('district_id' ,$request->id )->get(["block", "id"]);
         return response()->json($block);
     }
 
     public function schoolData(Request $request)
     {
-        $school['school'] =  School::where('block' ,$request->value )->where('asigned_school' , 0)->get(["school_name", "asigned_school","id"]);
+        $assignedIds = \App\Services\SchoolAssignmentService::assignedSchoolIdsForActiveSession();
+
+        $school['school'] = StateService::schoolsQuery()
+            ->where('block', $request->value)
+            ->whereNotIn('id', $assignedIds)
+            ->get(['school_name', 'asigned_school', 'id']);
+
         return response()->json($school);
     }
 
@@ -194,7 +216,14 @@ class Controller extends BaseController
 
     public function CordinatorTrainerReporting()
     {
-        $cordinator_trainers = User::where('cordinator_id' ,  Auth::user()->cordinator_id)->with('asigned_schools')->get()->toArray();
+        $cordinator_trainers = User::where('cordinator_id' ,  Auth::user()->cordinator_id)->get();
+        foreach ($cordinator_trainers as $trainer) {
+            $trainer->setRelation(
+                'asigned_schools',
+                AsignedSchool::withoutGlobalScopes()->where('user_id', $trainer->id)->get()
+            );
+        }
+        $cordinator_trainers = $cordinator_trainers->toArray();
 
         $totalScholls = 0;
         $completeSchools = 0;
@@ -214,8 +243,8 @@ class Controller extends BaseController
                }
             }
         }
-        $schools = School::get();
-        $district = District::get()->toArray();
+        $schools = StateService::schoolsQuery()->get();
+        $district = StateService::districtsQuery()->get()->toArray();
         return view('admin.cordinator-trainers')
         ->with('cordinator_trainers', $cordinator_trainers)
         ->with('totalScholls', $totalScholls)
@@ -228,8 +257,20 @@ class Controller extends BaseController
 
     public function stoteInstructorData(Request $request)
     {
-        if($request->file()){
-            if($request->hasfile('fst_videos') || $request->hasfile('snd_videos')){
+        if (!$request->file()) {
+            return response()->json(['message' => 'Please Select Any File.'], 404);
+        }
+
+        try {
+            $assignment = SessionUploadService::assertCanUpload(
+                (int) $request->input('id'),
+                (int) $request->input('user_id')
+            );
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+        }
+
+        if($request->hasfile('fst_videos') || $request->hasfile('snd_videos')){
 
                 $request->validate([
                     'fst_videos' => 'mimes:mp4',
@@ -250,6 +291,7 @@ class Controller extends BaseController
                     $video->outtime = $request->input('outtime');
                     $video->route_date = $request->input('route_date');
                     $video->school_id = $request->input('school_id');
+                    $video->session_id = AcademicSessionService::assignmentSessionId();
                     if($request->file('fst_videos')){
                         $videoName = Auth::user()->instructor_code.'_'.'fst_videos'.'_'.$request->file('fst_videos')->getClientOriginalName();
                         $videoPath = $request->file('fst_videos')->storeAs('videos', $videoName, 'public');
@@ -330,6 +372,7 @@ class Controller extends BaseController
                     }
                     $image->created_date = date('d-m-y - h:i');
                     $image->school_id = $request->input('school_id');
+                    $image->session_id = AcademicSessionService::assignmentSessionId();
                     $image->save();
                 }else{
                     $image_update = Image::find($user->id);
@@ -398,9 +441,10 @@ class Controller extends BaseController
                     $completion->created_date = date('d-m-y - h:i');
                     $completion->school_id = $request->input('school_id');
                     $completion->end_date = trim($route_date[1]);
+                    $completion->session_id = AcademicSessionService::assignmentSessionId();
                     $completion->save();
 
-                    $uc_submitted = AsignedSchool::find($request->input('id'));
+                    $uc_submitted = AsignedSchool::find($assignment->id);
                     $uc_submitted->uc_submitted = 1;
                     $uc_submitted->save();
 
@@ -418,7 +462,7 @@ class Controller extends BaseController
                     $school_uc->status = 0;
                     $school_uc->save();
 
-                    $uc_submitted = AsignedSchool::find($request->input('id'));
+                    $uc_submitted = AsignedSchool::find($assignment->id);
                     $uc_submitted->uc_submitted = 1;
                     $uc_submitted->status = 0;
                     $uc_submitted->save();
@@ -451,6 +495,7 @@ class Controller extends BaseController
                     $distribution->route_date = $request->input('route_date');
                     $distribution->complete_students = $request->input('complete_students');
                     $distribution->school_id = $request->input('school_id');
+                    $distribution->session_id = AcademicSessionService::assignmentSessionId();
                     $distribution->save();
                 }else{
                     $distribution = Distribution::find($user->id);
@@ -462,16 +507,19 @@ class Controller extends BaseController
                     $distribution->update();
                 }
             }
-            return Response::json();
-        }else{
-            return response()->json(['message' => 'Please Select Any File.'], 404);
-        }
-
+        SessionUploadService::syncAssignmentStatuses();
+        return Response::json();
     }
 
     public function trainerData($id)
     {
-        $school_data = AsignedSchool::where('id' , $id)->first()->toArray();
+        try {
+            $assignment = SessionUploadService::assertCanUpload((int) $id, Auth::id());
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return redirect()->route('dashboard')->with('error', $e->getMessage());
+        }
+
+        $school_data = $assignment->toArray();
         // $cordinators = Cordinator::where('id' , Auth::user()->cordinator_id )->first()->toArray();
         if (!Auth::check()) {
             return response()->json(['error' => 'User not authenticated'], 401);
@@ -490,9 +538,9 @@ class Controller extends BaseController
         $cordinators = $cordinator->toArray();
 
 
-        $district = District::get();
+        $district = StateService::districtsQuery()->get();
         $block = Block::get();
-        $schools = School::get();
+        $schools = StateService::schoolsQuery()->get();
 
         foreach($schools as $school){
             if($school['id'] == $school_data['school_name']){
@@ -518,7 +566,8 @@ class Controller extends BaseController
         ->with('cordinators', $cordinators)
         ->with('district', $district)
         ->with('schools', $schools)
-        ->with('block', $block);
+        ->with('block', $block)
+        ->with('activeAcademicSession', AcademicSessionService::active());
     }
 
     public function uploadRoutePlan(Request $request)
@@ -529,6 +578,12 @@ class Controller extends BaseController
             'intime' => 'required',
             'outtime' => 'required',
         ]);
+
+        try {
+            SessionUploadService::assertCanSetRoutePlan((int) $request->id);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
 
         $startDate = Carbon::parse($request->start_date);
 
@@ -553,34 +608,7 @@ class Controller extends BaseController
     }
 
     public function schoolCompleteStatus()
-     {
-        $schools = School::get();
-        foreach($schools as $school){
-            if($school['image_status'] == 1 && $school['video_status'] == 1 && $school['completion_status'] == 1){
-                $school_status = School::findOrFail($school['id']);
-                $school_status->status = 1;
-                $school_status->save();
-            }else{
-                $school_status = School::findOrFail($school['id']);
-                $school_status->status = 0;
-                $school_status->save();
-            }
-        }
-
-        foreach($schools as $school){
-            if($school['image_status'] == 1 && $school['video_status'] == 1 && $school['completion_status'] == 1){
-                $school_status = AsignedSchool::where('school_name' , $school['id'])->first();
-                if($school_status != null){
-                    $school_status->status = 1;
-                    $school_status->save();
-                }
-            }else{
-                $school_status = AsignedSchool::where('school_name' , $school['id'])->first();
-                if($school_status != null){
-                    $school_status->status = 0;
-                    $school_status->save();
-                }
-            }
-        }
+    {
+        SessionUploadService::syncAssignmentStatuses();
     }
 }

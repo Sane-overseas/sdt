@@ -84,6 +84,12 @@
                                 </li>
 
                                 <li class="nav-item">
+                                    <a class="nav-link {{ Request::path() == 'states' ? 'active' : '' }}" href="{{ route('states') }}">States</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {{ Request::path() == 'academic-sessions' ? 'active' : '' }}" href="{{ route('academic-sessions') }}">Sessions</a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link {{ Request::path() == 'holidays' ? 'active' : '' }}" href="{{ route('holidays') }}">Holidays</a>
                                 </li>
                                 <li class="nav-item">
@@ -99,6 +105,53 @@
                         </div>
                     </div>
                 </nav>
+                @if((isset($currentState) && $currentState) || (isset($currentAcademicSession) && $currentAcademicSession && Auth::user()->role == 1))
+                <div class="container-fluid py-1" style="background:#1a3a5c;color:#fff;font-size:14px;">
+                    <div class="container d-flex justify-content-between align-items-center flex-wrap">
+                        <span class="d-flex flex-wrap align-items-center">
+                            @if(isset($currentState) && $currentState)
+                            <span class="mr-3 mb-1">
+                                State: <strong>{{ $currentState->name }}</strong>
+                                <span class="badge badge-light ml-1">{{ $currentState->code }}</span>
+                            </span>
+                            @endif
+                            @if(isset($currentAcademicSession) && $currentAcademicSession && Auth::user()->role == 1)
+                            <span class="mb-1">
+                                Session: <strong>{{ $currentAcademicSession->name }}</strong>
+                                @if(isset($activeAcademicSession) && $currentAcademicSession->id === $activeAcademicSession->id)
+                                    <span class="badge badge-success ml-1">Active</span>
+                                @else
+                                    <span class="badge badge-warning ml-1">Archive</span>
+                                    <span class="badge badge-secondary ml-1">Read only</span>
+                                @endif
+                            </span>
+                            @endif
+                        </span>
+                        <span class="d-flex flex-wrap align-items-center">
+                            @if(isset($allStates) && $allStates->count() && Auth::user()->role == 1)
+                            <form action="{{ route('states.switch') }}" method="POST" class="form-inline m-0 mr-2 mb-1">
+                                @csrf
+                                <select name="state_id" class="form-control form-control-sm" onchange="this.form.submit()">
+                                    @foreach($allStates as $st)
+                                        <option value="{{ $st->id }}" {{ isset($currentState) && $currentState && $currentState->id == $st->id ? 'selected' : '' }}>{{ $st->name }}</option>
+                                    @endforeach
+                                </select>
+                            </form>
+                            @endif
+                            @if(isset($allAcademicSessions) && $allAcademicSessions->count() && Auth::user()->role == 1)
+                            <form action="{{ route('academic-sessions.switch') }}" method="POST" class="form-inline m-0 mb-1">
+                                @csrf
+                                <select name="session_id" class="form-control form-control-sm" onchange="this.form.submit()">
+                                    @foreach($allAcademicSessions as $s)
+                                        <option value="{{ $s->id }}" {{ isset($currentAcademicSession) && $currentAcademicSession && $currentAcademicSession->id == $s->id ? 'selected' : '' }}>{{ $s->name }}{{ $s->is_active ? ' (Active)' : '' }}</option>
+                                    @endforeach
+                                </select>
+                            </form>
+                            @endif
+                        </span>
+                    </div>
+                </div>
+                @endif
                 <main class="py-4">
                     @yield('content')
                 </main>
@@ -149,6 +202,22 @@
                         </div>
                     </div>
                 </nav>
+                @if(isset($currentState) && $currentState)
+                <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
+                    <div class="container">
+                        State: <strong>{{ $currentState->name }}</strong>
+                        @if(isset($activeAcademicSession) && $activeAcademicSession)
+                        | Active Session: <strong>{{ $activeAcademicSession->name }}</strong>
+                        @endif
+                    </div>
+                </div>
+                @elseif(isset($activeAcademicSession) && $activeAcademicSession)
+                <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
+                    <div class="container">
+                        Active Session: <strong>{{ $activeAcademicSession->name }}</strong>
+                    </div>
+                </div>
+                @endif
                 <main>
                      @yield('content')
                 </main>
@@ -197,6 +266,22 @@
                             </div>
                         </div>
                     </nav>
+                    @if(isset($currentState) && $currentState)
+                    <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
+                        <div class="container">
+                            State: <strong>{{ $currentState->name }}</strong>
+                            @if(isset($activeAcademicSession) && $activeAcademicSession)
+                            | Session: <strong>{{ $activeAcademicSession->name }}</strong>
+                            @endif
+                        </div>
+                    </div>
+                    @elseif(isset($activeAcademicSession) && $activeAcademicSession)
+                    <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
+                        <div class="container">
+                            Session: <strong>{{ $activeAcademicSession->name }}</strong>
+                        </div>
+                    </div>
+                    @endif
                     <main>
                          @yield('content')
                     </main>

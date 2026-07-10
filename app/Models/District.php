@@ -12,7 +12,12 @@ class District extends Model
     // protected $fillable = ['districts'];
     public $timestamps = false; // Disable timestamps
 
-    protected $fillable = ['district']; // Correct column name
+    protected $fillable = ['district', 'state_id'];
+
+    public function state()
+    {
+        return $this->belongsTo(State::class);
+    }
 
     public function blocks()
     {
