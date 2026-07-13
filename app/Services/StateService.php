@@ -24,7 +24,12 @@ class StateService
         if (Auth::check() && (int) Auth::user()->role === 1) {
             $viewId = Session::get('view_state_id');
             if ($viewId) {
-                return State::find($viewId);
+                $state = State::find($viewId);
+                if ($state) {
+                    return $state;
+                }
+
+                Session::forget('view_state_id');
             }
         } elseif (Auth::check() && in_array((int) Auth::user()->role, [0, 2], true) && Auth::user()->state_id) {
             return State::find(Auth::user()->state_id);

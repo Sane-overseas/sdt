@@ -11,22 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Schema::table('users', function (Blueprint $table) {
-        //     $table->integer('district')->after('role')->nullable();
-        //     $table->string('block')->after('district')->nullable();
-        //     $table->string('school_name')->after('block')->nullable();
-        // });
-        Schema::table('users', function (Blueprint $table) {
-            if (!Schema::hasColumn('users', 'district')) {
-                $table->integer('district')->after('role')->nullable();
-            }
-            if (!Schema::hasColumn('users', 'block')) {
+        if (!Schema::hasColumn('users', 'block')) {
+            Schema::table('users', function (Blueprint $table) {
                 $table->string('block')->after('district')->nullable();
-            }
-            if (!Schema::hasColumn('users', 'school_name')) {
+            });
+        }
+
+        if (!Schema::hasColumn('users', 'school_name')) {
+            Schema::table('users', function (Blueprint $table) {
                 $table->string('school_name')->after('block')->nullable();
-            }
-        });
+            });
+        }
     }
 
     /**
@@ -34,10 +29,16 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('district');
-            $table->dropColumn('block');
-            $table->dropColumn('school_name');
-        });
+        if (Schema::hasColumn('users', 'school_name')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('school_name');
+            });
+        }
+
+        if (Schema::hasColumn('users', 'block')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('block');
+            });
+        }
     }
 };

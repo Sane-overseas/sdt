@@ -84,13 +84,7 @@
                                 </li>
 
                                 <li class="nav-item">
-                                    <a class="nav-link {{ Request::path() == 'states' ? 'active' : '' }}" href="{{ route('states') }}">States</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {{ Request::path() == 'academic-sessions' ? 'active' : '' }}" href="{{ route('academic-sessions') }}">Sessions</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {{ Request::path() == 'holidays' ? 'active' : '' }}" href="{{ route('holidays') }}">Holidays</a>
+                                    <a class="nav-link {{ Request::path() == 'settings' ? 'active' : '' }}" href="{{ route('settings') }}">Settings</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link {{ Request::path() == 'schools/add' ? 'active' : '' }}" href="{{ route('schools.create') }}">Add Schools</a>

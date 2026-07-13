@@ -12,16 +12,13 @@ return new class extends Migration
             return;
         }
 
-        $stateId = DB::table('states')->where('code', 'S1')->value('id');
+        $stateId = DB::table('states')
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->value('id');
 
         if (!$stateId) {
-            $stateId = DB::table('states')->insertGetId([
-                'name' => 'State 1',
-                'code' => 'S1',
-                'is_active' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            return;
         }
 
         if (Schema::hasTable('districts') && Schema::hasColumn('districts', 'state_id')) {

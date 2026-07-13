@@ -9,6 +9,7 @@ class Holiday extends Model
     protected $fillable = [
         'holiday_date',
         'title',
+        'state_id',
         'created_by',
     ];
 

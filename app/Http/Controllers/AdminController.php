@@ -1098,42 +1098,73 @@ class AdminController extends BaseController
             ->with('user', $user);
     }
 
+    public function settings()
+    {
+        $states = State::orderByDesc('id')->get();
+        $currentState = StateService::current();
+        $sessions = AcademicSessionService::all();
+        $currentSession = AcademicSessionService::current();
+        $activeSession = AcademicSessionService::active();
+
+        $holidayStateId = $currentState?->id ?? $states->first()?->id;
+        $holidays = $holidayStateId
+            ? Holiday::where('state_id', $holidayStateId)->orderBy('holiday_date', 'desc')->get()
+            : collect();
+
+        $holidayMap = $holidays->mapWithKeys(function ($h) {
+            return [$h->holiday_date->format('Y-m-d') => $h->title ?: 'Holiday'];
+        });
+
+        return view('admin.settings', compact(
+            'states',
+            'currentState',
+            'sessions',
+            'currentSession',
+            'activeSession',
+            'holidays',
+            'holidayMap'
+        ));
+    }
+
     public function holidays()
     {
-        $holidays = Holiday::orderBy('holiday_date', 'desc')->get();
-
-        return view('admin.holidays', compact('holidays'));
+        return redirect()->route('settings');
     }
 
     public function storeHoliday(Request $request)
     {
         $request->validate([
-            'holiday_date' => 'required|date|unique:holidays,holiday_date',
+            'state_id' => 'required|exists:states,id',
+            'holiday_date' => 'required|date|unique:holidays,holiday_date,NULL,id,state_id,'.$request->state_id,
             'title' => 'nullable|string|max:255',
         ]);
 
         Holiday::create([
             'holiday_date' => $request->holiday_date,
             'title' => $request->title,
+            'state_id' => $request->state_id,
             'created_by' => Auth::id(),
         ]);
 
-        return redirect()->back()->with('success', 'Holiday added successfully.');
+        StateService::setViewingStateId((int) $request->state_id);
+
+        return redirect()->route('settings')->with('success', 'Holiday added successfully.')->withFragment('holidays-section');
     }
 
     public function deleteHoliday($id)
     {
         Holiday::findOrFail($id)->delete();
 
-        return redirect()->back()->with('success', 'Holiday removed successfully.');
+        return redirect()->route('settings')->with('success', 'Holiday removed successfully.');
     }
 
     public function updateHoliday(Request $request, $id)
     {
         $holiday = Holiday::findOrFail($id);
+        $stateId = $holiday->state_id ?? StateService::scopeStateId();
 
         $request->validate([
-            'holiday_date' => 'required|date|unique:holidays,holiday_date,'.$holiday->id,
+            'holiday_date' => 'required|date|unique:holidays,holiday_date,'.$holiday->id.',id,state_id,'.$stateId,
             'title' => 'nullable|string|max:255',
         ]);
 
@@ -1142,7 +1173,7 @@ class AdminController extends BaseController
             'title' => $request->title,
         ]);
 
-        return redirect()->back()->with('success', 'Holiday updated successfully.');
+        return redirect()->route('settings')->with('success', 'Holiday updated successfully.');
     }
 
     public function holidaysList()
@@ -1159,11 +1190,7 @@ class AdminController extends BaseController
 
     public function academicSessions()
     {
-        $sessions = AcademicSessionService::all();
-        $currentSession = AcademicSessionService::current();
-        $activeSession = AcademicSessionService::active();
-
-        return view('admin.sessions', compact('sessions', 'currentSession', 'activeSession'));
+        return redirect()->route('settings');
     }
 
     public function storeAcademicSession(Request $request)
@@ -1180,21 +1207,21 @@ class AdminController extends BaseController
             $request->end_date
         );
 
-        return redirect()->back()->with('success', 'Session '.$request->name.' created and activated. Previous session has been closed.');
+        return redirect()->route('settings')->with('success', 'Session '.$request->name.' created and activated. Previous session has been closed.');
     }
 
     public function activateAcademicSession($id)
     {
         $session = AcademicSessionService::activate((int) $id);
 
-        return redirect()->back()->with('success', 'Session '.$session->name.' is now active.');
+        return redirect()->route('settings')->with('success', 'Session '.$session->name.' is now active.');
     }
 
     public function closeAcademicSession($id)
     {
         $session = AcademicSessionService::close((int) $id);
 
-        return redirect()->back()->with('success', 'Session '.$session->name.' has been closed.');
+        return redirect()->route('settings')->with('success', 'Session '.$session->name.' has been closed.');
     }
 
     public function switchAcademicSession(Request $request)
@@ -1207,22 +1234,19 @@ class AdminController extends BaseController
 
         $session = AcademicSession::findOrFail($request->session_id);
 
-        return redirect()->back()->with('success', 'Now viewing session: '.$session->name);
+        return redirect()->route('settings')->with('success', 'Now viewing session: '.$session->name);
     }
 
     public function resetAcademicSessionView()
     {
         AcademicSessionService::setViewingSessionId(null);
 
-        return redirect()->back()->with('success', 'Switched back to active session view.');
+        return redirect()->route('settings')->with('success', 'Switched back to active session view.');
     }
 
     public function states()
     {
-        $states = State::orderByDesc('id')->get();
-        $currentState = StateService::current();
-
-        return view('admin.states', compact('states', 'currentState'));
+        return redirect()->route('settings');
     }
 
     public function storeState(Request $request)
@@ -1233,8 +1257,9 @@ class AdminController extends BaseController
         ]);
 
         $state = StateService::create($request->name, $request->code);
+        StateService::setViewingStateId($state->id);
 
-        return redirect()->back()->with('success', 'State '.$state->name.' created. Assign districts, trainers, and coordinators to this state.');
+        return redirect()->route('settings')->with('success', 'State '.$state->name.' created. Assign districts, trainers, and coordinators to this state.');
     }
 
     public function switchState(Request $request)
@@ -1247,14 +1272,14 @@ class AdminController extends BaseController
 
         $state = State::findOrFail($request->state_id);
 
-        return redirect()->back()->with('success', 'Now viewing state: '.$state->name);
+        return redirect()->route('settings')->with('success', 'Now viewing state: '.$state->name);
     }
 
     public function resetStateView()
     {
         StateService::setViewingStateId(null);
 
-        return redirect()->back()->with('success', 'Switched back to default state view.');
+        return redirect()->route('settings')->with('success', 'Switched back to default state view.');
     }
 
     public function updateState(Request $request, $id)
@@ -1271,6 +1296,6 @@ class AdminController extends BaseController
             'code' => strtoupper($request->code),
         ]);
 
-        return redirect()->back()->with('success', 'State updated to '.$state->name.'.');
+        return redirect()->route('settings')->with('success', 'State updated to '.$state->name.'.');
     }
 }

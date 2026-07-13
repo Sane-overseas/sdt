@@ -131,6 +131,8 @@ Route::get('rejected-uc',[AdminController::class, 'rejectedUC'])->name('rejected
 Route::get('approval-pending-uc',[AdminController::class, 'approvalPendingUC'])->name('approval-pending-uc');
 Route::get('emergency-approved-uc',[AdminController::class, 'emergencyApprovedUC'])->name('emergency-approved-uc');
 
+Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
+
 Route::get('/holidays/list', [AdminController::class, 'holidaysList'])->name('holidays.list');
 Route::get('/holidays', [AdminController::class, 'holidays'])->name('holidays');
 Route::post('/holidays', [AdminController::class, 'storeHoliday'])->name('holidays.store');
