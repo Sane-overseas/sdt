@@ -1,18 +1,4 @@
 (function () {
-    var holidayDates = [];
-    var holidayMap = {};
-
-    function fetchHolidays() {
-        return $.get('/holidays/list').then(function (data) {
-            holidayDates = data.holidays.map(function (h) { return h.date; });
-            holidayMap = {};
-            data.holidays.forEach(function (h) {
-                holidayMap[h.date] = h.title || 'Holiday';
-            });
-            return data.holidays;
-        });
-    }
-
     function toDateStr(date) {
         var y = date.getFullYear();
         var m = String(date.getMonth() + 1).padStart(2, '0');
@@ -33,7 +19,31 @@
         return isSunday(date) || isSecondSaturday(date);
     }
 
-    function holidayLabel(dateStr) {
+    function fetchHolidays(stateId, districtId) {
+        var params = {};
+        if (stateId) {
+            params.state_id = stateId;
+        }
+        if (districtId) {
+            params.district_id = districtId;
+        }
+
+        return $.get('/holidays/list', params).then(function (data) {
+            var holidayDates = (data.holidays || []).map(function (h) { return h.date; });
+            var holidayMap = {};
+            (data.holidays || []).forEach(function (h) {
+                holidayMap[h.date] = h.title || 'Off';
+            });
+            var workingDates = data.working_dates || [];
+            return {
+                holidayDates: holidayDates,
+                holidayMap: holidayMap,
+                workingDates: workingDates,
+            };
+        });
+    }
+
+    function holidayLabel(dateStr, holidayMap) {
         var date = new Date(dateStr + 'T00:00:00');
         if (isSunday(date)) {
             return 'Sunday';
@@ -41,14 +51,20 @@
         if (isSecondSaturday(date)) {
             return '2nd Saturday';
         }
-        return holidayMap[dateStr] || 'Holiday';
+        return holidayMap[dateStr] || 'Off';
     }
 
-    function isHoliday(dateStr) {
-        return holidayDates.indexOf(dateStr) !== -1 || isGlobalHoliday(dateStr);
+    function isHoliday(dateStr, holidayDates, workingDates) {
+        if ((workingDates || []).indexOf(dateStr) !== -1) {
+            return false;
+        }
+        if ((holidayDates || []).indexOf(dateStr) !== -1) {
+            return true;
+        }
+        return isGlobalHoliday(dateStr);
     }
 
-    function calculateEndDate(startStr, workingDays) {
+    function calculateEndDate(startStr, workingDays, holidayDates, workingDates) {
         if (!startStr || !workingDays) {
             return null;
         }
@@ -58,7 +74,7 @@
 
         while (count < workingDays) {
             var ds = toDateStr(current);
-            if (!isHoliday(ds)) {
+            if (!isHoliday(ds, holidayDates, workingDates)) {
                 count++;
             }
             if (count < workingDays) {
@@ -77,13 +93,13 @@
         return parts[2] + '/' + parts[1] + '/' + parts[0];
     }
 
-    function countHolidaysBetween(startStr, endStr) {
+    function countHolidaysBetween(startStr, endStr, holidayDates, workingDates) {
         var count = 0;
         var cur = new Date(startStr + 'T00:00:00');
         var end = new Date(endStr + 'T00:00:00');
 
         while (cur <= end) {
-            if (isHoliday(toDateStr(cur))) {
+            if (isHoliday(toDateStr(cur), holidayDates, workingDates)) {
                 count++;
             }
             cur.setDate(cur.getDate() + 1);
@@ -92,7 +108,7 @@
         return count;
     }
 
-    function initRoutePlanForm($form) {
+    function initRoutePlanForm($form, holidayDates, holidayMap, workingDates) {
         var $start = $form.find('.route-plan-start');
         var $workingDays = $form.find('.route-plan-working-days');
         var $endDisplay = $form.find('.route-plan-end-display');
@@ -108,18 +124,18 @@
                 return;
             }
 
-            if (isHoliday(start)) {
-                $holidayNote.html('<span class="text-danger">Start date is a holiday (' + holidayLabel(start) + '). Choose a working day.</span>');
+            if (isHoliday(start, holidayDates, workingDates)) {
+                $holidayNote.html('<span class="text-danger">Start date is a holiday (' + holidayLabel(start, holidayMap) + '). Choose a working day.</span>');
                 $endDisplay.val('');
                 return;
             }
 
-            var end = calculateEndDate(start, days);
+            var end = calculateEndDate(start, days, holidayDates, workingDates);
             $endDisplay.val(formatDisplayDate(end));
 
-            var holidayCount = countHolidaysBetween(start, end);
+            var holidayCount = countHolidaysBetween(start, end, holidayDates, workingDates);
             if (holidayCount > 0) {
-                $holidayNote.text(days + ' working days — ' + holidayCount + ' holiday(s) excluded (includes Sundays, 2nd Saturdays & public holidays).');
+                $holidayNote.text(days + ' working days — ' + holidayCount + ' holiday(s) excluded (Sundays, 2nd Saturdays & public holidays).');
             } else {
                 $holidayNote.text(days + ' working days — no holidays in this range.');
             }
@@ -138,9 +154,9 @@
                 return;
             }
 
-            if (isHoliday(start)) {
+            if (isHoliday(start, holidayDates, workingDates)) {
                 e.preventDefault();
-                alert('Start date cannot be a holiday (' + holidayLabel(start) + '). Please choose a working day.');
+                alert('Start date cannot be a holiday (' + holidayLabel(start, holidayMap) + '). Please choose a working day.');
                 return;
             }
         });
@@ -149,9 +165,21 @@
     }
 
     $(document).ready(function () {
-        fetchHolidays().always(function () {
-            $('form[id="uplodeForm"]').each(function () {
-                initRoutePlanForm($(this));
+        $('form[id="uplodeForm"]').each(function () {
+            var $form = $(this);
+            var $fields = $form.find('.route-plan-fields');
+            if (!$fields.length) {
+                return;
+            }
+
+            var stateId = $fields.data('state-id') || null;
+            var districtId = $fields.data('district-id') || null;
+
+            fetchHolidays(stateId, districtId).always(function (result) {
+                var holidayDates = (result && result.holidayDates) ? result.holidayDates : [];
+                var holidayMap = (result && result.holidayMap) ? result.holidayMap : {};
+                var workingDates = (result && result.workingDates) ? result.workingDates : [];
+                initRoutePlanForm($form, holidayDates, holidayMap, workingDates);
             });
         });
     });

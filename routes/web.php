@@ -136,6 +136,7 @@ Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
 Route::get('/holidays/list', [AdminController::class, 'holidaysList'])->name('holidays.list');
 Route::get('/holidays', [AdminController::class, 'holidays'])->name('holidays');
 Route::post('/holidays', [AdminController::class, 'storeHoliday'])->name('holidays.store');
+Route::post('/holidays/toggle', [AdminController::class, 'toggleHoliday'])->name('holidays.toggle');
 Route::put('/holidays/{id}', [AdminController::class, 'updateHoliday'])->name('holidays.update');
 Route::delete('/holidays/{id}', [AdminController::class, 'deleteHoliday'])->name('holidays.destroy');
 

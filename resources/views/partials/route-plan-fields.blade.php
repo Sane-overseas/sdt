@@ -9,10 +9,19 @@
         }
     }
     $existingWorkingDays = $data['working_days'] ?? '';
+
+    $holidayDistrictId = null;
+    $holidayStateId = null;
+    if (!empty($data['school_name'])) {
+        $schoolForHoliday = \App\Models\School::with('district')->find($data['school_name']);
+        $holidayDistrictId = $schoolForHoliday?->district_id;
+        $holidayStateId = $schoolForHoliday?->district?->state_id;
+    }
 @endphp
-<div class="row route-plan-fields">
+<div class="row route-plan-fields"
+     data-district-id="{{ $holidayDistrictId }}"
+     data-state-id="{{ $holidayStateId }}">
     <strong>Route Plan</strong>
-    <small class="text-muted d-block mb-2 col-12">Sundays, 2nd Saturdays and public holidays are excluded from working days.</small>
     <div class="form-group col-12">
         <span>Start Date:</span>
         <input type="date" name="start_date" class="form-control route-plan-start" value="{{ $existingStart }}" required>

@@ -26,6 +26,7 @@ use App\Models\Holiday;
 use App\Models\AcademicSession;
 use App\Models\State;
 use App\Services\AcademicSessionService;
+use App\Services\HolidayService;
 use App\Services\SchoolAssignmentService;
 use App\Services\SessionUploadService;
 use App\Services\StateService;
@@ -434,7 +435,22 @@ class AdminController extends BaseController
 
     public function trainerDetail($id)
     {
-        $trainer_data = User::where('id', $id)->with('videos', 'images', 'completions', 'distributions', 'asigned_schools')->first()->toArray();
+        $trainer = User::where('id', $id)
+            ->with('videos', 'images', 'completions', 'distributions', 'asigned_schools')
+            ->first();
+
+        if (!$trainer) {
+            abort(404, 'Trainer not found.');
+        }
+
+        $stateId = StateService::scopeStateId();
+        if ($stateId && (int) $trainer->state_id !== (int) $stateId) {
+            return redirect()
+                ->route('add_trainers')
+                ->with('error', 'That trainer belongs to another state. Showing trainers for the selected state.');
+        }
+
+        $trainer_data = $trainer->toArray();
         $user = User::get()->toArray();
         $district = StateService::districtsQuery()->orderBy('district')->get();
         $school = StateService::schoolsQuery()->orderBy('school_name')->get();
@@ -902,11 +918,23 @@ class AdminController extends BaseController
 
     public function districtsData($id)
     {
-        StateService::assertDistrictInScope((int) $id);
+        $districtRecord = District::find($id);
+        if (!$districtRecord) {
+            abort(404, 'District not found.');
+        }
+
+        $stateId = StateService::scopeStateId();
+        if ($stateId && (int) $districtRecord->state_id !== (int) $stateId) {
+            return redirect()
+                ->route('schools-reporting')
+                ->with('error', 'That district belongs to another state. Showing districts for the selected state.');
+        }
+
         $asigned_schools = AsignedSchool::where('district', $id)->get()->toArray();
         $schools = School::where('district_id', $id)->get();
         $district = StateService::districtsQuery()->get()->toArray();
 
+        $districtNmae = $districtRecord->district;
         foreach ($district as $dis) {
             if ($dis['id'] == $id) {
                 $districtNmae = $dis['district'];
@@ -1107,13 +1135,37 @@ class AdminController extends BaseController
         $activeSession = AcademicSessionService::active();
 
         $holidayStateId = $currentState?->id ?? $states->first()?->id;
-        $holidays = $holidayStateId
-            ? Holiday::where('state_id', $holidayStateId)->orderBy('holiday_date', 'desc')->get()
+        $holidayDistricts = $holidayStateId
+            ? District::where('state_id', $holidayStateId)->orderBy('district')->get()
             : collect();
 
-        $holidayMap = $holidays->mapWithKeys(function ($h) {
-            return [$h->holiday_date->format('Y-m-d') => $h->title ?: 'Holiday'];
-        });
+        $holidays = $holidayStateId
+            ? Holiday::with('district')
+                ->where('state_id', $holidayStateId)
+                ->orderBy('holiday_date', 'desc')
+                ->get()
+            : collect();
+
+        $holidayMap = [];
+        $workingMap = [];
+        foreach ($holidays as $h) {
+            $key = $h->holiday_date->format('Y-m-d');
+            $label = $h->title ?: ($h->entry_type === Holiday::TYPE_WORKING ? 'Working' : 'Holiday');
+            if ($h->district_id && $h->district) {
+                $label .= ' ('.$h->district->district.')';
+            }
+
+            if ($h->entry_type === Holiday::TYPE_WORKING) {
+                $workingMap[$key] = isset($workingMap[$key]) ? $workingMap[$key].' / '.$label : $label;
+            } else {
+                $holidayMap[$key] = isset($holidayMap[$key]) ? $holidayMap[$key].' / '.$label : $label;
+            }
+        }
+
+        $districtsByState = District::orderBy('district')
+            ->get(['id', 'district', 'state_id'])
+            ->groupBy('state_id')
+            ->map(fn ($items) => $items->values());
 
         return view('admin.settings', compact(
             'states',
@@ -1122,7 +1174,10 @@ class AdminController extends BaseController
             'currentSession',
             'activeSession',
             'holidays',
-            'holidayMap'
+            'holidayMap',
+            'workingMap',
+            'holidayDistricts',
+            'districtsByState'
         ));
     }
 
@@ -1135,20 +1190,118 @@ class AdminController extends BaseController
     {
         $request->validate([
             'state_id' => 'required|exists:states,id',
-            'holiday_date' => 'required|date|unique:holidays,holiday_date,NULL,id,state_id,'.$request->state_id,
+            'scope' => 'required|in:state,district',
+            'district_id' => 'nullable|required_if:scope,district|exists:districts,id',
+            'holiday_date' => 'required|date',
             'title' => 'nullable|string|max:255',
         ]);
+
+        $stateId = (int) $request->state_id;
+        $districtId = $request->scope === 'district' ? (int) $request->district_id : null;
+
+        if ($districtId) {
+            $district = District::findOrFail($districtId);
+            if ((int) $district->state_id !== $stateId) {
+                return redirect()->route('settings')
+                    ->with('error', 'Selected district does not belong to the selected state.')
+                    ->withFragment('holidays-section');
+            }
+        }
+
+        $exists = Holiday::where('state_id', $stateId)
+            ->whereDate('holiday_date', $request->holiday_date)
+            ->when(
+                $districtId,
+                fn ($q) => $q->where('district_id', $districtId),
+                fn ($q) => $q->whereNull('district_id')
+            )
+            ->where(function ($q) {
+                $q->where('entry_type', Holiday::TYPE_OFF)->orWhereNull('entry_type');
+            })
+            ->exists();
+
+        if ($exists) {
+            return redirect()->route('settings')
+                ->with('error', 'This holiday already exists for the selected scope.')
+                ->withFragment('holidays-section');
+        }
+
+        // Remove force-working override if any for same scope/date
+        Holiday::where('state_id', $stateId)
+            ->whereDate('holiday_date', $request->holiday_date)
+            ->where('entry_type', Holiday::TYPE_WORKING)
+            ->when(
+                $districtId,
+                fn ($q) => $q->where('district_id', $districtId),
+                fn ($q) => $q->whereNull('district_id')
+            )
+            ->delete();
 
         Holiday::create([
             'holiday_date' => $request->holiday_date,
             'title' => $request->title,
-            'state_id' => $request->state_id,
+            'entry_type' => Holiday::TYPE_OFF,
+            'state_id' => $stateId,
+            'district_id' => $districtId,
             'created_by' => Auth::id(),
         ]);
 
-        StateService::setViewingStateId((int) $request->state_id);
+        StateService::setViewingStateId($stateId);
 
         return redirect()->route('settings')->with('success', 'Holiday added successfully.')->withFragment('holidays-section');
+    }
+
+    public function toggleHoliday(Request $request)
+    {
+        $request->validate([
+            'state_id' => 'required|exists:states,id',
+            'holiday_date' => 'required|date',
+            'scope' => 'required|in:state,district',
+            'district_id' => 'nullable|required_if:scope,district|exists:districts,id',
+            'title' => 'nullable|string|max:255',
+        ]);
+
+        $stateId = (int) $request->state_id;
+        $districtId = $request->scope === 'district' ? (int) $request->district_id : null;
+
+        if ($districtId) {
+            $district = District::findOrFail($districtId);
+            if ((int) $district->state_id !== $stateId) {
+                return response()->json(['message' => 'District does not belong to selected state.'], 422);
+            }
+        }
+
+        $result = HolidayService::toggleDate(
+            $request->holiday_date,
+            $stateId,
+            $districtId,
+            $request->title
+        );
+
+        StateService::setViewingStateId($stateId);
+
+        $holiday = $result['holiday'];
+
+        $title = $holiday?->title
+            ?: ($result['status'] === 'working' ? 'Working' : 'Off');
+
+        return response()->json([
+            'ok' => true,
+            'action' => $result['action'],
+            'status' => $result['status'],
+            'date' => $request->holiday_date,
+            'label' => $title,
+            'holiday' => $holiday ? [
+                'id' => $holiday->id,
+                'date' => optional($holiday->holiday_date)->format('Y-m-d') ?: $request->holiday_date,
+                'title' => $title,
+                'entry_type' => $holiday->entry_type ?? $result['status'],
+                'district_id' => $holiday->district_id,
+                'scope_label' => $holiday->district_id
+                    ? (District::find($holiday->district_id)?->district ?? 'District')
+                    : 'All',
+            ] : null,
+        ]);
     }
 
     public function deleteHoliday($id)
@@ -1161,31 +1314,85 @@ class AdminController extends BaseController
     public function updateHoliday(Request $request, $id)
     {
         $holiday = Holiday::findOrFail($id);
-        $stateId = $holiday->state_id ?? StateService::scopeStateId();
+        $stateId = (int) ($holiday->state_id ?? StateService::scopeStateId());
 
         $request->validate([
-            'holiday_date' => 'required|date|unique:holidays,holiday_date,'.$holiday->id.',id,state_id,'.$stateId,
+            'scope' => 'required|in:state,district',
+            'district_id' => 'nullable|required_if:scope,district|exists:districts,id',
+            'holiday_date' => 'required|date',
             'title' => 'nullable|string|max:255',
         ]);
+
+        $districtId = $request->scope === 'district' ? (int) $request->district_id : null;
+
+        if ($districtId) {
+            $district = District::findOrFail($districtId);
+            if ((int) $district->state_id !== $stateId) {
+                return redirect()->route('settings')
+                    ->with('error', 'Selected district does not belong to this holiday\'s state.')
+                    ->withFragment('holidays-section');
+            }
+        }
+
+        $exists = Holiday::where('state_id', $stateId)
+            ->where('id', '!=', $holiday->id)
+            ->whereDate('holiday_date', $request->holiday_date)
+            ->when(
+                $districtId,
+                fn ($q) => $q->where('district_id', $districtId),
+                fn ($q) => $q->whereNull('district_id')
+            )
+            ->exists();
+
+        if ($exists) {
+            return redirect()->route('settings')
+                ->with('error', 'This holiday already exists for the selected scope.')
+                ->withFragment('holidays-section');
+        }
 
         $holiday->update([
             'holiday_date' => $request->holiday_date,
             'title' => $request->title,
+            'district_id' => $districtId,
         ]);
 
         return redirect()->route('settings')->with('success', 'Holiday updated successfully.');
     }
 
-    public function holidaysList()
+    public function holidaysList(Request $request)
     {
-        $holidays = Holiday::orderBy('holiday_date')->get(['holiday_date', 'title'])->map(function ($holiday) {
-            return [
-                'date' => $holiday->holiday_date->format('Y-m-d'),
-                'title' => $holiday->title,
-            ];
-        });
+        $request->validate([
+            'state_id' => 'nullable|exists:states,id',
+            'district_id' => 'nullable|exists:districts,id',
+        ]);
 
-        return response()->json(['holidays' => $holidays]);
+        $stateId = $request->filled('state_id') ? (int) $request->state_id : StateService::scopeStateId();
+        $districtId = $request->filled('district_id') ? (int) $request->district_id : null;
+
+        $offs = HolidayService::offQuery($districtId, $stateId)
+            ->orderBy('holiday_date')
+            ->get(['holiday_date', 'title', 'district_id'])
+            ->map(function ($holiday) {
+                return [
+                    'date' => $holiday->holiday_date->format('Y-m-d'),
+                    'title' => $holiday->title,
+                    'district_id' => $holiday->district_id,
+                ];
+            })
+            ->unique('date')
+            ->values();
+
+        $workingDates = HolidayService::workingQuery($districtId, $stateId)
+            ->orderBy('holiday_date')
+            ->get(['holiday_date'])
+            ->map(fn ($h) => $h->holiday_date->format('Y-m-d'))
+            ->unique()
+            ->values();
+
+        return response()->json([
+            'holidays' => $offs,
+            'working_dates' => $workingDates,
+        ]);
     }
 
     public function academicSessions()
@@ -1234,14 +1441,14 @@ class AdminController extends BaseController
 
         $session = AcademicSession::findOrFail($request->session_id);
 
-        return redirect()->route('settings')->with('success', 'Now viewing session: '.$session->name);
+        return redirect()->back()->with('success', 'Now viewing session: '.$session->name);
     }
 
     public function resetAcademicSessionView()
     {
         AcademicSessionService::setViewingSessionId(null);
 
-        return redirect()->route('settings')->with('success', 'Switched back to active session view.');
+        return redirect()->back()->with('success', 'Switched back to active session view.');
     }
 
     public function states()
@@ -1271,15 +1478,42 @@ class AdminController extends BaseController
         StateService::setViewingStateId((int) $request->state_id);
 
         $state = State::findOrFail($request->state_id);
+        $previousPath = parse_url(url()->previous(), PHP_URL_PATH) ?? '';
 
-        return redirect()->route('settings')->with('success', 'Now viewing state: '.$state->name);
+        // Detail pages are bound to IDs from the previous state —
+        // after switching, send the user to the matching list for the new state.
+        if (preg_match('#/getData/\d+#', $previousPath)) {
+            return redirect()
+                ->route('add_trainers')
+                ->with('success', 'Now viewing state: '.$state->name.'. Opened trainers list for this state.');
+        }
+
+        if (preg_match('#/districts_data/\d+#', $previousPath)) {
+            return redirect()
+                ->route('schools-reporting')
+                ->with('success', 'Now viewing state: '.$state->name);
+        }
+
+        if (preg_match('#/trainer_data/\d+#', $previousPath)) {
+            return redirect()
+                ->route('logs')
+                ->with('success', 'Now viewing state: '.$state->name);
+        }
+
+        if (preg_match('#/trainer_schools_data/\d+#', $previousPath)) {
+            return redirect()
+                ->route('trainers-schools-data')
+                ->with('success', 'Now viewing state: '.$state->name);
+        }
+
+        return redirect()->back()->with('success', 'Now viewing state: '.$state->name);
     }
 
     public function resetStateView()
     {
         StateService::setViewingStateId(null);
 
-        return redirect()->route('settings')->with('success', 'Switched back to default state view.');
+        return redirect()->back()->with('success', 'Switched back to default state view.');
     }
 
     public function updateState(Request $request, $id)

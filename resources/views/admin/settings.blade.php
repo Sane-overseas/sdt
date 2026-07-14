@@ -224,7 +224,8 @@
         </div>
         <div class="card-body">
             <p class="text-muted small mb-3">
-                <strong>Auto holidays:</strong> Every Sunday and 2nd Saturday of each month are always excluded.
+                <strong>Auto Off:</strong> Every Sunday and 2nd Saturday are Off by default.
+                Click a date on the calendar to toggle Off ↔ Working (you can also mark Sunday / 2nd Saturday as Working).
             </p>
 
             @if($states->count())
@@ -232,7 +233,7 @@
                 <div class="col-lg-5 mb-4">
                     <div class="border rounded p-3 h-100" style="background:#f8f9fa;">
                         <h6 class="mb-3">Add Holiday</h6>
-                        <form action="{{ route('holidays.store') }}" method="POST">
+                        <form action="{{ route('holidays.store') }}" method="POST" id="holidayAddForm">
                             @csrf
                             <div class="form-group">
                                 <label>State</label>
@@ -241,6 +242,22 @@
                                         <option value="{{ $state->id }}" {{ ($holidayState && $holidayState->id == $state->id) ? 'selected' : '' }}>
                                             {{ $state->name }} ({{ $state->code }})
                                         </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Apply Holiday To</label>
+                                <select name="scope" id="holidayScope" class="form-control" required>
+                                    <option value="state">Entire State</option>
+                                    <option value="district">Specific District</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="holidayDistrictGroup" style="display:none;">
+                                <label>District</label>
+                                <select name="district_id" id="holidayDistrict" class="form-control">
+                                    <option value="">Select District</option>
+                                    @foreach($holidayDistricts as $district)
+                                        <option value="{{ $district->id }}">{{ $district->district }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -255,9 +272,10 @@
                             <button type="submit" class="btn btn-primary btn-block">Add Holiday</button>
                         </form>
                         <div class="mt-3 small">
-                            <span class="d-inline-block mr-3"><span style="display:inline-block;width:12px;height:12px;background:#dc3545;border-radius:2px;"></span> Custom holiday</span>
+                            <span class="d-inline-block mr-3"><span style="display:inline-block;width:12px;height:12px;background:#dc3545;border-radius:2px;"></span> Custom Off</span>
                             <span class="d-inline-block mr-3"><span style="display:inline-block;width:12px;height:12px;background:#6c757d;border-radius:2px;"></span> Sunday</span>
-                            <span class="d-inline-block"><span style="display:inline-block;width:12px;height:12px;background:#fd7e14;border-radius:2px;"></span> 2nd Saturday</span>
+                            <span class="d-inline-block mr-3"><span style="display:inline-block;width:12px;height:12px;background:#fd7e14;border-radius:2px;"></span> 2nd Saturday</span>
+                            <span class="d-inline-block"><span style="display:inline-block;width:12px;height:12px;background:#28a745;border-radius:2px;"></span> Forced Working</span>
                         </div>
                     </div>
                 </div>
@@ -287,6 +305,7 @@
                     <tr>
                         <th>Date</th>
                         <th>Title</th>
+                        <th>Scope</th>
                         <th>Added On</th>
                         <th style="width: 160px;">Action</th>
                     </tr>
@@ -295,11 +314,25 @@
                     @forelse($holidays as $holiday)
                     <tr>
                         <td><strong>{{ $holiday->holiday_date->format('d/m/Y') }}</strong></td>
-                        <td>{{ $holiday->title ?: '—' }}</td>
+                        <td>
+                            {{ $holiday->title ?: '—' }}
+                            @if(($holiday->entry_type ?? 'off') === 'working')
+                                <span class="badge badge-success">Working</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($holiday->district_id)
+                                <span class="badge badge-info">{{ $holiday->district->district ?? 'District' }}</span>
+                            @else
+                                <span class="badge badge-secondary">Entire State</span>
+                            @endif
+                        </td>
                         <td>{{ $holiday->created_at->format('d/m/Y') }}</td>
                         <td>
+                            @if(($holiday->entry_type ?? 'off') !== 'working')
                             <button type="button" class="btn btn-sm btn-info" data-toggle="modal" data-target="#editHolidayModal{{ $holiday->id }}">Edit</button>
-                            <form action="{{ route('holidays.destroy', $holiday->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Remove this holiday?');">
+                            @endif
+                            <form action="{{ route('holidays.destroy', $holiday->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Remove this entry?');">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="btn btn-sm btn-danger">Remove</button>
@@ -308,7 +341,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="4" class="text-center text-muted">No holidays added yet.</td>
+                        <td colspan="5" class="text-center text-muted">No holidays added yet.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -365,6 +398,24 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
+                        <label>Apply Holiday To</label>
+                        <select name="scope" class="form-control holiday-edit-scope" data-target="editDistrict{{ $holiday->id }}" required>
+                            <option value="state" {{ $holiday->district_id ? '' : 'selected' }}>Entire State</option>
+                            <option value="district" {{ $holiday->district_id ? 'selected' : '' }}>Specific District</option>
+                        </select>
+                    </div>
+                    <div class="form-group edit-district-group" id="editDistrict{{ $holiday->id }}" style="{{ $holiday->district_id ? '' : 'display:none;' }}">
+                        <label>District</label>
+                        <select name="district_id" class="form-control">
+                            <option value="">Select District</option>
+                            @foreach($holidayDistricts as $district)
+                                <option value="{{ $district->id }}" {{ (int) $holiday->district_id === (int) $district->id ? 'selected' : '' }}>
+                                    {{ $district->district }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>Date</label>
                         <input type="date" name="holiday_date" class="form-control" value="{{ $holiday->holiday_date->format('Y-m-d') }}" required>
                     </div>
@@ -401,18 +452,22 @@
 .holiday-calendar td.is-sunday { background: #f1f3f5; }
 .holiday-calendar td.is-second-saturday { background: #fff4e6; }
 .holiday-calendar td.is-custom { background: #fde8ea; }
+.holiday-calendar td.is-working { background: #e8f8ee; }
 .holiday-calendar td.is-today { outline: 2px solid #007bff; outline-offset: -2px; }
+.holiday-calendar td.toggling { opacity: 0.5; pointer-events: none; }
 </style>
 
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
 <script>
 (function () {
-    const holidayMap = @json($holidayMap);
+    let holidayMap = @json($holidayMap);
+    let workingMap = @json($workingMap ?? new \stdClass());
+    const districtsByState = @json($districtsByState);
+    const toggleUrl = @json(route('holidays.toggle'));
+    const csrfToken = @json(csrf_token());
 
-    let viewDate = Object.keys(holidayMap).length
-        ? moment(Object.keys(holidayMap).sort().reverse()[0], 'YYYY-MM-DD')
-        : moment();
+    let viewDate = moment();
 
     if ($('#holiday_date').length) {
         $('#holiday_date').daterangepicker({
@@ -424,8 +479,64 @@
         });
     }
 
+    function fillDistrictOptions(stateId, $select, selectedId) {
+        $select.empty().append('<option value="">Select District</option>');
+        const list = districtsByState[stateId] || districtsByState[String(stateId)] || [];
+        list.forEach(function (d) {
+            const selected = selectedId && String(selectedId) === String(d.id) ? ' selected' : '';
+            $select.append('<option value="' + d.id + '"' + selected + '>' + d.district + '</option>');
+        });
+    }
+
+    function toggleScopeUi() {
+        if ($('#holidayScope').val() === 'district') {
+            $('#holidayDistrictGroup').show();
+            $('#holidayDistrict').prop('required', true);
+        } else {
+            $('#holidayDistrictGroup').hide();
+            $('#holidayDistrict').prop('required', false).val('');
+        }
+    }
+
+    $('#holidayScope').on('change', toggleScopeUi);
+
+    $('#holidayFormState').on('change', function () {
+        const stateId = $(this).val();
+        fillDistrictOptions(stateId, $('#holidayDistrict'));
+        const $header = $('#holidayHeaderState');
+        if ($header.length) {
+            $header.val(stateId);
+            $header.closest('form').submit();
+        }
+    });
+
+    $('.holiday-edit-scope').on('change', function () {
+        const target = $(this).data('target');
+        const $group = $('#' + target);
+        if ($(this).val() === 'district') {
+            $group.show();
+            $group.find('select[name="district_id"]').prop('required', true);
+        } else {
+            $group.hide();
+            $group.find('select[name="district_id"]').prop('required', false).val('');
+        }
+    });
+
     function isSecondSaturday(date) {
         return date.day() === 6 && Math.ceil(date.date() / 7) === 2;
+    }
+
+    function currentScopePayload() {
+        const scope = $('#holidayScope').val() || 'state';
+        const payload = {
+            state_id: $('#holidayFormState').val(),
+            scope: scope,
+            _token: csrfToken,
+        };
+        if (scope === 'district') {
+            payload.district_id = $('#holidayDistrict').val();
+        }
+        return payload;
     }
 
     function renderCalendar() {
@@ -457,29 +568,35 @@
             let classes = [];
             let labels = [];
 
-            if (cursor.day() === 0) {
+            const isForcedWorking = !!workingMap[key];
+            const isSunday = cursor.day() === 0;
+            const is2ndSat = isSecondSaturday(cursor);
+
+            if (isForcedWorking) {
+                classes.push('is-working');
+                labels.push(workingMap[key] || 'Working');
+            } else if (holidayMap[key]) {
+                classes.push('is-custom');
+                labels.push(holidayMap[key]);
+            } else if (isSunday) {
                 classes.push('is-sunday');
                 labels.push('Sunday Off');
-            } else if (isSecondSaturday(cursor)) {
+            } else if (is2ndSat) {
                 classes.push('is-second-saturday');
                 labels.push('2nd Sat Off');
-            }
-
-            if (holidayMap[key]) {
-                classes.push('is-custom');
-                labels.push(holidayMap[key] + ' Off');
             }
 
             if (cursor.isSame(moment(), 'day')) {
                 classes.push('is-today');
             }
 
-            html += '<td class="' + classes.join(' ') + '" data-date="' + key + '" title="' + (labels.join(' / ') || '') + '">';
+            html += '<td class="' + classes.join(' ') + '" data-date="' + key + '" title="' + (labels.join(' / ') || 'Click to mark Off') + '">';
             html += '<span class="day-num">' + cursor.date() + '</span>';
             labels.forEach(function (label) {
-                const color = (label.indexOf('Sunday') === 0) ? '#6c757d'
-                    : (label.indexOf('2nd Sat') === 0) ? '#fd7e14'
-                    : '#dc3545';
+                let color = '#dc3545';
+                if (label.indexOf('Sunday') === 0) color = '#6c757d';
+                else if (label.indexOf('2nd Sat') === 0) color = '#fd7e14';
+                else if (String(label).toLowerCase().indexOf('working') !== -1) color = '#28a745';
                 html += '<span class="day-label" style="background:' + color + ';">' + label + '</span>';
             });
             html += '</td>';
@@ -490,26 +607,120 @@
         html += '</tr></tbody></table>';
         $('#holidayCalendar').html(html);
 
-        $('#holidayCalendar td[data-date]').on('click', function () {
-            const date = $(this).data('date');
+        $('#holidayCalendar td[data-date]').off('click').on('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const $cell = $(this);
+            if ($cell.hasClass('toggling')) {
+                return;
+            }
+
+            const date = String($cell.attr('data-date') || '');
+            if (!date) {
+                return;
+            }
+
             const picker = $('#holiday_date').data('daterangepicker');
             if (picker) {
                 picker.setStartDate(date);
                 picker.setEndDate(date);
             }
             $('#holiday_date').val(date);
+
+            const payload = currentScopePayload();
+            if (!payload.state_id) {
+                alert('Select a state first.');
+                return;
+            }
+            if (payload.scope === 'district' && !payload.district_id) {
+                alert('Select a district first, or choose Entire State.');
+                return;
+            }
+
+            const title = ($('#holiday_title').val() || '').trim();
+            if (title) {
+                payload.title = title;
+            }
+
+            payload.holiday_date = date;
+            $cell.addClass('toggling');
+
+            const body = new URLSearchParams();
+            Object.keys(payload).forEach(function (key) {
+                if (payload[key] !== undefined && payload[key] !== null && payload[key] !== '') {
+                    body.append(key, payload[key]);
+                }
+            });
+
+            fetch(toggleUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                },
+                body: body.toString(),
+                credentials: 'same-origin',
+            })
+            .then(function (response) {
+                return response.json().then(function (data) {
+                    return { ok: response.ok, status: response.status, data: data };
+                }).catch(function () {
+                    return { ok: false, status: response.status, data: null };
+                });
+            })
+            .then(function (result) {
+                if (!result.ok || !result.data) {
+                    let msg = 'Toggle failed (' + result.status + ')';
+                    if (result.data) {
+                        if (result.data.message) {
+                            msg = result.data.message;
+                        } else if (result.data.errors) {
+                            msg = Object.values(result.data.errors).flat().join('\n');
+                        }
+                    }
+                    alert(msg);
+                    $cell.removeClass('toggling');
+                    return;
+                }
+
+                const res = result.data;
+                let label = (res.holiday && res.holiday.title)
+                    ? res.holiday.title
+                    : (res.label || 'Off');
+                if (res.holiday && res.holiday.entry_type === 'working' && (!label || label === 'Off')) {
+                    label = 'Working';
+                }
+                if (payload.scope === 'district') {
+                    const districtName = ($('#holidayDistrict option:selected').text() || '').trim();
+                    if (districtName) {
+                        label = label + ' (' + districtName + ')';
+                    }
+                }
+
+                delete holidayMap[date];
+                delete workingMap[date];
+
+                if (res.holiday && res.holiday.entry_type === 'working') {
+                    workingMap[date] = label;
+                } else if (res.status === 'off') {
+                    const m = moment(date, 'YYYY-MM-DD');
+                    const isAutoOff = m.day() === 0 || isSecondSaturday(m);
+                    if (!isAutoOff) {
+                        holidayMap[date] = label;
+                    }
+                }
+
+                renderCalendar();
+            })
+            .catch(function (err) {
+                alert(err && err.message ? err.message : 'Toggle failed. Please refresh and try again.');
+                $cell.removeClass('toggling');
+            });
         });
     }
-
-    // Add Holiday state change → reload page with that state's calendar
-    $('#holidayFormState').on('change', function () {
-        const stateId = $(this).val();
-        const $header = $('#holidayHeaderState');
-        if ($header.length) {
-            $header.val(stateId);
-            $header.closest('form').submit();
-        }
-    });
 
     $('#calendarPrev').on('click', function () {
         viewDate.subtract(1, 'month');
@@ -524,6 +735,7 @@
         renderCalendar();
     });
 
+    toggleScopeUi();
     renderCalendar();
 })();
 </script>

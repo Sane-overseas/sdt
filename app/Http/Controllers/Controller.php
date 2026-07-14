@@ -586,15 +586,18 @@ class Controller extends BaseController
         }
 
         $startDate = Carbon::parse($request->start_date);
+        $routeData = AsignedSchool::findOrFail($request->id);
+        $school = School::find($routeData->school_name);
+        $districtId = $school?->district_id ? (int) $school->district_id : null;
+        $stateId = $school?->district?->state_id ? (int) $school->district->state_id : null;
 
-        if (HolidayService::isHoliday($startDate)) {
-            return redirect()->back()->with('error', 'Start date cannot be on a holiday ('.HolidayService::holidayLabel($startDate).'). Please choose a working day.');
+        if (HolidayService::isHoliday($startDate, $districtId, $stateId)) {
+            return redirect()->back()->with('error', 'Start date cannot be on a holiday ('.HolidayService::holidayLabel($startDate, $districtId, $stateId).'). Please choose a working day.');
         }
 
         $workingDays = (int) $request->working_days;
-        $endDate = HolidayService::calculateEndDate($startDate, $workingDays);
+        $endDate = HolidayService::calculateEndDate($startDate, $workingDays, $districtId, $stateId);
 
-        $routeData = AsignedSchool::findOrFail($request->id);
         $routeData->route_date = $startDate->format('d/m/Y')." - ".$endDate->format('d/m/Y');
         $routeData->start_route_plan = date('H:i', strtotime($request->intime));
         $routeData->end_route_plan = date('H:i', strtotime($request->outtime));

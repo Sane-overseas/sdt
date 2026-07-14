@@ -1,6 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+	$sessionPaidCounts = $sessionPaidCounts ?? [];
+	$sessionAdvanceTotals = $sessionAdvanceTotals ?? [];
+@endphp
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script>
 <div class="container mt-2">
@@ -49,29 +53,27 @@
 				    <td>{{$data['instructor_number']}}</td>
 				    <td>{{$data['district']}}</td>
 				    <td>{{$data['claim_note']}}</td> 
-				    <td>
-				    	@php($complete_schools = 0)
-						@foreach($data['asigned_schools'] as  $a_schools)
-                        	@if($a_schools['status'] == 1)
-                        		@php($complete_schools++) 
-                        	@endif 	
-	                    @endforeach
-	                   	@php
-	                   		$totalAmount =  number_format($data['amount'] *$complete_schools, 2);
-	                   		$paidSchoolsInSession = $sessionPaidCounts[$data['id']] ?? 0;
-	                   		$pedding_schools = $complete_schools - $paidSchoolsInSession;
-	                   		if($pedding_schools < 0){ $pedding_schools = 0; }
-	                   		$newAmount =  number_format($data['amount'] *$pedding_schools, 2);
-	                   		$advanceAmount = $sessionAdvanceTotals[$data['id']] ?? 0;
-	                   	@endphp
-	                   	@if($paidSchoolsInSession == 0)
-	                   		{{$totalAmount}}
-	                   	@else
-	                   		{{$newAmount}}
-	                   	@endif
-	                  
-	                </td>
-	                <td>{{number_format(($data['amount'] * ($sessionPaidCounts[$data['id']] ?? 0)) + $advanceAmount, 2)}}</td> 
+			    <td>
+			    	@php
+				    	$complete_schools = 0;
+				    	foreach (($data['asigned_schools'] ?? []) as $a_schools) {
+				    		if (($a_schools['status'] ?? 0) == 1) {
+				    			$complete_schools++;
+				    		}
+				    	}
+				    	$paidSchoolsInSession = ($sessionPaidCounts ?? [])[$data['id']] ?? 0;
+				    	$advanceAmount = ($sessionAdvanceTotals ?? [])[$data['id']] ?? 0;
+				    	$pedding_schools = max(0, $complete_schools - $paidSchoolsInSession);
+				    	$totalAmount = number_format(($data['amount'] ?? 0) * $complete_schools, 2);
+				    	$newAmount = number_format(($data['amount'] ?? 0) * $pedding_schools, 2);
+			    	@endphp
+			    	@if($paidSchoolsInSession == 0)
+			    		{{ $totalAmount }}
+			    	@else
+			    		{{ $newAmount }}
+			    	@endif
+			    </td>
+			    <td>{{ number_format((($data['amount'] ?? 0) * $paidSchoolsInSession) + $advanceAmount, 2) }}</td> 
             		<td class="{{$data['id']}}"> 
                         <a href="#" id="suspendd" data-toggle="modal" data-target="#demoModal{{ $data['id'] }}" class="send_btn ml-3">Check</i></a>
                             <form id="uplodeForm" action="{{ route('paid_status')}}" method="POST">
@@ -91,8 +93,8 @@
                                         <div class="modal-body">
                         	<strong>Payment History (Current Session)</strong></br>
                         	<div class="mt-2 mb-2">
-                        		<span class="remark">Paid Schools: {{ $sessionPaidCounts[$data['id']] ?? 0 }}</span></br>
-                        		<span class="remark">Advance: {{ number_format($sessionAdvanceTotals[$data['id']] ?? 0, 2) }}</span></br>
+                        		<span class="remark">Paid Schools: {{ $paidSchoolsInSession }}</span></br>
+                        		<span class="remark">Advance: {{ number_format($advanceAmount, 2) }}</span></br>
                         	</div>
 											<div class="form-row">
 												 <div class="form-group col">

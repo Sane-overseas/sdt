@@ -9,16 +9,25 @@
 <style type="text/css">
     .back-button {
         font-weight: 600;
-        color: #000;
+        border-radius: 5px;
+        border: 2px solid #fff;
+        margin: 0 !important;
+        background: #fff;
+        color: #004857 !important;
+        padding: 6px 12px;
+    }
+    .back-button:hover {
+        background: #e9f2f4;
+        color: #003640 !important;
     }
 </style>
 <div class="container">
     <div class="row mb-5 main-div">
         <div class="col-12 mt-5">
             <div class="card">
-                <div class="card-header bg-primary row">
-                    <h3 class="text-white col-8">Upload Data</h3>
-                    <button class="float-right back-button col-4" style="border-radius: 5px;border: 2px solid;margin: 0px !important;color: #fff !important;" onclick="history.back()">BACK</button>
+                <div class="card-header bg-primary row align-items-center">
+                    <h3 class="text-white col-8 mb-0">Upload Data</h3>
+                    <button type="button" class="float-right back-button col-4" onclick="history.back()">BACK</button>
                 </div>
                 <div class="card-body">
                    @if(session()->has('message'))
