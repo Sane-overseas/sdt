@@ -36,19 +36,22 @@
             @if ($currentState)
             <div class="alert alert-info py-2">
                 <strong>Viewing:</strong> {{ $currentState->name }} ({{ $currentState->code }})
-                <a href="{{ route('states.reset-view') }}" class="btn btn-sm btn-light ml-2">Reset view</a>
             </div>
             @endif
 
-            <form action="{{ route('states.store') }}" method="POST" class="form-row align-items-end mb-4">
+            <form action="{{ route('states.store') }}" method="POST" enctype="multipart/form-data" class="form-row align-items-end mb-4">
                 @csrf
-                <div class="form-group col-md-4">
+                <div class="form-group col-md-3">
                     <label>State Name</label>
                     <input type="text" name="name" class="form-control" placeholder="e.g. Uttar Pradesh" value="{{ old('name') }}" required>
                 </div>
-                <div class="form-group col-md-3">
+                <div class="form-group col-md-2">
                     <label>State Code</label>
                     <input type="text" name="code" class="form-control" placeholder="e.g. UP" maxlength="10" value="{{ old('code') }}" required>
+                </div>
+                <div class="form-group col-md-4">
+                    <label>State Logo (right side)</label>
+                    <input type="file" name="logo" class="form-control-file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
                 </div>
                 <div class="form-group col-md-3">
                     <button type="submit" class="btn btn-primary btn-block">Create State</button>
@@ -58,6 +61,7 @@
             <table class="table table-bordered mb-0">
                 <thead>
                     <tr>
+                        <th>Logo</th>
                         <th>State</th>
                         <th>Code</th>
                         <th>Districts</th>
@@ -72,8 +76,16 @@
                         $districtCount = \App\Models\District::where('state_id', $state->id)->count();
                         $trainerCount = \App\Models\User::where('state_id', $state->id)->where('role', 0)->count();
                         $coordinatorCount = \App\Models\Cordinator::where('state_id', $state->id)->count();
+                        $logoUrl = $state->logoUrl();
                     @endphp
                     <tr>
+                        <td>
+                            @if($logoUrl)
+                                <img src="{{ $logoUrl }}" alt="{{ $state->code }} logo" style="max-height:40px;max-width:80px;object-fit:contain;">
+                            @else
+                                <span class="text-muted small">No logo</span>
+                            @endif
+                        </td>
                         <td><strong>{{ $state->name }}</strong></td>
                         <td>{{ $state->code }}</td>
                         <td>{{ $districtCount }}</td>
@@ -90,7 +102,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="text-center text-muted">No states yet. Create your first state above.</td>
+                        <td colspan="7" class="text-center text-muted">No states yet. Create your first state above.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -354,7 +366,7 @@
 <div class="modal fade" id="editStateModal{{ $state->id }}" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <form action="{{ route('states.update', $state->id) }}" method="POST">
+            <form action="{{ route('states.update', $state->id) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
                 <div class="modal-header">
@@ -368,9 +380,19 @@
                         <label>State Name</label>
                         <input type="text" name="name" class="form-control" value="{{ $state->name }}" required>
                     </div>
-                    <div class="form-group mb-0">
+                    <div class="form-group">
                         <label>State Code</label>
                         <input type="text" name="code" class="form-control" value="{{ $state->code }}" maxlength="10" required>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label>State Logo (right side)</label>
+                        @if($state->logoUrl())
+                            <div class="mb-2">
+                                <img src="{{ $state->logoUrl() }}" alt="{{ $state->code }} logo" style="max-height:50px;max-width:100px;object-fit:contain;">
+                            </div>
+                        @endif
+                        <input type="file" name="logo" class="form-control-file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+                        <small class="text-muted">Leave empty to keep current logo.</small>
                     </div>
                 </div>
                 <div class="modal-footer">

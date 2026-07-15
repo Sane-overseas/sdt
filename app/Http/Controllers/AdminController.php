@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Video;
 use App\Models\Image;
 use App\Models\Completion;
@@ -1461,9 +1462,17 @@ class AdminController extends BaseController
         $request->validate([
             'name' => 'required|string|max:100|unique:states,name',
             'code' => 'required|string|max:10|unique:states,code',
+            'logo' => 'nullable|image|mimes:png,jpg,jpeg,webp,svg|max:2048',
         ]);
 
         $state = StateService::create($request->name, $request->code);
+
+        if ($request->hasFile('logo')) {
+            $state->update([
+                'logo' => $request->file('logo')->store('states', 'public'),
+            ]);
+        }
+
         StateService::setViewingStateId($state->id);
 
         return redirect()->route('settings')->with('success', 'State '.$state->name.' created. Assign districts, trainers, and coordinators to this state.');
@@ -1523,12 +1532,22 @@ class AdminController extends BaseController
         $request->validate([
             'name' => 'required|string|max:100|unique:states,name,'.$state->id,
             'code' => 'required|string|max:10|unique:states,code,'.$state->id,
+            'logo' => 'nullable|image|mimes:png,jpg,jpeg,webp,svg|max:2048',
         ]);
 
-        $state->update([
+        $data = [
             'name' => $request->name,
             'code' => strtoupper($request->code),
-        ]);
+        ];
+
+        if ($request->hasFile('logo')) {
+            if ($state->logo && Storage::disk('public')->exists($state->logo)) {
+                Storage::disk('public')->delete($state->logo);
+            }
+            $data['logo'] = $request->file('logo')->store('states', 'public');
+        }
+
+        $state->update($data);
 
         return redirect()->route('settings')->with('success', 'State updated to '.$state->name.'.');
     }

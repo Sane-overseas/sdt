@@ -10,12 +10,31 @@ class State extends Model
     protected $fillable = [
         'name',
         'code',
+        'logo',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Right-side state logo URL for the current state.
+     * Uses uploaded logo, else public/images/{code}-logo.png if present.
+     */
+    public function logoUrl(): ?string
+    {
+        if ($this->logo) {
+            return asset('storage/'.$this->logo);
+        }
+
+        $filename = strtolower($this->code).'-logo.png';
+        if (is_file(public_path('images/'.$filename))) {
+            return asset('images/'.$filename);
+        }
+
+        return null;
+    }
 
     public function districts(): HasMany
     {

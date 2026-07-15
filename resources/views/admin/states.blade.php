@@ -29,7 +29,6 @@
     @if ($currentState)
     <div class="alert alert-info">
         <strong>Viewing:</strong> {{ $currentState->name }} ({{ $currentState->code }})
-        <a href="{{ route('states.reset-view') }}" class="btn btn-sm btn-light ml-2">Reset view</a>
     </div>
     @endif
 

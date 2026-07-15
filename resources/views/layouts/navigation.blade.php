@@ -44,7 +44,10 @@
       </a>
     </div>
     <div>
-       <img class="hp-logo"  src="{{ asset('/images/hp-logo.png') }}" alt="" title="" >
+      @php $stateLogoUrl = isset($currentState) && $currentState ? $currentState->logoUrl() : null; @endphp
+      @if($stateLogoUrl)
+        <img class="hp-logo" src="{{ $stateLogoUrl }}" alt="{{ $currentState->name ?? 'State' }} logo" title="{{ $currentState->name ?? '' }}">
+      @endif
     </div>
     <!-- Right elements -->
   </div>

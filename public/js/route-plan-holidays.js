@@ -108,6 +108,22 @@
         return count;
     }
 
+    function excludedHolidaysBetween(startStr, endStr, holidayDates, workingDates, holidayMap) {
+        var labels = [];
+        var cur = new Date(startStr + 'T00:00:00');
+        var end = new Date(endStr + 'T00:00:00');
+
+        while (cur <= end) {
+            var ds = toDateStr(cur);
+            if (isHoliday(ds, holidayDates, workingDates)) {
+                labels.push(formatDisplayDate(ds) + ' (' + holidayLabel(ds, holidayMap) + ')');
+            }
+            cur.setDate(cur.getDate() + 1);
+        }
+
+        return labels;
+    }
+
     function initRoutePlanForm($form, holidayDates, holidayMap, workingDates) {
         var $start = $form.find('.route-plan-start');
         var $workingDays = $form.find('.route-plan-working-days');
@@ -133,9 +149,9 @@
             var end = calculateEndDate(start, days, holidayDates, workingDates);
             $endDisplay.val(formatDisplayDate(end));
 
-            var holidayCount = countHolidaysBetween(start, end, holidayDates, workingDates);
-            if (holidayCount > 0) {
-                $holidayNote.text(days + ' working days — ' + holidayCount + ' holiday(s) excluded (Sundays, 2nd Saturdays & public holidays).');
+            var excluded = excludedHolidaysBetween(start, end, holidayDates, workingDates, holidayMap);
+            if (excluded.length > 0) {
+                $holidayNote.text(days + ' working days — ' + excluded.length + ' holiday(s) excluded: ' + excluded.join(', ') + '.');
             } else {
                 $holidayNote.text(days + ' working days — no holidays in this range.');
             }
