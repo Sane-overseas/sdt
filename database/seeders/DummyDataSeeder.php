@@ -174,10 +174,29 @@ class DummyDataSeeder extends Seeder
                             'school_name' => $schoolData['school_name'],
                             'block' => $schoolData['block'],
                             'total_students' => $schoolData['total_students'],
+                            'training_hours' => $schoolData['training_hours'] ?? 40,
                             'status' => 0,
                             'asigned_school' => 0,
                         ]
                     );
+                }
+
+                // Extra schools per block for UI/testing (grid checklist, many schools)
+                if ($stateData['code'] === 'HP' && $districtData['district'] === 'Shimla') {
+                    $this->seedBlockSchools($district->id, 'Mashobra', 'HP-SHI-M', 20);
+                    $this->seedBlockSchools($district->id, 'Theog', 'HP-SHI-T', 15);
+                }
+                if ($stateData['code'] === 'HP' && $districtData['district'] === 'Kangra') {
+                    $this->seedBlockSchools($district->id, 'Dharamshala', 'HP-KAN-D', 18);
+                    $this->seedBlockSchools($district->id, 'Palampur', 'HP-KAN-P', 12);
+                }
+                if ($stateData['code'] === 'HR' && $districtData['district'] === 'Gurugram') {
+                    $this->seedBlockSchools($district->id, 'Sohna', 'HR-GUR-S', 22);
+                    $this->seedBlockSchools($district->id, 'Pataudi', 'HR-GUR-P', 14);
+                }
+                if ($stateData['code'] === 'HR' && $districtData['district'] === 'Faridabad') {
+                    $this->seedBlockSchools($district->id, 'Ballabgarh', 'HR-FAR-B', 16);
+                    $this->seedBlockSchools($district->id, 'Tigaon', 'HR-FAR-T', 12);
                 }
             }
 
@@ -237,6 +256,28 @@ class DummyDataSeeder extends Seeder
                     'active_status' => 1,
                 ])->save();
             }
+        }
+    }
+    private function seedBlockSchools(int $districtId, string $block, string $codePrefix, int $count): void
+    {
+        $types = ['GPS', 'GMS', 'GSSS', 'GHS'];
+
+        for ($i = 1; $i <= $count; $i++) {
+            $type = $types[($i - 1) % count($types)];
+            $code = $codePrefix.str_pad((string) $i, 3, '0', STR_PAD_LEFT);
+
+            School::updateOrCreate(
+                ['school_code' => $code],
+                [
+                    'district_id' => $districtId,
+                    'school_name' => $type.' '.$block.' School '.$i,
+                    'block' => $block,
+                    'total_students' => 40 + ($i * 3),
+                    'training_hours' => 35 + ($i % 10),
+                    'status' => 0,
+                    'asigned_school' => 0,
+                ]
+            );
         }
     }
 }

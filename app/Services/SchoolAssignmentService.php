@@ -90,6 +90,8 @@ class SchoolAssignmentService
                 continue;
             }
 
+            $requiredHours = TrainingHoursService::getForSchool((int) $schoolId);
+
             AsignedSchool::create([
                 'user_id' => $trainerId,
                 'district' => $district,
@@ -99,6 +101,8 @@ class SchoolAssignmentService
                 'asigned_by' => $assignedBy,
                 'start_route_plan' => null,
                 'end_route_plan' => null,
+                'required_hours' => $requiredHours,
+                'planned_hours' => null,
             ]);
 
             self::syncSchoolAssignedFlag((int) $schoolId);

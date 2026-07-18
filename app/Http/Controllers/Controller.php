@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Video;
 use App\Models\Image;
 use App\Models\Distribution;
@@ -21,10 +22,12 @@ use App\Models\User;
 use App\Models\Cordinator;
 use App\Models\AsignedSchool;
 use App\Models\PaidSchool;
+use App\Models\Testimonial;
 use App\Services\AcademicSessionService;
 use App\Services\HolidayService;
 use App\Services\SessionUploadService;
 use App\Services\StateService;
+use App\Services\TrainingHoursService;
 use View;
 use Session;
 use Config;
@@ -272,9 +275,15 @@ class Controller extends BaseController
 
         if($request->hasfile('fst_videos') || $request->hasfile('snd_videos')){
 
+                $videoMaxKb = (int) config('uploads.video_max_kb', 20480);
                 $request->validate([
-                    'fst_videos' => 'mimes:mp4',
-                    'snd_videos' => 'mimes:mp4',
+                    'fst_videos' => 'nullable|mimes:mp4|max:'.$videoMaxKb,
+                    'snd_videos' => 'nullable|mimes:mp4|max:'.$videoMaxKb,
+                ], [
+                    'fst_videos.mimes' => '1st Activity Video must be an MP4 file.',
+                    'snd_videos.mimes' => '2nd Activity Video must be an MP4 file.',
+                    'fst_videos.max' => '1st Activity Video must not be larger than '.round($videoMaxKb / 1024).' MB.',
+                    'snd_videos.max' => '2nd Activity Video must not be larger than '.round($videoMaxKb / 1024).' MB.',
                 ]);
 
                 $user = Video::where('user_id', $request->input('user_id'))->where('school_name', $request->school_name)->first();
@@ -307,22 +316,74 @@ class Controller extends BaseController
                 }else{
                     $video_update = Video::find($user->id);
                     if($request->file('fst_videos')){
-                        if($user['fst_videos'] == null){
-                            $video_update->video_note = null;
+                        if ($video_update->fst_video) {
+                            Storage::disk('public')->delete('videos/'.$video_update->fst_video);
                         }
+                        $video_update->video_note = null;
+                        $video_update->status = 0;
                         $videoName = Auth::user()->instructor_code.'_'.'fst_videos'.'_'.$request->file('fst_videos')->getClientOriginalName();
-                        $videoPath = $request->file('fst_videos')->storeAs('videos', $videoName, 'public');
+                        $request->file('fst_videos')->storeAs('videos', $videoName, 'public');
                         $video_update->fst_video = $videoName;
-                        $video_update->update();
                     }else{
-                        if($user['snd_videos'] == null){
-                            $video_update->video_note = null;
+                        if ($video_update->snd_video) {
+                            Storage::disk('public')->delete('videos/'.$video_update->snd_video);
                         }
+                        $video_update->video_note = null;
+                        $video_update->status = 0;
                         $videoName = Auth::user()->instructor_code.'_'.'snd_videos'.'_'.$request->file('snd_videos')->getClientOriginalName();
-                        $videoPath = $request->file('snd_videos')->storeAs('videos', $videoName, 'public');
+                        $request->file('snd_videos')->storeAs('videos', $videoName, 'public');
                         $video_update->snd_video = $videoName;
-                        $video_update->update();
                     }
+                    $video_update->uploaded_user = Auth::user()->id;
+                    $video_update->created_date = date('d-m-y - h:i');
+                    $video_update->save();
+                }
+            }
+
+            if ($request->hasFile('testimonial_video')) {
+                $request->validate([
+                    'testimonial_video' => 'required|mimes:mp4',
+                ], [
+                    'testimonial_video.mimes' => 'Testimonial must be an MP4 file.',
+                ]);
+
+                $sessionId = AcademicSessionService::assignmentSessionId();
+                $existing = Testimonial::where('user_id', $request->input('user_id'))
+                    ->where('school_id', $request->input('school_id'))
+                    ->where('session_id', $sessionId)
+                    ->first();
+
+                $videoName = Auth::user()->instructor_code.'_testimonial_'.$request->file('testimonial_video')->getClientOriginalName();
+                $request->file('testimonial_video')->storeAs('testimonials', $videoName, 'public');
+
+                if ($existing === null) {
+                    $testimonial = new Testimonial();
+                    $testimonial->user_id = $request->input('user_id');
+                    $testimonial->uploaded_user = Auth::user()->id;
+                    $testimonial->cordinator = $request->input('cordinator');
+                    $testimonial->district = $request->input('district');
+                    $testimonial->bloack = $request->input('block');
+                    $testimonial->school_name = $request->input('school_name');
+                    $testimonial->school_address = $request->input('school_address');
+                    $testimonial->intime = $request->input('intime');
+                    $testimonial->outtime = $request->input('outtime');
+                    $testimonial->route_date = $request->input('route_date');
+                    $testimonial->school_id = $request->input('school_id');
+                    $testimonial->session_id = $sessionId;
+                    $testimonial->testimonial_video = $videoName;
+                    $testimonial->created_date = date('d-m-y - h:i');
+                    $testimonial->status = 0;
+                    $testimonial->save();
+                } else {
+                    if ($existing->testimonial_video) {
+                        Storage::disk('public')->delete('testimonials/'.$existing->testimonial_video);
+                    }
+                    $existing->testimonial_video = $videoName;
+                    $existing->testimonial_note = null;
+                    $existing->status = 0;
+                    $existing->uploaded_user = Auth::user()->id;
+                    $existing->created_date = date('d-m-y - h:i');
+                    $existing->save();
                 }
             }
 
@@ -376,44 +437,29 @@ class Controller extends BaseController
                     $image->save();
                 }else{
                     $image_update = Image::find($user->id);
-                    if($request->hasfile('ifsb_image')){
-                        if($user['ifsb_image'] == null){
-                            $image_update->image_note = null;
+                    $imageFields = [
+                        'ifsb_image' => 'ifsb_image',
+                        'group_image' => 'group_image',
+                        'fst_aimage' => 'fst_aimage',
+                        'snd_aimage' => 'snd_aimage',
+                        'trd_aimage' => 'trd_aimage',
+                    ];
+                    foreach ($imageFields as $input => $column) {
+                        if ($request->hasFile($input)) {
+                            if ($image_update->{$column}) {
+                                Storage::disk('public')->delete('images/'.$image_update->{$column});
+                            }
+                            $imageName = Auth::user()->instructor_code.'_'.$input.'_'.$request->file($input)->getClientOriginalName();
+                            $request->file($input)->storeAs('images', $imageName, 'public');
+                            $image_update->{$column} = $imageName;
+                            break;
                         }
-                        $imageName = Auth::user()->instructor_code.'_'.'ifsb_image'.'_'.$request->file('ifsb_image')->getClientOriginalName();
-                        $imagePath = $request->file('ifsb_image')->storeAs('images', $imageName, 'public');
-                        $image_update->ifsb_image = $imageName;
-                    }elseif ($request->hasfile('group_image')) {
-                        if($user['group_image'] == null){
-                            $image_update->image_note = null;
-                        }
-                        $imageName = Auth::user()->instructor_code.'_'.'group_image'.'_'.$request->file('group_image')->getClientOriginalName();
-                        $imagePath = $request->file('group_image')->storeAs('images', $imageName, 'public');
-                        $image_update->group_image = $imageName;
-                    }elseif ($request->hasfile('fst_aimage')) {
-                        if($user['fst_aimage'] == null){
-                            $image_update->image_note = null;
-                        }
-                        $imageName = Auth::user()->instructor_code.'_'.'fst_aimage'.'_'.$request->file('fst_aimage')->getClientOriginalName();
-                        $imagePath = $request->file('fst_aimage')->storeAs('images', $imageName, 'public');
-                        $image_update->fst_aimage = $imageName;
-                    }elseif ($request->hasfile('snd_aimage')) {
-                        if($user['snd_aimage'] == null){
-                            $image_update->image_note = null;
-                        }
-                        $imageName = Auth::user()->instructor_code.'_'.'snd_aimage'.'_'.$request->file('snd_aimage')->getClientOriginalName();
-                        $imagePath = $request->file('snd_aimage')->storeAs('images', $imageName, 'public');
-                        $image_update->snd_aimage = $imageName;
-                    }else{
-                        if($user['trd_aimage'] == null){
-                            $image_update->image_note = null;
-                        }
-                        $imageName = Auth::user()->instructor_code.'_'.'trd_aimage'.'_'.$request->file('trd_aimage')->getClientOriginalName();
-                        $imagePath = $request->file('trd_aimage')->storeAs('images', $imageName, 'public');
-                        $image_update->trd_aimage = $imageName;
                     }
+                    $image_update->image_note = null;
+                    $image_update->status = 0;
+                    $image_update->uploaded_user = Auth::user()->id;
                     $image_update->created_date = date('d-m-y - h:i');
-                    $image_update->update();
+                    $image_update->save();
                 }
             }
 
@@ -429,7 +475,7 @@ class Controller extends BaseController
                     $completion->uploaded_user =  Auth::user()->id ;
                     $completion->cordinator = $request->input('cordinator');
                     $completion->district = $request->input('district');
-                    $completion->bloack = $request->input('block');
+                    $completion->block = $request->input('block');
                     $completion->school_name = $request->input('school_name');
                     $completion->school_address = $request->input('school_address');
                     $completion->intime = $request->input('intime');
@@ -450,12 +496,18 @@ class Controller extends BaseController
 
                 }else{
                     $completion = Completion::find($user->id);
+                    if ($completion->completion_file) {
+                        Storage::disk('public')->delete('completion/'.$completion->completion_file);
+                    }
                     $completionName = Auth::user()->instructor_code.'_'.$request->file('completion_file')->getClientOriginalName();
-                    $completionPath = $request->file('completion_file')->storeAs('completion', $completionName, 'public');
+                    $request->file('completion_file')->storeAs('completion', $completionName, 'public');
                     $completion->completion_file = $completionName;
                     $completion->status = 0;
                     $completion->completion_note = null;
-                    $completion->update();
+                    $completion->emergency_approved = 0;
+                    $completion->created_date = date('d-m-y - h:i');
+                    $completion->uploaded_user = Auth::user()->id;
+                    $completion->save();
 
                     $school_uc = School::find($request->input('school_id'));
                     $school_uc->completion_status = 0;
@@ -481,9 +533,9 @@ class Controller extends BaseController
                     $distribution = new Distribution();
                     $distribution->user_id =  $request->input('user_id');
                     $distribution->uploaded_user =  Auth::user()->id ;
-                    $distribution->cordinator = $request->input('cordinator');
+                    $distribution->coordinator = $request->input('cordinator');
                     $distribution->district = $request->input('district');
-                    $distribution->bloack = $request->input('block');
+                    $distribution->block = $request->input('block');
                     $distribution->school_name = $request->input('school_name');
                     $distribution->school_address = $request->input('school_address');
                     $distribution->intime = $request->input('intime');
@@ -499,12 +551,18 @@ class Controller extends BaseController
                     $distribution->save();
                 }else{
                     $distribution = Distribution::find($user->id);
+                    if ($distribution->distribution_file) {
+                        Storage::disk('public')->delete('distribution/'.$distribution->distribution_file);
+                    }
                     $distributionName = Auth::user()->instructor_code.'_'.$request->file('distribution_file')->getClientOriginalName();
-                    $distributionPath = $request->file('distribution_file')->storeAs('distribution', $distributionName, 'public');
+                    $request->file('distribution_file')->storeAs('distribution', $distributionName, 'public');
                     $distribution->complete_students = $request->input('complete_students');
                     $distribution->distribution_file = $distributionName;
                     $distribution->distribution_note = null;
-                    $distribution->update();
+                    $distribution->status = 0;
+                    $distribution->uploaded_user = Auth::user()->id;
+                    $distribution->created_date = date('d-m-y - h:i');
+                    $distribution->save();
                 }
             }
         SessionUploadService::syncAssignmentStatuses();
@@ -514,60 +572,70 @@ class Controller extends BaseController
     public function trainerData($id)
     {
         try {
-            $assignment = SessionUploadService::assertCanUpload((int) $id, Auth::id());
+            // Admin can open any assignment; trainers only their own.
+            $trainerFilter = (Auth::check() && (int) Auth::user()->role === 1)
+                ? null
+                : Auth::id();
+            $assignment = SessionUploadService::assertCanUpload((int) $id, $trainerFilter);
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
             return redirect()->route('dashboard')->with('error', $e->getMessage());
         }
 
         $school_data = $assignment->toArray();
-        // $cordinators = Cordinator::where('id' , Auth::user()->cordinator_id )->first()->toArray();
         if (!Auth::check()) {
             return response()->json(['error' => 'User not authenticated'], 401);
         }
 
-        $cordinatorId = Auth::user()->cordinator_id;
+        $trainer = User::find($assignment->user_id);
+        if (!$trainer) {
+            return redirect()->route('dashboard')->with('error', 'Trainer not found for this school assignment.');
+        }
+
+        $cordinatorId = $trainer->cordinator_id;
         if (!$cordinatorId) {
-            return response()->json(['error' => 'Cordinator ID not found in user'], 404);
+            return redirect()->route('dashboard')->with('error', 'Cordinator ID not found for this trainer.');
         }
 
         $cordinator = Cordinator::find($cordinatorId);
         if (!$cordinator) {
-            return response()->json(['error' => 'Cordinator not found'], 404);
+            return redirect()->route('dashboard')->with('error', 'Cordinator not found.');
         }
 
         $cordinators = $cordinator->toArray();
-
 
         $district = StateService::districtsQuery()->get();
         $block = Block::get();
         $schools = StateService::schoolsQuery()->get();
 
-        foreach($schools as $school){
-            if($school['id'] == $school_data['school_name']){
+        $schoolName = null;
+        foreach ($schools as $school) {
+            if ($school['id'] == $school_data['school_name']) {
                 $schoolName = $school['school_name'];
             }
         }
 
-        $asch = AsignedSchool::where('id' , $id)->first()->toArray();
+        $asch = AsignedSchool::where('id', $id)->first()->toArray();
 
         $user_videos = Video::where('user_id', $asch['user_id'])->where('school_name', $schoolName)->first();
-
         $user_images = Image::where('user_id', $asch['user_id'])->where('school_name', $schoolName)->first();
-
         $user_completion = Completion::where('user_id', $asch['user_id'])->where('school_name', $schoolName)->first();
         $user_distribution = Distribution::where('user_id', $asch['user_id'])->where('school_name', $schoolName)->first();
+        $user_testimonial = Testimonial::where('user_id', $asch['user_id'])
+            ->where('school_id', $school_data['school_name'])
+            ->first();
 
         return view('trainer.add_data')
-        ->with('user_images', $user_images)
-        ->with('user_videos', $user_videos)
-        ->with('user_completion', $user_completion)
-        ->with('user_distribution', $user_distribution)
-        ->with('school_data', $school_data)
-        ->with('cordinators', $cordinators)
-        ->with('district', $district)
-        ->with('schools', $schools)
-        ->with('block', $block)
-        ->with('activeAcademicSession', AcademicSessionService::active());
+            ->with('user_images', $user_images)
+            ->with('user_videos', $user_videos)
+            ->with('user_completion', $user_completion)
+            ->with('user_distribution', $user_distribution)
+            ->with('user_testimonial', $user_testimonial)
+            ->with('school_data', $school_data)
+            ->with('cordinators', $cordinators)
+            ->with('district', $district)
+            ->with('schools', $schools)
+            ->with('block', $block)
+            ->with('activeAcademicSession', AcademicSessionService::active());
     }
 
     public function uploadRoutePlan(Request $request)
@@ -596,18 +664,38 @@ class Controller extends BaseController
         }
 
         $workingDays = (int) $request->working_days;
+        $dailyHours = TrainingHoursService::dailyHours($request->intime, $request->outtime);
+        if ($dailyHours <= 0) {
+            return redirect()->back()->with('error', 'Outtime must be after Intime so daily training hours can be calculated.');
+        }
+
+        $plannedHours = TrainingHoursService::plannedHours($workingDays, $request->intime, $request->outtime);
         $endDate = HolidayService::calculateEndDate($startDate, $workingDays, $districtId, $stateId);
 
-        $routeData->route_date = $startDate->format('d/m/Y')." - ".$endDate->format('d/m/Y');
+        // Snapshot required hours if missing (older assignments / school hours set later)
+        if ($routeData->required_hours === null && $school) {
+            $routeData->required_hours = TrainingHoursService::getForSchool((int) $school->id);
+        }
+
+        $routeData->route_date = $startDate->format('d/m/Y').' - '.$endDate->format('d/m/Y');
         $routeData->start_route_plan = date('H:i', strtotime($request->intime));
         $routeData->end_route_plan = date('H:i', strtotime($request->outtime));
         $routeData->end_date = $endDate->format('d-m-Y');
         $routeData->working_days = $workingDays;
+        $routeData->planned_hours = $plannedHours;
         $routeData->add_route_plan_date = date('Y-m-d H:i:s');
         $routeData->added_by_route_plan = Auth::user()->id;
         $routeData->save();
 
-        return redirect()->back()->with('success', 'Route plan saved. '.$workingDays.' working days (holidays excluded).');
+        $msg = 'Route plan saved. '.$workingDays.' working days × '.$dailyHours.' hrs/day = '.$plannedHours.' planned hours.';
+        if ($routeData->required_hours !== null) {
+            $msg .= ' Required: '.$routeData->required_hours.' hrs.';
+            if ($plannedHours + 0.001 < (float) $routeData->required_hours) {
+                $msg .= ' Warning: planned hours are less than required training hours.';
+            }
+        }
+
+        return redirect()->back()->with('success', $msg);
     }
 
     public function schoolCompleteStatus()

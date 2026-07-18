@@ -124,11 +124,59 @@
         return labels;
     }
 
+    function minutesBetween(intime, outtime) {
+        if (!intime || !outtime) {
+            return null;
+        }
+        var s = intime.split(':');
+        var e = outtime.split(':');
+        var startMins = (parseInt(s[0], 10) * 60) + parseInt(s[1], 10);
+        var endMins = (parseInt(e[0], 10) * 60) + parseInt(e[1], 10);
+        if (isNaN(startMins) || isNaN(endMins) || endMins <= startMins) {
+            return null;
+        }
+        return endMins - startMins;
+    }
+
     function initRoutePlanForm($form, holidayDates, holidayMap, workingDates) {
+        var $fields = $form.find('.route-plan-fields');
         var $start = $form.find('.route-plan-start');
         var $workingDays = $form.find('.route-plan-working-days');
         var $endDisplay = $form.find('.route-plan-end-display');
         var $holidayNote = $form.find('.route-plan-holiday-note');
+        var $intime = $form.find('.route-plan-intime');
+        var $outtime = $form.find('.route-plan-outtime');
+        var $hoursDisplay = $form.find('.route-plan-hours-display');
+        var $hoursNote = $form.find('.route-plan-hours-note');
+        var requiredHours = parseFloat($fields.data('required-hours'));
+        if (isNaN(requiredHours)) {
+            requiredHours = null;
+        }
+
+        function updateHours() {
+            var days = parseInt($workingDays.val(), 10);
+            var mins = minutesBetween($intime.val(), $outtime.val());
+
+            if (!days || mins === null) {
+                $hoursDisplay.val('');
+                $hoursNote.text('');
+                return;
+            }
+
+            var daily = Math.round((mins / 60) * 100) / 100;
+            var planned = Math.round((days * daily) * 100) / 100;
+            $hoursDisplay.val(planned + ' hrs (' + days + ' days × ' + daily + ' hrs/day)');
+
+            if (requiredHours !== null) {
+                if (planned + 0.001 < requiredHours) {
+                    $hoursNote.html('<span class="text-danger">Planned ' + planned + ' hrs is less than required ' + requiredHours + ' hrs.</span>');
+                } else {
+                    $hoursNote.html('<span class="text-success">Planned hours cover the required ' + requiredHours + ' hrs.</span>');
+                }
+            } else {
+                $hoursNote.text('');
+            }
+        }
 
         function updateEndDate() {
             var start = $start.val();
@@ -137,12 +185,14 @@
             if (!start || !days) {
                 $endDisplay.val('');
                 $holidayNote.text('');
+                updateHours();
                 return;
             }
 
             if (isHoliday(start, holidayDates, workingDates)) {
                 $holidayNote.html('<span class="text-danger">Start date is a holiday (' + holidayLabel(start, holidayMap) + '). Choose a working day.</span>');
                 $endDisplay.val('');
+                updateHours();
                 return;
             }
 
@@ -155,10 +205,14 @@
             } else {
                 $holidayNote.text(days + ' working days — no holidays in this range.');
             }
+
+            updateHours();
         }
 
         $start.on('change input', updateEndDate);
         $workingDays.on('change input', updateEndDate);
+        $intime.on('change input', updateHours);
+        $outtime.on('change input', updateHours);
 
         $form.on('submit', function (e) {
             var start = $start.val();
@@ -175,9 +229,22 @@
                 alert('Start date cannot be a holiday (' + holidayLabel(start, holidayMap) + '). Please choose a working day.');
                 return;
             }
+
+            if (!$intime.val() || !$outtime.val()) {
+                e.preventDefault();
+                alert('Please enter Intime and Outtime.');
+                return;
+            }
+
+            if (minutesBetween($intime.val(), $outtime.val()) === null) {
+                e.preventDefault();
+                alert('Outtime must be after Intime.');
+                return;
+            }
         });
 
         updateEndDate();
+        updateHours();
     }
 
     $(document).ready(function () {

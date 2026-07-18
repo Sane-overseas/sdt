@@ -5,34 +5,32 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToAcademicSession;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class AsignedSchool extends Model
+class Testimonial extends Model
 {
     use HasFactory, BelongsToAcademicSession;
 
     protected $fillable = [
         'user_id',
+        'testimonial_video',
+        'cordinator',
         'district',
-        'block',
+        'bloack',
         'school_name',
-        'session_id',
-        'start_route_plan',
-        'end_route_plan',
+        'school_address',
+        'intime',
+        'outtime',
         'route_date',
-        'end_date',
-        'remark',
-        'uc_submitted',
+        'created_date',
         'status',
-        'asigned_by',
-        'paid_status',
-        'add_route_plan_date',
-        'added_by_route_plan',
-        'working_days',
-        'required_hours',
-        'planned_hours',
+        'testimonial_note',
+        'uploaded_user',
+        'school_id',
+        'session_id',
     ];
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }

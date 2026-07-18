@@ -58,7 +58,7 @@
                         @endif
                         </td> 
                         <td>{{$data['district']}}</td>
-                        <td>{{$data['bloack']}}</td>
+                        <td>{{$data['block'] ?? $data['bloack'] ?? ''}}</td>
                         <td>{{$data['school_name']}}</td>
                         <td>
                             @foreach($schools as $school)

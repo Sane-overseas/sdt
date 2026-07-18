@@ -26,6 +26,7 @@ use App\Models\AdvancePayment;
 use App\Models\Holiday;
 use App\Models\AcademicSession;
 use App\Models\State;
+use App\Models\Testimonial;
 use App\Services\AcademicSessionService;
 use App\Services\HolidayService;
 use App\Services\SchoolAssignmentService;
@@ -513,6 +514,11 @@ class AdminController extends BaseController
 
         if ($vid != null) {
             $video = Video::findOrFail($request->video_id);
+            if ((int) $request->video_status === 1) {
+                if ($blocked = $this->approveBlockedIfRejected($video, 'video_note', 'video')) {
+                    return $blocked;
+                }
+            }
             $video->status = $request->video_status;
             $video->save();
 
@@ -531,6 +537,10 @@ class AdminController extends BaseController
     public function fstvideoDetail($id)
     {
         $video = Video::findOrFail($id);
+        if ($blocked = $this->approvedDeleteBlocked($video, 'video')) {
+            return $blocked;
+        }
+        $this->deletePublicStorageFile('videos/'.$video->fst_video);
         $video->fst_video = null;
         $video->status = 0;
         $video->save();
@@ -540,6 +550,10 @@ class AdminController extends BaseController
     public function sndvideoDetail($id)
     {
         $video = Video::findOrFail($id);
+        if ($blocked = $this->approvedDeleteBlocked($video, 'video')) {
+            return $blocked;
+        }
+        $this->deletePublicStorageFile('videos/'.$video->snd_video);
         $video->snd_video = null;
         $video->status = 0;
         $video->save();
@@ -548,13 +562,19 @@ class AdminController extends BaseController
 
     public function deleteVideos($id, $sid)
     {
-        $video = Video::find($id)->delete($id);
+        $video = Video::findOrFail($id);
+        if ($blocked = $this->approvedDeleteBlocked($video, 'video')) {
+            return $blocked;
+        }
+        $this->deletePublicStorageFile('videos/'.$video->fst_video);
+        $this->deletePublicStorageFile('videos/'.$video->snd_video);
+        $video->delete();
 
         $videoStatus = School::findOrFail($sid);
         $videoStatus->video_status = 0;
         $videoStatus->save();
 
-        return response()->json($video);
+        return response()->json(['success' => true]);
     }
 
 
@@ -564,6 +584,11 @@ class AdminController extends BaseController
 
         if ($img != null) {
             $image = Image::findOrFail($request->image_id);
+            if ((int) $request->image_status === 1) {
+                if ($blocked = $this->approveBlockedIfRejected($image, 'image_note', 'image')) {
+                    return $blocked;
+                }
+            }
             $image->status = $request->image_status;
             $image->save();
 
@@ -581,46 +606,49 @@ class AdminController extends BaseController
 
     public function imagesDetail($id, $imgid)
     {
-
-        if ($imgid == 1) {
-            $image = Image::findOrFail($id);
-            $image->ifsb_image = null;
-            $image->status = 0;
-            $image->save();
-        } elseif ($imgid == 2) {
-            $image = Image::findOrFail($id);
-            $image->group_image = null;
-            $image->status = 0;
-            $image->save();
-        } elseif ($imgid == 3) {
-            $image = Image::findOrFail($id);
-            $image->fst_aimage = null;
-            $image->status = 0;
-            $image->save();
-        } elseif ($imgid == 4) {
-            $image = Image::findOrFail($id);
-            $image->snd_aimage = null;
-            $image->status = 0;
-            $image->save();
-        } else {
-            $image = Image::findOrFail($id);
-            $image->trd_aimage = null;
-            $image->status = 0;
-            $image->save();
+        $image = Image::findOrFail($id);
+        if ($blocked = $this->approvedDeleteBlocked($image, 'image')) {
+            return $blocked;
         }
+
+        $fields = [
+            1 => 'ifsb_image',
+            2 => 'group_image',
+            3 => 'fst_aimage',  
+            4 => 'snd_aimage',
+            5 => 'trd_aimage',
+        ];
+
+        if (!isset($fields[$imgid])) {
+            return response()->json(['error' => 'Invalid image type.'], 422);
+        }
+
+        $field = $fields[$imgid];
+        $this->deletePublicStorageFile('images/'.$image->{$field});
+        $image->{$field} = null;
+        $image->status = 0;
+        $image->save();
 
         return response()->json($image);
     }
 
     public function deleteImages($id, $sid)
     {
-        $image = Image::find($id)->delete($id);
+        $image = Image::findOrFail($id);
+        if ($blocked = $this->approvedDeleteBlocked($image, 'image')) {
+            return $blocked;
+        }
+
+        foreach (['ifsb_image', 'group_image', 'fst_aimage', 'snd_aimage', 'trd_aimage'] as $field) {
+            $this->deletePublicStorageFile('images/'.$image->{$field});
+        }
+        $image->delete();
 
         $imageStatus = School::findOrFail($sid);
         $imageStatus->image_status = 0;
         $imageStatus->save();
 
-        return response()->json($image);
+        return response()->json(['success' => true]);
     }
 
     public function completionStatus(Request $request)
@@ -628,6 +656,11 @@ class AdminController extends BaseController
         $uc = Completion::where('id', $request->completion_id)->first();
         if ($uc != null) {
             $completion = Completion::findOrFail($request->completion_id);
+            if ((int) $request->completion_status === 1) {
+                if (!empty($completion->completion_note) && (int) $completion->emergency_approved !== 1) {
+                    return response()->json(['error' => 'Rejected completion must be re-uploaded before approval.'], 422);
+                }
+            }
             $completion->status = $request->completion_status;
             $completion->save();
 
@@ -649,8 +682,12 @@ class AdminController extends BaseController
         if (!$completion) {
             return response()->json(['error' => 'Record not found.'], 404);
         }
+        if ($blocked = $this->approvedDeleteBlocked($completion, 'completion')) {
+            return $blocked;
+        }
 
         $sessionId = $completion->session_id;
+        $this->deletePublicStorageFile('completion/'.$completion->completion_file);
         $completion->delete();
 
         AsignedSchool::withoutGlobalScopes()
@@ -668,6 +705,11 @@ class AdminController extends BaseController
         $dc = Distribution::where('id', $request->distributions_id)->first();
         if ($dc != null) {
             $distributions = Distribution::findOrFail($request->distributions_id);
+            if ((int) $request->distributions_status === 1) {
+                if ($blocked = $this->approveBlockedIfRejected($distributions, 'distribution_note', 'distribution')) {
+                    return $blocked;
+                }
+            }
             $distributions->status = $request->distributions_status;
             $distributions->save();
 
@@ -684,8 +726,14 @@ class AdminController extends BaseController
 
     public function distributionDetail($id)
     {
-        $distribution = Distribution::find($id)->delete($id);
-        return response()->json($distribution);
+        $distribution = Distribution::findOrFail($id);
+        if ($blocked = $this->approvedDeleteBlocked($distribution, 'distribution')) {
+            return $blocked;
+        }
+        $this->deletePublicStorageFile('distribution/'.$distribution->distribution_file);
+        $distribution->delete();
+
+        return response()->json(['success' => true]);
     }
 
     public function getSchools()
@@ -707,8 +755,57 @@ class AdminController extends BaseController
 
         $video = Video::findOrFail($request->id);
         $video->video_note = $request->video_note;
+        $video->status = 0;
         $video->save();
         return redirect()->back();
+    }
+
+    public function testimonialStatus(Request $request)
+    {
+        $row = Testimonial::where('id', $request->testimonial_id)->first();
+        if (!$row) {
+            return response()->json(['error' => 'Something Wrong Please Check!'], 404);
+        }
+
+        if ((int) $request->testimonial_status === 1) {
+            if ($blocked = $this->approveBlockedIfRejected($row, 'testimonial_note', 'testimonial')) {
+                return $blocked;
+            }
+        }
+
+        $row->status = (int) $request->testimonial_status;
+        $row->save();
+
+        return response()->json(['success' => 'Testimonial status updated successfully.']);
+    }
+
+    public function testimonialNote(Request $request)
+    {
+        $request->validate([
+            'testimonial_note' => 'required',
+            'id' => 'required|exists:testimonials,id',
+        ]);
+
+        $testimonial = Testimonial::findOrFail($request->id);
+        $testimonial->testimonial_note = $request->testimonial_note;
+        $testimonial->status = 0;
+        $testimonial->save();
+
+        return redirect()->back();
+    }
+
+    public function deleteTestimonial($id)
+    {
+        $testimonial = Testimonial::findOrFail($id);
+        if ($blocked = $this->approvedDeleteBlocked($testimonial, 'testimonial')) {
+            return $blocked;
+        }
+        if ($testimonial->testimonial_video) {
+            Storage::disk('public')->delete('testimonials/'.$testimonial->testimonial_video);
+        }
+        $testimonial->delete();
+
+        return response()->json(['success' => true]);
     }
 
     public function imageNote(Request $request)
@@ -719,6 +816,7 @@ class AdminController extends BaseController
 
         $video = Image::findOrFail($request->id);
         $video->image_note = $request->image_note;
+        $video->status = 0;
         $video->save();
         return redirect()->back();
     }
@@ -731,6 +829,7 @@ class AdminController extends BaseController
 
         $video = Distribution::findOrFail($request->id);
         $video->distribution_note = $request->distribution_note;
+        $video->status = 0;
         $video->save();
         return redirect()->back();
     }
@@ -787,45 +886,57 @@ class AdminController extends BaseController
     public function uploadedData(Request $request)
     {
         $schoolIds = StateService::schoolsQuery()->pluck('id')->all();
+        $schoolFilter = $schoolIds ?: [0];
+
         if ($request->custom_date_data != null) {
-            $videos = Video::orderBy('created_at', 'DESC')
-                ->whereIn('school_id', $schoolIds ?: [0])->whereDate('created_at', $request->custom_date_data)->get()->toArray();
-            $images = Image::orderBy('created_at', 'DESC')
-                ->whereIn('school_id', $schoolIds ?: [0])->whereDate('created_at', $request->custom_date_data)->get()->toArray();
-            $completion = Completion::orderBy('created_at', 'DESC')
-                ->whereIn('school_id', $schoolIds ?: [0])->whereDate('created_at', $request->custom_date_data)->get()->toArray();
-            $distributions = Distribution::orderBy('created_at', 'DESC')
-                ->whereIn('school_id', $schoolIds ?: [0])->whereDate('created_at', $request->custom_date)->get()->toArray();
-        } elseif ($request->all_recordes != null) {
-            $videos = Video::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolIds ?: [0])->get()->toArray();
-            $images = Image::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolIds ?: [0])->get()->toArray();
-            $completion = Completion::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolIds ?: [0])->get()->toArray();
-            $distributions = Distribution::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolIds ?: [0])->get()->toArray();
+            $date = $request->custom_date_data;
+            $dateFilter = function ($query) use ($date) {
+                $query->whereDate('updated_at', $date)->orWhereDate('created_at', $date);
+            };
+            $videos = Video::orderBy('updated_at', 'DESC')
+                ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
+            $images = Image::orderBy('updated_at', 'DESC')
+                ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
+            $completion = Completion::orderBy('updated_at', 'DESC')
+                ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
+            $distributions = Distribution::orderBy('updated_at', 'DESC')
+                ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
+            $testimonials = Testimonial::orderBy('updated_at', 'DESC')
+                ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
         } elseif ($request->route_date != null) {
             $custom_date = (explode("/", $request->route_date));
-            $startDate = trim($custom_date[0]);
-            $endDate = trim($custom_date[1]);
-            $videos = Video::whereIn('school_id', $schoolIds ?: [0])->whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])->get()->toArray();
-            $images = Image::whereIn('school_id', $schoolIds ?: [0])->whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])->get()->toArray();
-            $completion = Completion::whereIn('school_id', $schoolIds ?: [0])->whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])->get()->toArray();
-            $distributions = Distribution::whereIn('school_id', $schoolIds ?: [0])->whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])->get()->toArray();
+            $startDate = trim($custom_date[0] ?? '');
+            $endDate = trim($custom_date[1] ?? '');
+            $rangeFilter = function ($query) use ($startDate, $endDate) {
+                $query->whereBetween(DB::raw('DATE(updated_at)'), [$startDate, $endDate])
+                    ->orWhereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate]);
+            };
+            $videos = Video::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)
+                ->where($rangeFilter)->get()->toArray();
+            $images = Image::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)
+                ->where($rangeFilter)->get()->toArray();
+            $completion = Completion::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)
+                ->where($rangeFilter)->get()->toArray();
+            $distributions = Distribution::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)
+                ->where($rangeFilter)->get()->toArray();
+            $testimonials = Testimonial::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)
+                ->where($rangeFilter)->get()->toArray();
         } else {
-            $videos = Video::orderBy('created_at', 'DESC')
-                ->whereIn('school_id', $schoolIds ?: [0])->whereDate('created_at', date('Y-m-d'))->get()->toArray();
-            $images = Image::orderBy('created_at', 'DESC')
-                ->whereIn('school_id', $schoolIds ?: [0])->whereDate('created_at', date('Y-m-d'))->get()->toArray();
-            $completion = Completion::orderBy('created_at', 'DESC')
-                ->whereIn('school_id', $schoolIds ?: [0])->whereDate('created_at', date('Y-m-d'))->get()->toArray();
-            $distributions = Distribution::orderBy('created_at', 'DESC')
-                ->whereIn('school_id', $schoolIds ?: [0])->whereDate('created_at', date('Y-m-d'))->get()->toArray();
+            // Default: all records for the current session.
+            $videos = Video::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
+            $images = Image::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
+            $completion = Completion::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
+            $distributions = Distribution::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
+            $testimonials = Testimonial::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
         }
-        $user = User::where('state_id', StateService::scopeStateId())->get();
+        $user = $this->usersForUploadedDataViews();
         $schools = StateService::schoolsQuery()->get()->toArray();
         return view('uploadedData.uploaded-data')
             ->with('videos', $videos)
             ->with('images', $images)
             ->with('completion', $completion)
             ->with('distributions', $distributions)
+            ->with('testimonials', $testimonials)
             ->with('schools', $schools)
             ->with('user', $user);
     }
@@ -838,29 +949,9 @@ class AdminController extends BaseController
         $cordinator = StateService::cordinatorsQuery()->get();
 
         $months_data = AsignedSchool::where('user_id', $id)->where('route_date', '!=', null)->select('id', 'created_at', 'end_date', 'status', 'route_date', 'end_date')
-            ->get()
-            ->groupBy(function ($date) {
-                return Carbon::parse($date->end_date)->format('m');
-            });
-        // dd($months_data->toArray());
-        $usermcount = [];
-        $userArr = [];
+            ->get();
+        $userArr = $this->buildSessionMonthCounts($months_data);
 
-        foreach ($months_data->toArray() as $key => $value) {
-            $usermcount[(int)$key] = count($value);
-        }
-
-        $month = ['Jan 2024', 'Feb 2024', 'Mar 2024', 'Apr 2024', 'May 2024', 'Jun 2024', 'Jul 2024', 'Aug 2024', 'Sep 2024', 'Oct 2023', 'Nov 2023', 'Dec 2023'];
-
-        for ($i = 1; $i <= 12; $i++) {
-            if (!empty($usermcount[$i])) {
-                $userArr[$i]['count'] = $usermcount[$i] ?? 0;
-            } else {
-                $userArr[$i]['count'] = 0;
-            }
-            $userArr[$i]['month'] = $month[$i - 1];
-        }
-        // dd($userArr);
         return view('TrainersReporting.trainer-schools-details')
             ->with('trainer_data', $trainer_data)
             ->with('schools', $schools)
@@ -883,28 +974,8 @@ class AdminController extends BaseController
             ->get()->toArray();
 
         $months_data = AsignedSchool::where('status', 1)->select('id', 'created_at', 'end_date', 'status', 'route_date', 'end_date')
-            ->get()
-            ->groupBy(function ($date) {
-                return Carbon::parse($date->end_date)->format('m');
-            });
-
-        $usermcount = [];
-        $totalSchools = [];
-
-        foreach ($months_data->toArray() as $key => $value) {
-            $usermcount[(int)$key] = count($value);
-        }
-
-        $month = ['Jan 2024', 'Feb 2024', 'Mar 2024', 'Apr 2024', 'May 2024', 'Jun 2024', 'Jul 2024', 'Aug 2024', 'Sep 2024', 'Oct 2023', 'Nov 2023', 'Dec 2023'];
-
-        for ($i = 1; $i <= 12; $i++) {
-            if (!empty($usermcount[$i])) {
-                $totalSchools[$i]['count'] = $usermcount[$i] ?? 0;
-            } else {
-                $totalSchools[$i]['count'] = 0;
-            }
-            $totalSchools[$i]['month'] = $month[$i - 1];
-        }
+            ->get();
+        $totalSchools = $this->buildSessionMonthCounts($months_data);
 
         $workingTrainers = AsignedSchool::whereIn('district', $districtIds ?: [0])->get()->unique('user_id')->toArray();
         $distribution = Distribution::get()->toArray();
@@ -950,28 +1021,8 @@ class AdminController extends BaseController
 
 
         $months_data = AsignedSchool::where('district', $id)->where('status', 1)->select('id', 'created_at', 'end_date', 'status', 'route_date', 'end_date')
-            ->get()
-            ->groupBy(function ($date) {
-                return Carbon::parse($date->end_date)->format('m');
-            });
-
-        $usermcount = [];
-        $totalSchools = [];
-
-        foreach ($months_data->toArray() as $key => $value) {
-            $usermcount[(int)$key] = count($value);
-        }
-
-        $month = ['Jan 2024', 'Feb 2024', 'Mar 2024', 'Apr 2024', 'May 2024', 'Jun 2024', 'Jul 2024', 'Aug 2024', 'Sep 2024', 'Oct 2023', 'Nov 2023', 'Dec 2023'];
-
-        for ($i = 1; $i <= 12; $i++) {
-            if (!empty($usermcount[$i])) {
-                $totalSchools[$i]['count'] = $usermcount[$i] ?? 0;
-            } else {
-                $totalSchools[$i]['count'] = 0;
-            }
-            $totalSchools[$i]['month'] = $month[$i - 1];
-        }
+            ->get();
+        $totalSchools = $this->buildSessionMonthCounts($months_data);
 
         return view('districtReporting.district-data')
             ->with('asigned_schools', $asigned_schools)
@@ -1092,7 +1143,7 @@ class AdminController extends BaseController
         $schoolIds = StateService::schoolsQuery()->pluck('id')->all();
         $completion = Completion::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolIds ?: [0])->where('completion_note', '!=', null)
             ->where('emergency_approved', 0)->get()->toArray();
-        $user = User::where('state_id', StateService::scopeStateId())->get();
+        $user = $this->usersForUploadedDataViews();
         $schools = StateService::schoolsQuery()->get()->toArray();
 
         return view('uploadedData.rejected-uc')
@@ -1105,7 +1156,7 @@ class AdminController extends BaseController
     {
         $schoolIds = StateService::schoolsQuery()->pluck('id')->all();
         $completion = Completion::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolIds ?: [0])->where('status', 0)->where('completion_note', null)->get()->toArray();
-        $user = User::where('state_id', StateService::scopeStateId())->get();
+        $user = $this->usersForUploadedDataViews();
         $schools = StateService::schoolsQuery()->get()->toArray();
 
         return view('uploadedData.approval-pending-uc')
@@ -1118,7 +1169,7 @@ class AdminController extends BaseController
     {
         $schoolIds = StateService::schoolsQuery()->pluck('id')->all();
         $completion = Completion::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolIds ?: [0])->where('emergency_approved', 1)->get()->toArray();
-        $user = User::where('state_id', StateService::scopeStateId())->get();
+        $user = $this->usersForUploadedDataViews();
         $schools = StateService::schoolsQuery()->get()->toArray();
 
         return view('uploadedData.emergency-approved-uc')
@@ -1550,5 +1601,81 @@ class AdminController extends BaseController
         $state->update($data);
 
         return redirect()->route('settings')->with('success', 'State updated to '.$state->name.'.');
+    }
+
+    private function approvedDeleteBlocked($record, string $label)
+    {
+        if ((int) ($record->status ?? 0) === 1) {
+            return response()->json(['error' => 'Approved '.$label.' cannot be deleted.'], 403);
+        }
+
+        return null;
+    }
+
+    private function approveBlockedIfRejected($record, string $noteField, string $label)
+    {
+        if (!empty($record->{$noteField})) {
+            return response()->json(['error' => 'Rejected '.$label.' must be re-uploaded before approval.'], 422);
+        }
+
+        return null;
+    }
+
+    private function deletePublicStorageFile(?string $path): void
+    {
+        if ($path) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+
+    /**
+     * Users for Uploaded By columns: state-scoped trainers plus admins
+     * (admins often have null state_id and were previously missing → "—").
+     */
+    private function usersForUploadedDataViews()
+    {
+        $stateId = StateService::scopeStateId();
+
+        return User::query()
+            ->when($stateId, function ($q) use ($stateId) {
+                $q->where(function ($inner) use ($stateId) {
+                    $inner->where('state_id', $stateId)->orWhere('role', 1);
+                });
+            })
+            ->get();
+    }
+
+    /**
+     * Build month columns from the current academic session and count rows by end_date.
+     *
+     * @param  \Illuminate\Support\Collection|array  $rows
+     * @return array<int, array{month: string, count: int}>
+     */
+    private function buildSessionMonthCounts($rows): array
+    {
+        $labels = AcademicSessionService::monthLabels();
+        $counts = array_fill_keys(array_keys($labels), 0);
+
+        foreach ($rows as $row) {
+            $endDate = is_array($row) ? ($row['end_date'] ?? null) : ($row->end_date ?? null);
+            $parsed = AcademicSessionService::parseEndDate($endDate);
+            if (!$parsed) {
+                continue;
+            }
+            $key = $parsed->format('Y-m');
+            if (array_key_exists($key, $counts)) {
+                $counts[$key]++;
+            }
+        }
+
+        $result = [];
+        foreach ($labels as $key => $label) {
+            $result[] = [
+                'month' => $label,
+                'count' => $counts[$key],
+            ];
+        }
+
+        return $result;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AcademicSession;
 use App\Models\School;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 
@@ -176,5 +177,65 @@ class AcademicSessionService
         }
 
         return $session;
+    }
+
+    /**
+     * Month labels for the current (or given) academic session: ["2026-04" => "Apr 2026", ...]
+     * Falls back to the current calendar year when session dates are missing.
+     */
+    public static function monthLabels(?AcademicSession $session = null): array
+    {
+        $session = $session ?? self::current();
+
+        if ($session?->start_date) {
+            $start = Carbon::parse($session->start_date)->startOfMonth();
+        } else {
+            $start = Carbon::now()->startOfYear();
+        }
+
+        if ($session?->end_date) {
+            $end = Carbon::parse($session->end_date)->startOfMonth();
+        } else {
+            $end = $start->copy()->addMonths(11);
+        }
+
+        if ($end->lt($start)) {
+            $end = $start->copy()->addMonths(11);
+        }
+
+        $months = [];
+        $cursor = $start->copy();
+        while ($cursor->lte($end)) {
+            $months[$cursor->format('Y-m')] = $cursor->format('M Y');
+            $cursor->addMonth();
+        }
+
+        return $months;
+    }
+
+    /** Parse assignment end_date values stored as d-m-Y / d/m/Y / Y-m-d. */
+    public static function parseEndDate(?string $value): ?Carbon
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+        foreach (['d-m-Y', 'd/m/Y', 'd-m-y', 'd/m/y', 'Y-m-d'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $value);
+                if ($parsed !== false) {
+                    return $parsed;
+                }
+            } catch (\Throwable $e) {
+                // try next format
+            }
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

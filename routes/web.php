@@ -95,6 +95,7 @@ Route::post('route-plan/{id}',[Controller::class, 'uploadRoutePlan'])->name('rou
 Route::get('custom-data', [AdminController::class, 'trainersLogs'])->name('custom-data');
 
 Route::get('/video-status', [AdminController::class, 'videoStatus']);
+Route::get('/testimonial-status', [AdminController::class, 'testimonialStatus']);
 Route::get('/trainer-status', [AdminController::class, 'trainerStatusDetail']);
 Route::get('/school-paid-status', [AdminController::class, 'schoolPaidStatus']);
 Route::get('1stvideo/{id}',[AdminController::class, 'fstvideoDetail'])->name('1stvideo');
@@ -105,8 +106,10 @@ Route::get('distribution-remove/{id}',[AdminController::class, 'distributionDeta
 Route::get('images/{id}/{imgid}',[AdminController::class, 'imagesDetail'])->name('images');
 Route::get('delete-images/{id}/{sid}',[AdminController::class, 'deleteImages'])->name('delete-images');
 Route::get('delete-videos/{id}/{sid}',[AdminController::class, 'deleteVideos'])->name('delete-videos');
+Route::get('delete-testimonial/{id}',[AdminController::class, 'deleteTestimonial'])->name('delete-testimonial');
 //Notes
 Route::post('video-note',[AdminController::class, 'videoNote'])->name('video-note');
+Route::post('testimonial-note',[AdminController::class, 'testimonialNote'])->name('testimonial-note');
 Route::post('image-note',[AdminController::class, 'imageNote'])->name('image-note');
 Route::post('distribution-note',[AdminController::class, 'distributionNote'])->name('distribution-note');
 Route::post('completion-note',[AdminController::class, 'completionNote'])->name('completion-note');

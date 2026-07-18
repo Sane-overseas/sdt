@@ -12,19 +12,112 @@
     <script src="{{ asset('js/app.js') }}"></script>
  </head>
   <style type="text/css">
-    div#trainerVideos_wrapper .row {
-        padding: 10px;
+    .videos-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
+    div#trainerVideos_wrapper .row:first-child {
+        padding: 10px 10px 0;
+        align-items: center;
+    }
+    div#trainerVideos_wrapper .dt-buttons {
+        margin-bottom: 0;
     }
     div#trainerVideos_info {
-        padding: 0px;
+        padding: 0;
+        white-space: nowrap;
     }
     a.btn.deleteAllvideos {
         padding: 1px 5px;
         background: #ff0707;
         color: #fff;
         width: 90px;
-        margin-top: 13px;
+        margin-top: 8px;
+        display: inline-block;
     }
+    #trainerVideos { width: 100% !important; font-size: 13px; table-layout: auto; }
+    #trainerVideos th.col-id,
+    #trainerVideos td.col-id {
+        width: 42px;
+        max-width: 48px;
+        min-width: 36px;
+        text-align: center;
+        padding: 8px 4px !important;
+        white-space: nowrap;
+    }
+    #trainerVideos thead tr.filter-row th:first-child input {
+        min-width: 36px;
+        padding: 4px 2px;
+    }
+    #trainerVideos thead tr.filter-row th {
+        padding: 4px 6px;
+        background: #f8f9fa;
+    }
+    #trainerVideos thead tr.filter-row input {
+        width: 100%;
+        min-width: 70px;
+        font-size: 12px;
+        padding: 4px 6px;
+        height: auto;
+    }
+    #trainerVideos .trainer-line { font-weight: 600; line-height: 1.3; }
+    #trainerVideos .trainer-line small { color: #666; font-weight: 400; display: block; }
+    #trainerVideos .school-cell { white-space: normal; min-width: 140px; }
+    #trainerVideos .loc-line { line-height: 1.35; white-space: normal; min-width: 100px; }
+    #trainerVideos .loc-line small { color: #666; display: block; }
+    #trainerVideos th, #trainerVideos td {
+        vertical-align: middle;
+        padding: 8px 10px;
+    }
+    #trainerVideos .upload-cell {
+        text-align: left;
+        white-space: normal;
+        min-width: 130px;
+    }
+    #trainerVideos .video-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    #trainerVideos .video-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 12px;
+        line-height: 1.3;
+    }
+    #trainerVideos .video-row .vid-side {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex: 1;
+        min-width: 0;
+    }
+    #trainerVideos .video-row .vid-label {
+        color: #444;
+        white-space: nowrap;
+    }
+    #trainerVideos .video-row a.vid-link {
+        color: #0b5cab;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    #trainerVideos .video-row a.vid-link:hover { text-decoration: underline; }
+    #trainerVideos .video-row .vid-status {
+        flex-shrink: 0;
+        font-size: 14px;
+        line-height: 1;
+    }
+    #trainerVideos .video-row .deleteVideo {
+        padding: 0;
+        margin: 0;
+        line-height: 1;
+    }
+    #trainerVideos .date-cell { text-align: center; font-size: 12px; white-space: normal; min-width: 68px; }
+    #trainerVideos .dt-stack { line-height: 1.35; }
+    #trainerVideos .dt-stack small { display: block; color: #666; font-size: 11px; }
+    #trainerVideos .actions-cell { text-align: center; min-width: 100px; }
 </style>
  <body>
 <div class="v-container mt-2">
@@ -42,18 +135,16 @@
         <p>{{ $message }}</p>
     </div>
     @endif
-    <div class="card-body">
+    <div class="card-body videos-table-wrap">
         <table class="table table-bordered" id="trainerVideos">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th class="col-id">#</th>
                     <th>Trainer</th>
                     <th>Uploaded By</th>
-                    <th>1st Activity Video</th>
-                    <th>2nd Activity Video</th>
-                    <th>District</th>
-                    <th>Block</th>
                     <th>School Name</th>
+                    <th>Location</th>
+                    <th>Videos</th>
                     <th>Date & Time</th>
                     <th>Route Date</th>
                     <th>Rejection Note</th>
@@ -62,101 +153,144 @@
             </thead>
             <tbody>
                 @foreach($videos as $video)
+                    @php
+                        $trainerName = '';
+                        $trainerCode = '';
+                        $uploadedBy = '';
+                        foreach ($user as $d_data) {
+                            if ($d_data['id'] == $video['user_id']) {
+                                $trainerName = $d_data['instructor_name'];
+                                $trainerCode = $d_data['instructor_code'];
+                            }
+                            if ($d_data['id'] == $video['uploaded_user']) {
+                                $uploadedBy = $d_data['instructor_name'];
+                            }
+                        }
+                        $blockName = $video['block'] ?? $video['bloack'] ?? '—';
+                    @endphp
                     <tr>
-                        <td>{{$video['id']}}</td>
-                        <td>@foreach($user as $d_data)
-                                @if($d_data['id'] == $video['user_id'])
-                                      {{$d_data['instructor_name']}} - {{$d_data['instructor_code']}}
-                                @endif
-                            @endforeach
-                        </td>
-                        <td>@foreach($user as $d_data)
-                                @if($d_data['id'] == $video['uploaded_user'])
-                                     {{$d_data['instructor_name']}}
-                                @endif
-                            @endforeach
-                        </td>
+                        <td class="col-id">{{ $video['id'] }}</td>
                         <td>
-                            @if($video['fst_video'])
-                            <a href="{{asset('storage/videos/'.$video['fst_video'])}}" target="_blank"  class="complete-data">Check & Download</a>
-                            <a href="javascript:void(0)" data-url="{{ route('1stvideo' ,$video['id']) }}" class="btn deleteVideo"><i class="bi bi-x-circle-fill remove"></i></a>@else<span class="pending-data">Pending</span> @endif
+                            <div class="trainer-line">
+                                {{ $trainerName ?: '—' }}@if($trainerCode) - {{ $trainerCode }}@endif
+                            </div>
                         </td>
+                        <td>{{ $uploadedBy ?: '—' }}</td>
+                        <td class="school-cell">{{ $video['school_name'] }}</td>
                         <td>
-                            @if($video['snd_video'])
-                             <a href="{{asset('storage/videos/'.$video['snd_video'])}}" target="_blank"  class="complete-data">Check & Download</a>
-                             <a href="javascript:void(0)" data-url="{{ route('2ndvideo' ,$video['id']) }}" class="btn deleteVideo"><i class="bi bi-x-circle-fill remove"></i></a>@else<span class="pending-data">Pending</span> @endif
+                            <div class="loc-line">
+                                {{ $video['district'] ?: '—' }}
+                                <small>{{ $blockName }}</small>
+                            </div>
                         </td>
-                        <td>{{$video['district']}}</td>
-                        <td>{{$video['bloack']}}</td>
-                        <td>{{$video['school_name']}}</td>
-                        <td style="width: 16%;">{{date('d/m/y - g:i A', strtotime($video['created_at']))}}</td>
-                        <td>{{$video['route_date']}}
+                        <td class="upload-cell">
+                            <div class="video-stack">
+                                <div class="video-row">
+                                    <span class="vid-side">
+                                        <span class="vid-label">1st Video</span>
+                                        @if($video['fst_video'])
+                                            <a href="{{ asset('storage/videos/'.$video['fst_video']) }}" target="_blank" class="vid-link complete-data">View</a>
+                                            @if($video['status'] != 1)
+                                            <a href="javascript:void(0)" data-url="{{ route('1stvideo', $video['id']) }}" class="btn deleteVideo" title="Delete 1st video"><i class="bi bi-x-circle-fill remove"></i></a>
+                                            @endif
+                                        @endif
+                                    </span>
+                                    <span class="vid-status">
+                                        @if($video['fst_video'])
+                                            <i class="bi-check-circle-fill nav-icn success-icon"></i>
+                                        @else
+                                            <i class="bi bi-x-circle-fill remove"></i>
+                                        @endif
+                                    </span>
+                                </div>
+                                <div class="video-row">
+                                    <span class="vid-side">
+                                        <span class="vid-label">2nd Video</span>
+                                        @if($video['snd_video'])
+                                            <a href="{{ asset('storage/videos/'.$video['snd_video']) }}" target="_blank" class="vid-link complete-data">View</a>
+                                            @if($video['status'] != 1)
+                                            <a href="javascript:void(0)" data-url="{{ route('2ndvideo', $video['id']) }}" class="btn deleteVideo" title="Delete 2nd video"><i class="bi bi-x-circle-fill remove"></i></a>
+                                            @endif
+                                        @endif
+                                    </span>
+                                    <span class="vid-status">
+                                        @if($video['snd_video'])
+                                            <i class="bi-check-circle-fill nav-icn success-icon"></i>
+                                        @else
+                                            <i class="bi bi-x-circle-fill remove"></i>
+                                        @endif
+                                    </span>
+                                </div>
+                            </div>
                         </td>
-                        <td style="text-align:center;">
-                            <a href="" id="suspendd" data-toggle="modal"
-                            data-target="#demoModal{{ $video['id'] }}"
-                            class="send_btn">Add</a>
-                            <form action="{{  route('video-note', $video['id']) }}" method="post">
+                        <td class="date-cell">
+                            <div class="dt-stack">
+                                @php $shownAt = $video['updated_at'] ?? $video['created_at']; @endphp
+                                {{ date('d/m/y', strtotime($shownAt)) }}
+                                <small>{{ date('g:i A', strtotime($shownAt)) }}</small>
+                            </div>
+                        </td>
+                        <td class="date-cell">{{ $video['route_date'] ?: '—' }}</td>
+                        <td class="actions-cell">
+                            <a href="" data-toggle="modal" data-target="#demoModal{{ $video['id'] }}" class="send_btn">Add</a>
+                            <form action="{{ route('video-note', $video['id']) }}" method="post">
                                 @csrf
-                             <!-- Modal Example Start-->
-                                 <div class="modal fade note-model" id="demoModal{{ $video['id'] }}" value="{{$video['id']}}" tabindex="-1" role="dialog" aria- labelledby="demoModalLabel" aria-hidden="true">
+                                <div class="modal fade note-model" id="demoModal{{ $video['id'] }}" value="{{ $video['id'] }}" tabindex="-1" role="dialog" aria-labelledby="demoModalLabel" aria-hidden="true">
                                     <div class="modal-dialog" role="document">
                                         <div class="modal-content">
                                             <div class="modal-header">
-                                                <h5 class="modal-title" id="demoModalLabel{{ $video['id'] }}" style="color: #fff ;">
+                                                <h5 class="modal-title" id="demoModalLabel{{ $video['id'] }}" style="color: #fff;">
                                                     Reason to Reject this Video</h5>
-                                                <button type="button" class="close"
-                                                    data-dismiss="modal" aria- label="Close">
+                                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                                     <span aria-hidden="true">&times;</span>
                                                 </button>
                                             </div>
                                             <div class="modal-body">
-                                            <div class="col-md-10">
-                                                <textarea rows="5" cols="15" class="form-control summernote" placeholder="Write here" name="video_note"
-                                                    value="video_note" id="video_note" required>{{ $video['video_note']}}</textarea>
-                                                <input type="hidden" name="id" value="{{ $video['id'] }}">
+                                                <div class="col-md-10">
+                                                    <textarea rows="5" cols="15" class="form-control summernote" placeholder="Write here" name="video_note" required>{{ $video['video_note'] }}</textarea>
+                                                    <input type="hidden" name="id" value="{{ $video['id'] }}">
+                                                </div>
                                             </div>
-                                        </div>
                                             <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary"
-                                                    data-dismiss="modal">Close</button>
+                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                                                 <button class="send_btn" type="submit">Send</button>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            <!-- Modal Example End-->
                             </form>
                             @if($video['video_note'] != null)
-                            <br>
-                                <span class="not-started mt-2">Rejected</span>
+                                <br><span class="not-started">Rejected</span>
                             @endif
-                             <a href="javascript:void(0)" data-url="{{ route('delete-videos' ,[$video['id'] , $video['school_id']]) }}" class="btn deleteAllvideos">Delete All</a>
+                            @if($video['status'] != 1)
+                            <a href="javascript:void(0)" data-url="{{ route('delete-videos', [$video['id'], $video['school_id']]) }}" class="btn deleteAllvideos">Delete All</a>
+                            @endif
                         </td>
-                        <td >
-                        <label class="container-ck12">
-                          @if($video['status'] == 1)
-                            <span class="approve">Approved</span>
-                          @else
-                            <span class="disapproved">Approval Pending</span>
-                          @endif
-                          <input class="video-status approve-button" data-id="{{$video['id']}}"  type="checkbox" {{ $video['status'] == 1 ? 'checked' : '' }}>
-                          <div class="checkmark"></div>
-                        </label>
+                        <td>
+                            <label class="container-ck12">
+                                @if($video['status'] == 1)
+                                    <span class="approve">Approved</span>
+                                @elseif($video['video_note'] != null)
+                                    <span class="not-started">Rejected</span>
+                                @else
+                                    <span class="disapproved">Pending</span>
+                                    <input class="video-status approve-button" data-id="{{ $video['id'] }}" type="checkbox">
+                                    <div class="checkmark"></div>
+                                @endif
+                            </label>
+                        </td>
                     </tr>
                 @endforeach
             </tbody>
             <tfoot>
             <tr>
-                <th>#</th>
+                <th class="col-id">#</th>
                 <th>Trainer</th>
                 <th>Uploaded By</th>
-                <th>1st Activity Video</th>
-                <th>2nd Activity Video</th>
-                <th>District</th>
-                <th>Block</th>
                 <th>School Name</th>
-                <th>Create Date</th>
+                <th>Location</th>
+                <th>Videos</th>
+                <th>Date & Time</th>
                 <th>Route Date</th>
                 <th>Rejection Note</th>
                 <th>Approve Videos</th>
@@ -173,43 +307,42 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
 <script type="text/javascript">
+(function () {
+    var $table = $('#trainerVideos');
 
-const trainerVideos = $('#trainerVideos').DataTable( {
-    ordering: false,
-    dom: "<'row'<'col-sm-1'B><'col-sm-5'i><'col-sm-6'f>>" +
-        "<'row'<'col-sm-12'tr>>" +
-        "<'row'<'col-sm-5'><'col-sm-7'p>>",
-    pageLength : 100,
-    stateSave: true,
-    buttons: [
-       {
-          extend: 'excel',
-          text: 'Download'
-       }
-    ]
-});
- // Setup - add a text input to each footer cell
-$('#trainerVideos tfoot th').each( function () {
-    var title = $(this).text();
-    $(this).html( '<input type="text" class="form-control" placeholder="'+title+'" />' );
-} );
+    // Build per-column filters in thead BEFORE DataTables init (avoids column misalignment)
+    var $filterRow = $table.find('tfoot tr').clone().addClass('filter-row');
+    $filterRow.find('th').each(function () {
+        var title = $(this).text();
+        $(this).html('<input type="text" class="form-control" placeholder="' + title + '" />');
+    });
+    $table.find('thead').append($filterRow);
+    $table.find('tfoot').remove();
 
-$('tfoot').each(function () {
-    $(this).insertAfter($(this).siblings('thead'));
-});
+    var trainerVideos = $table.DataTable({
+        ordering: false,
+        dom: "<'row'<'col-sm-3'B><'col-sm-4'i><'col-sm-5'f>>" +
+            "<'row'<'col-sm-12'tr>>" +
+            "<'row'<'col-sm-5'l><'col-sm-7'p>>",
+        pageLength: 100,
+        stateSave: true,
+        autoWidth: false,
+        buttons: [
+            {
+                extend: 'excel',
+                text: 'Download'
+            }
+        ]
+    });
 
-// Apply the search
-trainerVideos.columns().every( function () {
-    var that = this;
-
-    $( 'input', this.footer() ).on( 'keyup change', function () {
-        if ( that.search() !== this.value ) {
-            that
-                .search( this.value )
-                .draw();
-        }
-    } );
-});
+    trainerVideos.columns().every(function () {
+        var that = this;
+        $('input', $table.find('thead tr.filter-row th').eq(this.index())).on('keyup change clear', function () {
+            if (that.search() !== this.value) {
+                that.search(this.value).draw();
+            }
+        });
+    });
 
 $('.video-status').change(function () {
     let status = $(this).prop('checked') === true ? 1 : 0;
@@ -350,5 +483,5 @@ $('body').on('click', '.deleteAllvideos', function () {
 $('.complete-data').click(function(){
     $(this).addClass("visited");
 });
-
+})();
 </script>

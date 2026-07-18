@@ -16,6 +16,7 @@ class School extends Model
         'school_code',
         'block',
         'total_students',
+        'training_hours',
         'status',
         'image_status',
         'video_status',
@@ -24,6 +25,11 @@ class School extends Model
         'asigned_school',
         'paid_status',
     ];
+
+    protected $casts = [
+        'training_hours' => 'float',
+    ];
+
     public function district()
     {
         return $this->belongsTo(District::class);

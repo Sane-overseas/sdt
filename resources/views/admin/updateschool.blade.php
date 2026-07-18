@@ -65,6 +65,20 @@ $total_students =$data['total_students'];
                         <input type="text" class="form-control" name="total_students" value="{{ $total_students }}" required>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label">Training Hours</label>
+                        <input type="number" class="form-control" name="training_hours" min="0.5" step="0.5" value="{{ old('training_hours', $trainingHours ?? '') }}" placeholder="e.g. 40">
+                        @if(!empty($isAssignedInActiveSession))
+                            <!-- <small class="text-muted d-block">
+                                This school is already assigned.
+                                Changing hours updates the school for <strong>future</strong> assignments only.
+                                The current trainer keeps their existing required-hours snapshot.
+                            </small> -->
+                        @else
+                            <small class="text-muted d-block">Permanent for this school (all sessions). Copied onto the trainer when assigned.</small>
+                        @endif
+                    </div>
+
                     <input type="hidden" name="id" value="{{ $id }}">
                     <button type="submit" class="btn btn-success">Update School</button>
                 </form>

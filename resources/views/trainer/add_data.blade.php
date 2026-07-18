@@ -95,6 +95,7 @@
                                 <li class="data-tab"><a href="#image" class="data-tab-a mytab" data-toggle="tab">Upload Images</a></li>      
                                 <li class="data-tab"><a href="#completion" class="data-tab-a mytab" data-toggle="tab">Upload Completion Certificate</a></li>
                                 <li class="data-tab"><a href="#distribution" class="data-tab-a mytab" data-toggle="tab">Upload Distribution Certificate</a></li>
+                                <li class="data-tab"><a href="#testimonial" class="data-tab-a mytab" data-toggle="tab">Upload Testimonials</a></li>
                             </ul>
                              <div class="progress mt-2">
                                 <div class="progress-bar"></div>
@@ -115,8 +116,8 @@
                                             <span class="d-hed">Upload 1st Activity Video</span>
                                             <div class="flex items-center justify-center w-full">
                                                 <div class="file-div ">
-                                                    <input id="dropzone-file" name="fst_videos" type="file" class="file-input">
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400">mp4 only</p>
+                                                    <input id="dropzone-file-fst" name="fst_videos" type="file" class="file-input video-upload" accept=".mp4,video/mp4" data-label="1st Activity Video">
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only · Max {{ round(config('uploads.video_max_kb', 20480) / 1024) }} MB</p>
                                                 </div>
                                             </div> 
 
@@ -125,10 +126,29 @@
                                             <span class="d-hed">Upload 2nd Activity Video </span>
                                             <div class="flex items-center justify-center w-full">
                                                 <div class="file-div ">
-                                                    <input id="dropzone-file" name="snd_videos" type="file" class="file-input">
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400">mp4 only</p>
+                                                    <input id="dropzone-file-snd" name="snd_videos" type="file" class="file-input video-upload" accept=".mp4,video/mp4" data-label="2nd Activity Video">
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only · Max {{ round(config('uploads.video_max_kb', 20480) / 1024) }} MB</p>
                                                 </div>
                                             </div> 
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane" id="testimonial">
+                                    @if(!empty($user_testimonial?->testimonial_note))
+                                    <div class="note_div mt-3 mb-3">
+                                        <span class="note-text">Note: {{ $user_testimonial->testimonial_note }}</span>
+                                    </div>
+                                    @endif
+                                    <span class="d-hed">Upload Testimonial Video</span>
+                                    @if(!empty($user_testimonial?->testimonial_video))
+                                        <i class="bi-check-circle-fill nav-icn success-icon"></i>
+                                    @else
+                                        <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                    @endif
+                                    <div class="flex items-center justify-center w-full">
+                                        <div class="file-div ">
+                                            <input id="dropzone-file-testimonial" name="testimonial_video" type="file" class="file-input" accept=".mp4,video/mp4">
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only</p>
                                         </div>
                                     </div>
                                 </div>
@@ -267,7 +287,46 @@
         $('.mytab[href="' + selectedTab + '"]').tab('show');
     }
 
+    var videoMaxBytes = {{ (int) config('uploads.video_max_kb', 20480) * 1024 }};
+    var videoMaxMb = {{ round(config('uploads.video_max_kb', 20480) / 1024) }};
+
+    $(document).on('change', '.video-upload', function () {
+        var input = this;
+        var file = input.files && input.files[0];
+        if (!file) {
+            return;
+        }
+        var label = $(input).data('label') || 'Video';
+        var name = (file.name || '').toLowerCase();
+        if (!name.endsWith('.mp4') && file.type !== 'video/mp4') {
+            input.value = '';
+            Swal.fire({ icon: 'error', title: label + ' must be an MP4 file.' });
+            return;
+        }
+        if (file.size > videoMaxBytes) {
+            input.value = '';
+            Swal.fire({
+                icon: 'error',
+                title: label + ' is too large',
+                text: 'Maximum allowed size is ' + videoMaxMb + ' MB.'
+            });
+        }
+    });
+
     function callAjax(e){
+        var oversized = null;
+        $('.video-upload').each(function () {
+            var file = this.files && this.files[0];
+            if (file && file.size > videoMaxBytes) {
+                oversized = ($(this).data('label') || 'Video') + ' must not be larger than ' + videoMaxMb + ' MB.';
+                return false;
+            }
+        });
+        if (oversized) {
+            Swal.fire({ icon: 'error', title: oversized });
+            return;
+        }
+
         $(".btn-submit").prepend('<i class="fa fa-spinner fa-spin"></i>');
 
         $(".btn-submit").attr("disabled", 'disabled');
@@ -311,25 +370,25 @@
             },
             error: function (data) {
                 $(".btn-submit").find(".fa-spinner").remove();
-
                 $(".btn-submit").removeAttr("disabled");
-                const obj = JSON.parse(data.responseText);
-                const Toast = Swal.mixin({
+                var title = 'Upload failed. Please try again.';
+                try {
+                    var obj = typeof data.responseText === 'string' ? JSON.parse(data.responseText) : data.responseJSON;
+                    if (obj && obj.errors) {
+                        var firstKey = Object.keys(obj.errors)[0];
+                        title = obj.errors[firstKey][0];
+                    } else if (obj && obj.message) {
+                        title = obj.message;
+                    }
+                } catch (err) {}
+                Swal.fire({
                     toast: true,
                     position: 'top-end',
-                    showConfirmButton: true,
-                    // timer: 3000,
-                    // timerProgressBar: true,
-                    // didOpen: (toast) => {
-                    //     toast.addEventListener('mouseenter', Swal.stopTimer)
-                    //     toast.addEventListener('mouseleave', Swal.resumeTimer)
-                    // }
-                })
-                Toast.fire({
-                  icon: 'error',
-                  title: obj.message
-                })
-                }
+                    icon: 'error',
+                    title: title,
+                    showConfirmButton: true
+                });
+            }
         });
     }
 </script>

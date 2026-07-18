@@ -81,6 +81,68 @@
         .modal-body {
             overflow: auto;
         }
+
+        .route-plan-wrap {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .route-plan-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            line-height: 1.25;
+        }
+
+        .route-plan-main {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            font-weight: 600;
+        }
+
+        .route-plan-hours {
+            display: inline-flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            color: #5c6770;
+        }
+
+        .route-pill {
+            background: #eaf4f7;
+            color: #035362;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-weight: 600;
+        }
+
+        .route-pill.required {
+            background: #fff1f1;
+            color: #b32424;
+        }
+
+        .route-edit {
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            .route-plan-wrap {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .route-edit {
+                align-self: flex-start;
+            }
+
+            i.uplode-btn {
+                padding: 5px 14px;
+            }
+        }
     </style>
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap4.min.css">
@@ -117,17 +179,35 @@
                                 @endforeach
                             </td>
                             <td class="{{ $data['id'] }}">
-                                @if ($data['route_date'])
-                                    <i class="bi bi-calendar-date-fill"></i> {{ $data['route_date'] }} <i
-                                        class="bi bi-clock-fill"></i>
-                                    {{ date('H:i', strtotime($data['start_route_plan'])) }} -
-                                    {{ date('H:i', strtotime($data['end_route_plan'])) }}
-                                @else
-                                    <span class="add-route-text">Please Add Route Plan</span>
-                                @endif
-                                <a href="{{ route('route-plan', $data['id']) }}" id="suspendd" data-toggle="modal"
-                                    data-target="#demoModal{{ $data['id'] }}" class="send_btn ml-3"><i
-                                        class="bi bi-pencil-square"></i></a>
+                                <div class="route-plan-wrap">
+                                    <div class="route-plan-info">
+                                        @if ($data['route_date'])
+                                            <div class="route-plan-main">
+                                                <i class="bi bi-calendar-date-fill"></i>
+                                                <span>{{ $data['route_date'] }}</span>
+                                                <i class="bi bi-clock-fill"></i>
+                                                <span>{{ date('H:i', strtotime($data['start_route_plan'])) }} - {{ date('H:i', strtotime($data['end_route_plan'])) }}</span>
+                                            </div>
+                                        @else
+                                            <span class="add-route-text">Please Add Route Plan</span>
+                                        @endif
+
+                                        @if(!empty($data['planned_hours']) || !empty($data['required_hours']))
+                                            <div class="route-plan-hours">
+                                                @if(!empty($data['required_hours']))
+                                                    <span class="route-pill required">Required: {{ number_format((float) $data['required_hours'], 1) }} hrs</span>
+                                                @endif
+                                                @if(!empty($data['planned_hours']))
+                                                    <span class="route-pill">Planned: {{ number_format((float) $data['planned_hours'], 1) }} hrs</span>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    <a href="{{ route('route-plan', $data['id']) }}" id="suspendd" data-toggle="modal"
+                                        data-target="#demoModal{{ $data['id'] }}" class="send_btn route-edit"><i
+                                            class="bi bi-pencil-square"></i></a>
+                                </div>
                                 <form id="uplodeForm" action="{{ route('route-plan', $data['id']) }}" method="POST">
                                     @csrf
                                     <!-- Modal Example Start-->

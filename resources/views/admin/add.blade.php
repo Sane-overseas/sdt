@@ -67,6 +67,11 @@
                         <input type="text" class="form-control" name="total_students" required>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label">Training Hours</label>
+                        <input type="number" class="form-control" name="training_hours" min="0.5" step="0.5" placeholder="e.g. 40" value="{{ old('training_hours') }}" required>
+                    </div>
+
                     <button type="submit" class="btn btn-success">Add School</button>
                 </form>
 

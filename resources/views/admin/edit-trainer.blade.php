@@ -6,7 +6,6 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
-	<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 	@section('title', 'Edit Trainer')
 	<link href="{{ asset('css/style.css') }}" rel="stylesheet">
 	@vite(['resources/sass/app.scss', 'resources/js/app.js'])
@@ -22,6 +21,81 @@
     .save-trainer {
 	    padding: 16px;
 	}
+    .school-tools {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    }
+    .school-search {
+        max-width: 320px;
+    }
+    .school-checklist {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        background: #fff;
+        padding: 10px;
+        max-height: 280px;
+        overflow-y: auto;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        align-content: start;
+    }
+    .school-check-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        border: 1px solid #e8ecef;
+        background: #fafbfc;
+        cursor: pointer;
+        min-height: 40px;
+    }
+    .school-check-item input {
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    .school-check-item span {
+        line-height: 1.3;
+        word-break: break-word;
+    }
+    .school-check-item:hover {
+        background: #f0f6fa;
+        border-color: #c5d9e8;
+    }
+    .school-empty {
+        color: #6c757d;
+        font-size: 13px;
+        padding: 10px 8px;
+        grid-column: 1 / -1;
+    }
+    @media (max-width: 992px) {
+        .school-checklist {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @media (max-width: 768px) {
+        .school-tools {
+            display: block;
+        }
+        .school-search {
+            margin-top: 8px;
+            max-width: 100%;
+        }
+        .school-checklist {
+            grid-template-columns: 1fr;
+            max-height: 220px;
+        }
+        .school-check-item {
+            font-size: 13px;
+            padding: 8px;
+        }
+    }
 </style>
 <body>
 	<div class="container">
@@ -123,12 +197,18 @@
                         </select>
                     </div>
 				</div>
-				<div >
-                    <div class="form-group col-md">
+				<div class="row">
+                    <div class="form-group col-12">
                         <label>School Name</label>
-                        <input class="selectAll" type="checkbox" id="selectAll" >Select All Schools for Selected Block
-                        <select name="school_name[]" class="form-control multiple_select" id="check_school" multiple>
-                        </select>
+                        <div class="school-tools">
+                            <label class="mb-0">
+                                <input class="selectAll" type="checkbox" id="selectAll"> Select All Schools for Selected Block
+                            </label>
+                            <input type="text" id="schoolSearch" class="form-control school-search" placeholder="Search schools...">
+                        </div>
+                        <div id="schoolChecklist" class="school-checklist">
+                            <div class="school-empty">Select district and block to load schools.</div>
+                        </div>
                     </div>
 				</div>
 				<div class="save-trainer">
@@ -192,7 +272,6 @@
 <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script type="text/javascript">
 
 	const trainerAssScholls =  $('#trainerAssScholls').DataTable( {
@@ -203,19 +282,37 @@
 	    searchHighlight: true,
 	});
 
-	$("#check_school").select2({
-		closeOnSelect: false,
-	});
+    function renderSchoolChecklist(list) {
+        var $checklist = $("#schoolChecklist");
+        $checklist.html('');
 
-	$("#selectAll").click(function(){
-	    if($("#selectAll").is(':checked') ){
-	        $("#check_school > option").prop("selected","selected");
-	        $("#check_school").trigger("change");
-	    }else{
-	        $("#check_school > option").prop('selected', false);
-	        $("#check_school").trigger("change");
-	     }
-	});
+        if (!list || !list.length) {
+            $checklist.html('<div class="school-empty">No schools available for this block.</div>');
+            return;
+        }
+
+        $.each(list, function (key, value) {
+            var item = '' +
+                '<label class="school-check-item" data-name="' + String(value.school_name).toLowerCase() + '">' +
+                    '<input type="checkbox" name="school_name[]" value="' + value.id + '">' +
+                    '<span>' + value.school_name + '</span>' +
+                '</label>';
+            $checklist.append(item);
+        });
+    }
+
+    $("#selectAll").on('change', function () {
+        var checked = $(this).is(':checked');
+        $('#schoolChecklist input[type="checkbox"]').prop('checked', checked);
+    });
+
+    $("#schoolSearch").on('input', function () {
+        var query = String($(this).val() || '').toLowerCase().trim();
+        $("#schoolChecklist .school-check-item").each(function () {
+            var name = $(this).data('name');
+            $(this).toggle(!query || String(name).indexOf(query) !== -1);
+        });
+    });
 
 	$("#btn-save").click(function (e) {
         $.ajaxSetup({
@@ -280,14 +377,15 @@
 
         var id = this.value;
         $("#check_block").html('');
-        $("#check_school").html('');
+        $("#schoolChecklist").html('<div class="school-empty">Select block to load schools.</div>');
+        $("#selectAll").prop('checked', false);
+        $("#schoolSearch").val('');
         $.ajax({
             type: "POST",
             url: '/blockdata',
             data: { id: id },
             success: function (result) {
                 $('#check_block').html('<option value="">Select Block</option>');
-                $('#check_school').html('<option value="">Select School</option>');
                 $.each(result.block, function (key, value) {
                     $("#check_block").append('<option value="' + value.block + '">' + value.block + '</option>');
                 });
@@ -302,47 +400,22 @@
             }
         });
         var blockValue = this.value;
-        $("#check_school").html('');
+        $("#selectAll").prop('checked', false);
+        $("#schoolSearch").val('');
+        if (!blockValue) {
+            $("#schoolChecklist").html('<div class="school-empty">Select block to load schools.</div>');
+            return;
+        }
+        $("#schoolChecklist").html('<div class="school-empty">Loading schools...</div>');
         $.ajax({
             type: "POST",
             url: '/schooldata',
             data: { value: blockValue },
             success: function (result) {
-
-                $.each(result.school, function (key, value) {
-                	$("#check_school").append('<input type="checkbox" id="ckbCheckAll" />');
-                    $("#check_school").append('<option value="' + value
-                        .id + '">' + value.school_name + '</option>');
-                });
+                renderSchoolChecklist(result.school || []);
             }
         })
     });
-
-   	$(".multiple_select").mousedown(function(e){
-	    e.preventDefault();
-		var select = this;
-	    var scroll = select.scrollTop;
-	    e.target.selected = !e.target.selected;
-	    setTimeout(function(){select.scrollTop = scroll;}, 0);
-	    $(select).focus();
-	}).mousemove(function(e){e.preventDefault()});
-
-
-
-
-
-	$("#check_school").on('change', function() {
-      	var selected = $("#check_school").val().toString();
-      	console.log(selected);
-      	var document_style = document.documentElement.style;
-
-	    if(selected !== ""){
-	      	document_style.setProperty('--text', "'Selected: "+selected+"'");
-	    }
-	     else{
-	      	document_style.setProperty('--text', "'Select School'");
-	    }
-	});
 
 	$('body').on('click', '#asignedSchoolDelete', function () {
 

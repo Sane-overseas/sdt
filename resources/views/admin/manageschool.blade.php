@@ -125,6 +125,7 @@
                     <th>Block</th>
                     {{-- <th>District</th> --}}
                     <th>Total Student</th>
+                    <th>Training Hours</th>
                     <th>Image Status</th>
                     <th>Video Status</th>
                     <th>UC Status</th>
@@ -148,6 +149,13 @@
                 <td contenteditable="true" name="block" class="block">{{ $school->block }}</td>
                 {{-- <td contenteditable="true" name="block" class="block">{{ $school->district }}</td> --}}
                 <td contenteditable="true" name="total_students" class="total_students">{{ $school->total_students }}</td>
+                <td class="text-center">
+                    @if($school->training_hours !== null)
+                        <span class="badge bg-info text-dark">{{ number_format((float) $school->training_hours, 1) }} hrs</span>
+                    @else
+                        <span class="text-muted small">Not set</span>
+                    @endif
+                </td>
 
                 {{-- Image Status --}}
                 <td class="text-center">

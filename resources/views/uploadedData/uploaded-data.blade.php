@@ -23,22 +23,23 @@
             <li class="col col card1"><a href="#2a" class="dash-text" data-toggle="tab">Images</a></li>
             <li class="col col card1"><a href="#3a" class="dash-text" data-toggle="tab">UC</a></li>
             <li class="col col card1"><a href="#4a" class="dash-text" data-toggle="tab">DC</a></li>
+            <li class="col col card1"><a href="#5a" class="dash-text" data-toggle="tab">Testimonials</a></li>
         </ul>
         <div class="container">
             <form id="custom_form" action="{{ route('custom-date-data') }}" method="get">
                  <div style="margin: 20px 0px;" class="row">
                     <div class="col-md-3">
                         <strong>Get One Day Records:</strong>
-                       <input type="date" name="custom_date_data" class="form-control"/>
+                       <input type="date" name="custom_date_data" class="form-control" value="{{ request('custom_date_data') }}"/>
                     </div>
                     <div class="col-md-3">
                         <strong>Get Multiple  Days Records:</strong>
-                        <input type="text" name="route_date" id="custom_date" class="form-control" value="" />
+                        <input type="text" name="route_date" id="custom_date" class="form-control" value="{{ request('route_date') }}" />
                     </div>
                     <div class="col-md-2 ">
                         <strong>Get all Records:</strong><br>
                         <div class="checkbox-div">
-                            <input type="checkbox" name="all_recordes" class="form-check-input "  /> 
+                            <input type="checkbox" name="all_recordes" class="form-check-input" {{ !request('custom_date_data') && !request('route_date') ? 'checked' : '' }} /> 
                             <label class="form-check-label " for="flexCheckDefault">All Records</label>
                         </div>
                     </div>
@@ -64,6 +65,9 @@
             <div class="tab-pane" id="4a">
                 @include('uploadedData.all_distributions')
              </div>
+            <div class="tab-pane" id="5a">
+                @include('uploadedData.all_testimonials')
+            </div>
         </div>
     </div>
 </div>
@@ -106,4 +110,3 @@
     });
     </script>
 @endsection
-

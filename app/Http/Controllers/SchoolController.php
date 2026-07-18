@@ -10,6 +10,8 @@ use App\Models\Completion;
 use App\Models\AsignedSchool;
 use App\Imports\SchoolImport;
 use App\Services\StateService;
+use App\Services\AcademicSessionService;
+use App\Services\SchoolAssignmentService;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -122,15 +124,29 @@ class SchoolController extends Controller
     {
         StateService::assertDistrictInScope((int) $request->district_id);
 
+        $request->validate([
+            'district_id' => 'required|exists:districts,id',
+            'block' => 'required|string|max:255',
+            'school_name' => 'required|string|max:255',
+            'school_code' => 'required|string|max:255',
+            'total_students' => 'required',
+            'training_hours' => 'required|numeric|min:0.5|max:9999',
+        ]);
+
+        if (!AcademicSessionService::activeId()) {
+            return redirect()->back()->with('error', 'No active session. Create/activate a session before adding schools.');
+        }
+
         $school = new School();
         $school->district_id = $request->district_id;
         $school->block = $request->block;
         $school->school_name = $request->school_name;
         $school->school_code = $request->school_code;
         $school->total_students = $request->total_students;
+        $school->training_hours = (float) $request->training_hours;
         $school->save();
 
-        return redirect()->back()->with('success', 'School added successfully!');
+        return redirect()->back()->with('success', 'School added successfully.');
     }
 
 
@@ -368,18 +384,32 @@ class SchoolController extends Controller
 
     // Update school function
     public function update($id)
-
     {
-        $data = School::where("id", "=", $id)->get();
-        return view("admin.updateschool", ['school' => $data]);
+        $data = School::where('id', '=', $id)->get();
+        $school = $data->first();
+
+        return view('admin.updateschool', [
+            'school' => $data,
+            'trainingHours' => $school?->training_hours,
+            'isAssignedInActiveSession' => SchoolAssignmentService::isAssignedInActiveSession((int) $id),
+        ]);
     }
 
     public function updateschool(Request $request)
     {
+        $request->validate([
+            'id' => 'required|exists:schools,id',
+            'block' => 'required|string|max:255',
+            'school_name' => 'required|string|max:255',
+            'school_code' => 'required|string|max:255',
+            'total_students' => 'required',
+            'training_hours' => 'nullable|numeric|min:0.5|max:9999',
+        ]);
+
         $school = School::find($request->id);
 
         if (!$school) {
-            return redirect("admin/manageschool")->with("error", "School not found!");
+            return redirect('admin/manageschool')->with('error', 'School not found!');
         }
 
         $school->block = $request->block;
@@ -387,9 +417,18 @@ class SchoolController extends Controller
         $school->school_code = $request->school_code;
         $school->total_students = $request->total_students;
 
+        if ($request->filled('training_hours')) {
+            $school->training_hours = (float) $request->training_hours;
+        }
+
         $school->save();
 
-        return redirect("admin/manageschool")->with("success", "School updated successfully!");
+        $message = 'School updated successfully!';
+        if ($request->filled('training_hours') && SchoolAssignmentService::isAssignedInActiveSession((int) $school->id)) {
+            $message .= ' Existing assignment keeps its required-hours snapshot; new assignments will use the updated hours.';
+        }
+
+        return redirect('admin/manageschool')->with('success', $message);
     }
     //  end Update school function
 
@@ -410,6 +449,7 @@ class SchoolController extends Controller
         $school->video_status_value = $statusValues['video'];
         $school->uc_status_value = $statusValues['uc'];
         $school->trainer_name = $this->getTrainerNameForSchool($school);
+        // training_hours already on school model
 
         return $school;
     }
