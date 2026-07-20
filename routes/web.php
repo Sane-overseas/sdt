@@ -47,6 +47,12 @@ Route::get('/storage-link', function () {
     return "Storage linked!";
 });
 
+// Short media URLs (hides /storage/{folder}/). Files still live under storage/app/public.
+Route::get('/m/{type}/{file}', [\App\Http\Controllers\MediaController::class, 'show'])
+    ->where('type', '[a-z]+')
+    ->where('file', '[^/]+')
+    ->name('media.show');
+
 
 Route::get('/send-sms',[SmsController::class, 'sendMessage']);
 

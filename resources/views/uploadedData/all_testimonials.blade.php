@@ -106,7 +106,7 @@
                                 <span class="file-side">
                                     <span class="file-label">Video</span>
                                     @if(!empty($item['testimonial_video']))
-                                        <a href="{{ asset('storage/testimonials/'.$item['testimonial_video']) }}" target="_blank" class="file-link complete-data">View</a>
+                                        <a href="{{ media_url('testimonials', $item['testimonial_video']) }}" target="_blank" class="file-link complete-data">View</a>
                                     @endif
                                 </span>
                                 <span class="file-status">
@@ -198,6 +198,7 @@
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="{{ asset('js/datatables-excel-export.js') }}"></script>
 <script type="text/javascript">
 (function () {
     var $table = $('#trainerTestimonials');
@@ -210,13 +211,14 @@
 
     var trainerTestimonials = $table.DataTable({
         ordering: false,
+        orderCellsTop: true,
         dom: "<'row'<'col-sm-3'B><'col-sm-4'i><'col-sm-5'f>>" +
             "<'row'<'col-sm-12'tr>>" +
             "<'row'<'col-sm-5'l><'col-sm-7'p>>",
         pageLength: 100,
         stateSave: true,
         autoWidth: false,
-        buttons: [{ extend: 'excel', text: 'Download' }]
+        buttons: [uploadedDataExcelButton($table, 'trainer-testimonials')]
     });
 
     trainerTestimonials.columns().every(function () {

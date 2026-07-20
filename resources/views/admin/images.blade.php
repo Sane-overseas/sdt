@@ -49,7 +49,7 @@
                         </td>
                         <td style="width: 16%;">{{$image['intime']}} - {{$image['outtime']}}</td>
                         <td style="width: 10%;">{{date('d-m-Y', strtotime($image['created_at']))}}</td>
-                        <td style="text-align: center; width: 5%;"><a href="{{asset('storage/images/'.$image['image'])}}"><i class="fa fa-download save-icon" aria-hidden="true"></i></a></td>
+                        <td style="text-align: center; width: 5%;"><a href="{{ media_url('images', $image['image']) }}"><i class="fa fa-download save-icon" aria-hidden="true"></i></a></td>
                     </tr>
                  @endforeach  
             </tbody>

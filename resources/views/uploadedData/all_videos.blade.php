@@ -189,7 +189,7 @@
                                     <span class="vid-side">
                                         <span class="vid-label">1st Video</span>
                                         @if($video['fst_video'])
-                                            <a href="{{ asset('storage/videos/'.$video['fst_video']) }}" target="_blank" class="vid-link complete-data">View</a>
+                                            <a href="{{ media_url('videos', $video['fst_video']) }}" target="_blank" class="vid-link complete-data">View</a>
                                             @if($video['status'] != 1)
                                             <a href="javascript:void(0)" data-url="{{ route('1stvideo', $video['id']) }}" class="btn deleteVideo" title="Delete 1st video"><i class="bi bi-x-circle-fill remove"></i></a>
                                             @endif
@@ -207,7 +207,7 @@
                                     <span class="vid-side">
                                         <span class="vid-label">2nd Video</span>
                                         @if($video['snd_video'])
-                                            <a href="{{ asset('storage/videos/'.$video['snd_video']) }}" target="_blank" class="vid-link complete-data">View</a>
+                                            <a href="{{ media_url('videos', $video['snd_video']) }}" target="_blank" class="vid-link complete-data">View</a>
                                             @if($video['status'] != 1)
                                             <a href="javascript:void(0)" data-url="{{ route('2ndvideo', $video['id']) }}" class="btn deleteVideo" title="Delete 2nd video"><i class="bi bi-x-circle-fill remove"></i></a>
                                             @endif
@@ -306,6 +306,7 @@
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="{{ asset('js/datatables-excel-export.js') }}"></script>
 <script type="text/javascript">
 (function () {
     var $table = $('#trainerVideos');
@@ -321,18 +322,14 @@
 
     var trainerVideos = $table.DataTable({
         ordering: false,
+        orderCellsTop: true,
         dom: "<'row'<'col-sm-3'B><'col-sm-4'i><'col-sm-5'f>>" +
             "<'row'<'col-sm-12'tr>>" +
             "<'row'<'col-sm-5'l><'col-sm-7'p>>",
         pageLength: 100,
         stateSave: true,
         autoWidth: false,
-        buttons: [
-            {
-                extend: 'excel',
-                text: 'Download'
-            }
-        ]
+        buttons: [uploadedDataExcelButton($table, 'trainer-videos')]
     });
 
     trainerVideos.columns().every(function () {

@@ -98,7 +98,7 @@
                                     <span class="file-side">
                                         <span class="file-label">Distributions</span>
                                         @if($data['distribution_file'])
-                                            <a href="{{ asset('storage/distribution/'.$data['distribution_file']) }}" target="_blank" class="file-link complete-data">View</a>
+                                            <a href="{{ media_url('distribution', $data['distribution_file']) }}" target="_blank" class="file-link complete-data">View</a>
                                             @if($data['status'] != 1)
                                             <a href="javascript:void(0)" data-url="{{ route('distribution-remove', $data['id']) }}" class="btn distributionVideo"><i class="bi bi-x-circle-fill remove"></i></a>
                                             @endif
@@ -200,6 +200,7 @@
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="{{ asset('js/datatables-excel-export.js') }}"></script>
 <script type="text/javascript">
 (function () {
     var $table = $('#trainerDistributions');
@@ -212,13 +213,14 @@
 
     var trainerDistributions = $table.DataTable({
         ordering: false,
+        orderCellsTop: true,
         dom: "<'row'<'col-sm-3'B><'col-sm-4'i><'col-sm-5'f>>" +
             "<'row'<'col-sm-12'tr>>" +
             "<'row'<'col-sm-5'l><'col-sm-7'p>>",
         pageLength: 100,
         stateSave: true,
         autoWidth: false,
-        buttons: [{ extend: 'excel', text: 'Download' }]
+        buttons: [uploadedDataExcelButton($table, 'trainer-distributions')]
     });
 
     trainerDistributions.columns().every(function () {

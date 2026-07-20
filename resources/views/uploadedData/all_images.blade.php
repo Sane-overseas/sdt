@@ -196,7 +196,7 @@
                                         <span class="img-side">
                                             <span class="img-label">{{ $slot['label'] }}</span>
                                             @if(!empty($image[$slot['key']]))
-                                                <a href="{{ asset('storage/images/'.$image[$slot['key']]) }}" target="_blank" class="img-link complete-data">View</a>
+                                                <a href="{{ media_url('images', $image[$slot['key']]) }}" target="_blank" class="img-link complete-data">View</a>
                                                 @if(($image['status'] ?? 0) != 1)
                                                 <a href="javascript:void(0)" data-url="{{ route('images', [$image['id'], $slot['type']]) }}" class="btn deleteImage" title="Delete {{ $slot['label'] }}"><i class="bi bi-x-circle-fill remove"></i></a>
                                                 @endif
@@ -296,6 +296,7 @@
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="{{ asset('js/datatables-excel-export.js') }}"></script>
 <script type="text/javascript">
 (function () {
     var $table = $('#trainerImages');
@@ -310,18 +311,14 @@
 
     var trainerImages = $table.DataTable({
         ordering: false,
+        orderCellsTop: true,
         dom: "<'row'<'col-sm-3'B><'col-sm-4'i><'col-sm-5'f>>" +
             "<'row'<'col-sm-12'tr>>" +
             "<'row'<'col-sm-5'l><'col-sm-7'p>>",
         pageLength: 100,
         stateSave: true,
         autoWidth: false,
-        buttons: [
-            {
-                extend: 'excel',
-                text: 'Download'
-            }
-        ]
+        buttons: [uploadedDataExcelButton($table, 'trainer-images')]
     });
 
     trainerImages.columns().every(function () {

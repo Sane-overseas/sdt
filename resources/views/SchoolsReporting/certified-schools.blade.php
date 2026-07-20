@@ -36,7 +36,7 @@
                 @foreach($distribution as $school)
                     <tr>
                         <td>@foreach($schools as $d_data)
-                                @if($d_data['school_name'] == $school['school_name'] && $d_data['block'] == $school['bloack'])
+                                @if($d_data['school_name'] == $school['school_name'] && $d_data['block'] == ($school['block'] ?? $school['bloack'] ?? null))
                                      {{$d_data['id']}}
                                 @endif
                             @endforeach</td>
@@ -48,7 +48,7 @@
                             @endforeach
                         </td> 
                         <td>{{$school['district']}}</td>
-                        <td>{{$school['bloack']}}</td>
+                        <td>{{$school['block'] ?? $school['bloack'] ?? ''}}</td>
                         <td>{{$school['school_name']}}</td>
                         <td>{{$school['complete_students']}}</td>                      
                     </tr>

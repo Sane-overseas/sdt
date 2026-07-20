@@ -49,7 +49,7 @@
                         </td>
                         <td style="width: 16%;">{{$videos['intime']}} - {{$videos['outtime']}}</td>
                         <td style="width: 10%;">{{date('d-m-Y', strtotime($videos['created_at']))}}</td>
-                        <td style="text-align: center;"><a href="{{asset('storage/videos/'.$videos['video'])}}"><i class="fa fa-download save-icon" aria-hidden="true"></i></a></td>
+                        <td style="text-align: center;"><a href="{{ media_url('videos', $videos['video']) }}"><i class="fa fa-download save-icon" aria-hidden="true"></i></a></td>
                     </tr>
                  @endforeach  
             </tbody>

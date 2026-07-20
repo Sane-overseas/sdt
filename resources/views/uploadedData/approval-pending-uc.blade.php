@@ -49,7 +49,7 @@
                         </td>
                         <td>
                         @if($data['completion_file'])
-                        <a href="{{asset('storage/completion/'.$data['completion_file'])}}" target="_blank"  class="complete-data">Check & Download</a>
+                        <a href="{{ media_url('completion', $data['completion_file']) }}" target="_blank"  class="complete-data">Check & Download</a>
                             @if($data['status'] == 0)
                             <a href="javascript:void(0)" data-url="{{ route('completion-remove' ,[$data['id'],$data['school_id']]) }}" class="btn completionVideo"><i class="bi bi-x-circle-fill remove"></i></a>
                             @endif
