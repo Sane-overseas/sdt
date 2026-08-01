@@ -20,6 +20,29 @@
         background: #e9f2f4;
         color: #003640 !important;
     }
+    .uploaded-view-link {
+        display: inline-block;
+        margin-left: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #198754;
+        text-decoration: none;
+    }
+    .uploaded-view-link:hover {
+        color: #0f5132;
+        text-decoration: underline;
+    }
+    .uploaded-preview {
+        margin-top: 10px;
+        padding: 10px 12px;
+        background: #f4f8f9;
+        border: 1px solid #d5e4e8;
+        border-radius: 6px;
+    }
+    .uploaded-preview a {
+        font-weight: 600;
+        color: #006170;
+    }
 </style>
 <div class="container">
     <div class="row mb-5 main-div">
@@ -108,8 +131,8 @@
                                     </div>
                                     @endif
                                     <ul class="main-data-div" >
-                                        <li class="main-data-tab"><a  href="#1st-v" class="main-data-a" data-toggle="tab">1st Activity Video</a>@if(isset($user_videos->fst_video))<i class="bi-check-circle-fill nav-icn success-icon"></i> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li>
-                                        <li class="main-data-tab"><a href="#2nd-v" class="main-data-a" data-toggle="tab">2nd Activity Video</a>@if(isset($user_videos->snd_video))<i class="bi-check-circle-fill nav-icn success-icon"></i> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li>      
+                                        <li class="main-data-tab"><a  href="#1st-v" class="main-data-a" data-toggle="tab">1st Activity Video</a>@if(isset($user_videos->fst_video))<i class="bi-check-circle-fill nav-icn success-icon"></i><a href="{{ media_url('videos', $user_videos->fst_video) }}" target="_blank" class="uploaded-view-link">View</a> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li>
+                                        <li class="main-data-tab"><a href="#2nd-v" class="main-data-a" data-toggle="tab">2nd Activity Video</a>@if(isset($user_videos->snd_video))<i class="bi-check-circle-fill nav-icn success-icon"></i><a href="{{ media_url('videos', $user_videos->snd_video) }}" target="_blank" class="uploaded-view-link">View</a> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li>      
                                     </ul>
                                     <div class="tab-content clearfix">
                                         <div class="tab-pane" id="1st-v">
@@ -118,6 +141,11 @@
                                                 <div class="file-div ">
                                                     <input id="dropzone-file-fst" name="fst_videos" type="file" class="file-input video-upload" accept=".mp4,video/mp4" data-label="1st Activity Video">
                                                     <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only · Max {{ round(config('uploads.video_max_kb', 20480) / 1024) }} MB</p>
+                                                    @if(!empty($user_videos?->fst_video))
+                                                        <div class="uploaded-preview">
+                                                            Uploaded: <a href="{{ media_url('videos', $user_videos->fst_video) }}" target="_blank">View 1st Activity Video</a>
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             </div> 
 
@@ -128,6 +156,11 @@
                                                 <div class="file-div ">
                                                     <input id="dropzone-file-snd" name="snd_videos" type="file" class="file-input video-upload" accept=".mp4,video/mp4" data-label="2nd Activity Video">
                                                     <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only · Max {{ round(config('uploads.video_max_kb', 20480) / 1024) }} MB</p>
+                                                    @if(!empty($user_videos?->snd_video))
+                                                        <div class="uploaded-preview">
+                                                            Uploaded: <a href="{{ media_url('videos', $user_videos->snd_video) }}" target="_blank">View 2nd Activity Video</a>
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             </div> 
                                         </div>
