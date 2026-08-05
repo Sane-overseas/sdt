@@ -30,9 +30,12 @@ use App\Models\Testimonial;
 use App\Services\AcademicSessionService;
 use App\Support\MediaPath;
 use App\Services\HolidayService;
+use App\Services\IdCardGenerator;
 use App\Services\SchoolAssignmentService;
 use App\Services\SessionUploadService;
 use App\Services\StateService;
+use App\Mail\CoordinatorCredentialsMail;
+use Illuminate\Support\Facades\Mail;
 use View;
 use Session;
 use Config;
@@ -290,8 +293,14 @@ class AdminController extends BaseController
             return response()->json(['message' => 'Please select a state first.'], 422);
         }
 
+        $request->merge([
+            'aadhar_number' => preg_replace('/\D+/', '', (string) $request->input('aadhar_number', '')),
+            'number' => preg_replace('/\D+/', '', (string) $request->input('number', '')),
+        ]);
+
         $request->validate([
             'cordinator_name' => 'required|string|max:255',
+            'father_name' => 'required|string|max:255',
             'code' => [
                 'required',
                 'string',
@@ -301,14 +310,30 @@ class AdminController extends BaseController
             ],
             'email' => 'required|email|max:255|unique:users,email',
             'password' => 'required|string|min:6',
-            'number' => 'required|string|max:20',
+            'number' => 'required|digits:10',
+            'aadhar_number' => [
+                'required',
+                'digits:12',
+                Rule::unique('users', 'aadhar_number'),
+                Rule::unique('trainer_registrations', 'aadhar_number'),
+            ],
+            'address' => 'required|string|max:1000',
+            'blood_group' => 'required|string|max:20',
+            'martial_art_type' => 'required|string|max:255',
             'district_name' => 'required|string|max:255',
+            'block' => 'required|string|max:255',
+            'aadhar_doc' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'qualification_doc' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'martial_art_doc' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'photo' => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:3072'],
         ]);
 
         $district = District::where('district', $request->district_name)->first();
         if ($district) {
             StateService::assertDistrictInScope((int) $district->id);
         }
+
+        $docPaths = $this->storeCoordinatorDocuments($request, $request->code);
 
         $cordinator = Cordinator::create([
             'cordinator_name' => $request->cordinator_name,
@@ -319,12 +344,22 @@ class AdminController extends BaseController
         // Same login page as trainers/admin — password cast hashes automatically
         $user = User::create([
             'instructor_name' => $request->cordinator_name,
+            'father_name' => $request->father_name,
             'email' => $request->email,
             'password' => $request->password,
             'instructor_code' => $request->code,
             'instructor_number' => $request->number,
+            'aadhar_number' => $request->aadhar_number,
+            'address' => $request->address,
+            'blood_group' => $request->blood_group,
+            'martial_art_type' => $request->martial_art_type,
+            'aadhar_doc' => $docPaths['aadhar_doc'] ?? null,
+            'qualification_doc' => $docPaths['qualification_doc'] ?? null,
+            'martial_art_doc' => $docPaths['martial_art_doc'] ?? null,
+            'photo' => $docPaths['photo'] ?? null,
             'cordinator_id' => $cordinator->id,
             'district' => $request->district_name,
+            'block' => $request->block,
             'state_id' => $stateId,
             'amount' => 0,
             'extra_amount' => 0,
@@ -335,10 +370,71 @@ class AdminController extends BaseController
             'active_status' => 1,
         ])->save();
 
+        $plainPassword = $request->password;
+        $idCardPath = null;
+        try {
+            $idCardPath = app(IdCardGenerator::class)->generate([
+                'name' => $user->instructor_name,
+                'code' => $user->instructor_code,
+                'blood_group' => $user->blood_group,
+                'designation' => 'COORDINATOR',
+                'photo_path' => $user->photo,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            Mail::to($user->email)->send(new CoordinatorCredentialsMail(
+                $user->instructor_name,
+                $user->email,
+                $user->instructor_code,
+                $plainPassword,
+                url('/login'),
+                $idCardPath,
+            ));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return Response::json([
+                'cordinator' => $cordinator,
+                'user' => $user,
+                'message' => 'Coordinator created but email could not be sent. Please share credentials manually.',
+                'password' => $plainPassword,
+            ]);
+        }
+
         return Response::json([
             'cordinator' => $cordinator,
             'user' => $user,
+            'message' => $idCardPath
+                ? 'Coordinator created. Credentials and ID card emailed successfully.'
+                : 'Coordinator created and credentials emailed (ID card could not be generated).',
         ]);
+    }
+
+    private function storeCoordinatorDocuments(Request $request, string $code): array
+    {
+        $paths = [];
+        $safeCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', $code);
+        $fields = [
+            'aadhar_doc' => 'aadhar',
+            'qualification_doc' => 'qualification',
+            'martial_art_doc' => 'martial_art',
+            'photo' => 'photo',
+        ];
+
+        foreach ($fields as $field => $suffix) {
+            if (!$request->hasFile($field)) {
+                continue;
+            }
+            $file = $request->file($field);
+            $ext = strtolower($file->getClientOriginalExtension());
+            $name = $safeCode.'_'.$suffix.'.'.$ext;
+            $paths[$field] = $file->storeAs('coordinator_data', $name, 'public');
+        }
+
+        return $paths;
     }
 
     public function cordinatorData($id)

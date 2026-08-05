@@ -72,52 +72,106 @@
 </div>
 <!-- bootstrap coordinator modal -->
 <div class="modal fade" id="Cordinator-modal" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <h4 class="modal-title" id="CordinatorModal"></h4>
-                <button type="submit" class="btn btn-primary float-right" id="btn-save">Save</button>
+                <button type="button" class="btn btn-primary" id="btn-save">Save</button>
             </div>
             <div class="modal-body">
                 <form action="javascript:void(0)" id="CordinatorForm" name="CordinatorForm" class="form-horizontal" enctype="multipart/form-data">
+                    <h6 class="text-primary mb-2">Account</h6>
                     <div class="form-row">
-                        <div class="form-group col">
-                            <label>Cordinator Name</label>
+                        <div class="form-group col-md-4">
+                            <label>Coordinator Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="cordinator_name" required>
                         </div>
-                        <div class="form-group col">
-                            <label>Email (Login)</label>
+                        <div class="form-group col-md-4">
+                            <label>Father Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="father_name" required>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label>Email (Login) <span class="text-danger">*</span></label>
                             <input type="email" class="form-control" name="email" required>
                         </div>
-                        <div class="form-group col">
-                            <label>Password</label>
+                        <div class="form-group col-md-4">
+                            <label>Password <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="password" value="SOPL@1634" required>
                         </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group col">
-                            <label>Cordinator Code</label>
+                        <div class="form-group col-md-4">
+                            <label>Coordinator Code <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="code" required>
                         </div>
-                        <div class="form-group col">
-                            <label>Phone Number</label>
-                            <input type="text" class="form-control" name="number" required>
+                    </div>
+
+                    <h6 class="text-primary mb-2 mt-2">Personal Details</h6>
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label>Phone Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="number" id="phone_number"
+                                   inputmode="numeric" maxlength="10" placeholder="10 digit mobile" required>
                         </div>
-                        <div class="form-group col">
-                            <label>District</label>
-                            <select name="district_name" class="form-control" required>
+                        <div class="form-group col-md-4">
+                            <label>Aadhar Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="aadhar_number" id="aadhar_number"
+                                   inputmode="numeric" maxlength="12" placeholder="12 digit Aadhar" required>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label>Blood Group <span class="text-danger">*</span></label>
+                            <select name="blood_group" class="form-control" required>
+                                <option value="">Select</option>
+                                @foreach(['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $bg)
+                                    <option value="{{ $bg }}">{{ $bg }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group col-md-12">
+                            <label>Address <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="address" rows="2" required></textarea>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label>District <span class="text-danger">*</span></label>
+                            <select name="district_name" class="form-control" id="check_distt" required>
                                 <option value="">Select District</option>
                                 @if(isset($district))
                                     @foreach($district as $d)
-                                        <option value="{{ $d['district'] }}">{{ $d['district'] }}</option>
+                                        <option value="{{ $d['district'] }}" data-id="{{ $d['id'] }}">{{ $d['district'] }}</option>
                                     @endforeach
                                 @endif
                             </select>
                         </div>
+                        <div class="form-group col-md-4">
+                            <label>Block <span class="text-danger">*</span></label>
+                            <select name="block" class="form-control" id="create_block" required>
+                                <option value="">Select Block</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label>Expertise (Martial Art Type) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="martial_art_type" placeholder="e.g. Karate, Taekwondo" required>
+                        </div>
+                    </div>
+
+                    <h6 class="text-primary mb-2 mt-2">Documents</h6>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label>Aadhar Document <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" name="aadhar_doc" accept=".jpg,.jpeg,.png,.pdf" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label>Qualification <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" name="qualification_doc" accept=".jpg,.jpeg,.png,.pdf" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label>Martial Art Certificate <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" name="martial_art_doc" accept=".jpg,.jpeg,.png,.pdf" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label>Photo <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" name="photo" accept=".jpg,.jpeg,.png" required>
+                        </div>
                     </div>
                 </form>
-            </div>
-            <div class="modal-footer">
             </div>
         </div>
     </div>
@@ -143,12 +197,40 @@ cordinatorTable.on('click', 'tbody tr', function (evt) {
 
 function add(){
     $('#CordinatorForm').trigger("reset");
-    $('#CordinatorModal').html("Add Cordinator");
+    $('#CordinatorModal').html("Add Coordinator");
     $('#Cordinator-modal').modal('show');
     $('#id').val('');
-}  
+    $('#create_block').html('<option value="">Select Block</option>');
+}
+
+$('#check_distt').on('change', function () {
+    var distId = $(this).find('option:selected').data('id');
+    $('#create_block').html('<option value="">Select Block</option>');
+    if (!distId) return;
+    $.ajaxSetup({
+        headers: { 'X-CSRF-TOKEN': jQuery('meta[name="csrf-token"]').attr('content') }
+    });
+    $.ajax({
+        type: 'POST',
+        url: '/blockdata',
+        data: { id: distId },
+        success: function (result) {
+            $('#create_block').html('<option value="">Select Block</option>');
+            $.each(result.block || [], function (key, value) {
+                $('#create_block').append('<option value="' + value.block + '">' + value.block + '</option>');
+            });
+        }
+    });
+});
 
 jQuery(document).ready(function($){
+    $(document).on('input', '#aadhar_number', function () {
+        this.value = this.value.replace(/\D/g, '').slice(0, 12);
+    });
+    $(document).on('input', '#phone_number', function () {
+        this.value = this.value.replace(/\D/g, '').slice(0, 10);
+    });
+
 // CREATE
     $("#btn-save").click(function (e) {
         $.ajaxSetup({
@@ -158,34 +240,36 @@ jQuery(document).ready(function($){
         });
         e.preventDefault();
 
-        var formData =  $("#CordinatorForm").serialize()
-        var type = "POST";
-        var ajaxurl = 'create-cordinator';
+        var formData = new FormData(document.getElementById('CordinatorForm'));
         $.ajax({
-            type: type,
-            url: ajaxurl,
+            type: 'POST',
+            url: 'create-cordinator',
             data: formData,
+            processData: false,
+            contentType: false,
             dataType: 'json',
             success: function (data) {
-                var allInputs = document.querySelectorAll(['input','select']);
-                allInputs.forEach(singleInput => singleInput.value = '');
                 Swal.fire({
                   position: 'center',
                   icon: 'success',
-                  title: 'Cordinator has been created',
+                  title: (data && data.message) ? data.message : 'Coordinator has been created',
                   showConfirmButton: false,
-                  timer: 2000
+                  timer: 2500
                 }).then(function(isConfirm) {
                 if (isConfirm) {
                     location.reload();
-                  } 
+                  }
                 });
             },
             error: function (data) {
                 let msg = 'Something went wrong';
                 try {
                     const obj = JSON.parse(data.responseText);
-                    msg = obj.message || Object.values(obj.errors || {}).flat().join(', ') || msg;
+                    if (obj.errors) {
+                        msg = Object.values(obj.errors)[0][0];
+                    } else if (obj.message) {
+                        msg = obj.message;
+                    }
                 } catch (e) {}
                 const Toast = Swal.mixin({
                     toast: true,

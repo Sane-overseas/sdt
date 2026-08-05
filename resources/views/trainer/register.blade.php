@@ -70,7 +70,10 @@
         .reg-header img {
             max-height: 58px;
             margin-bottom: 12px;
-            filter: drop-shadow(0 4px 10px rgba(0,0,0,.25));
+            background: #ffffff;
+            padding: 10px 16px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,.18);
         }
 
         .reg-header h4 {
@@ -350,6 +353,9 @@
                     <div class="col-md-6">
                         <label class="form-label">Email <span class="req">*</span></label>
                         <input type="email" name="email" class="form-control {{ $err('email') ? 'is-invalid' : '' }}" value="{{ $v('email') }}" required>
+                        <div class="form-text" style="color:#0f766e;font-size:12.5px;margin-top:6px;">
+                            Please enter a correct email. Login credentials will be sent to you through this mail.
+                        </div>
                         @if($err('email'))<div class="field-error">{{ $err('email') }}</div>@endif
                     </div>
                     <div class="col-md-6">

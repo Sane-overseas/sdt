@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\TrainerCredentialsMail;
+use App\Mail\TrainerRegistrationReceivedMail;
 use App\Mail\TrainerRevisionMail;
 use App\Models\Block;
 use App\Models\Cordinator;
@@ -137,7 +138,7 @@ class TrainerRegistrationController extends BaseController
             }
         }
 
-        TrainerRegistration::create(array_merge($data, $paths, [
+        $registration = TrainerRegistration::create(array_merge($data, $paths, [
             'instructor_code' => $instructorCode,
             'status' => TrainerRegistration::STATUS_PENDING,
             'edit_token' => null,
@@ -146,9 +147,18 @@ class TrainerRegistrationController extends BaseController
 
         $this->clearDraftDocuments();
 
+        try {
+            Mail::to($registration->email)->send(new TrainerRegistrationReceivedMail(
+                $registration->instructor_name,
+                $registration->instructor_code,
+            ));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return redirect()
             ->route('trainer.register')
-            ->with('success', 'Registered successfully');
+            ->with('success', 'Registered successfully. Please check your email and wait for admin approval.');
     }
 
     public function update(Request $request, string $token)
