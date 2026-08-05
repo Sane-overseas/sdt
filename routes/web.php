@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\SmsController;
 use App\Http\Controllers\SchoolController;
+use App\Http\Controllers\TrainerRegistrationController;
+use App\Http\Controllers\SchoolRequestController;
 
 
 /*
@@ -62,6 +64,22 @@ Route::get('/logs',[AdminController::class, 'trainersLogs'])->name('logs');
 Route::get('/advance-payment',[AdminController::class, 'advancePayment'])->name('advance-payment');
 Route::post('/add-advance-payment',[AdminController::class, 'addAdvancePayment'])->name('add-advance-payment');
 Route::get('/add_trainers',[AdminController::class, 'addTrainers'])->name('add_trainers');
+
+// Public trainer registration
+Route::get('/trainer-register', [TrainerRegistrationController::class, 'showForm'])->name('trainer.register');
+Route::post('/trainer-register', [TrainerRegistrationController::class, 'store'])->name('trainer.register.store');
+Route::get('/trainer-register/edit/{token}', [TrainerRegistrationController::class, 'editForm'])->name('trainer.register.edit');
+Route::put('/trainer-register/edit/{token}', [TrainerRegistrationController::class, 'update'])->name('trainer.register.update');
+Route::get('/trainer-register/districts/{stateId}', [TrainerRegistrationController::class, 'districtsByState'])->name('trainer.register.districts');
+Route::get('/trainer-register/blocks/{districtId}', [TrainerRegistrationController::class, 'blocksByDistrict'])->name('trainer.register.blocks');
+Route::get('/trainer-register/coordinators/{districtId}', [TrainerRegistrationController::class, 'coordinatorsByDistrict'])->name('trainer.register.coordinators');
+
+// Admin trainer registration approval
+Route::get('/trainer-registrations', [TrainerRegistrationController::class, 'index'])->name('trainer.registrations');
+Route::get('/trainer-registrations/{id}', [TrainerRegistrationController::class, 'show'])->name('trainer.registrations.show');
+Route::post('/trainer-registrations/{id}/approve', [TrainerRegistrationController::class, 'approve'])->name('trainer.registrations.approve');
+Route::post('/trainer-registrations/{id}/reject', [TrainerRegistrationController::class, 'reject'])->name('trainer.registrations.reject');
+Route::post('/trainer-registrations/{id}/request-revision', [TrainerRegistrationController::class, 'requestRevision'])->name('trainer.registrations.revision');
 Route::get('districts_data/{id}',[AdminController::class, 'districtsData'])->name('districts_data');
 Route::post('paid_status', [AdminController::class, 'salaryStatus'])->name('paid_status');
 Route::get('/paid-schools',[AdminController::class, 'paidSchools'])->name('paid-schools');
@@ -93,6 +111,12 @@ Route::post('update-trainer',[ProfileController::class, 'updateData'])->name('up
 
 Route::post('add-schools-new',[AdminController::class, 'addAssigndData'])->name('add-schools-new');
 
+Route::get('school-requests', [SchoolRequestController::class, 'trainerIndex'])->middleware('auth')->name('trainer.school-requests');
+Route::post('school-requests', [SchoolRequestController::class, 'trainerStore'])->middleware('auth')->name('trainer.school-requests.store');
+Route::get('admin/school-requests', [SchoolRequestController::class, 'adminIndex'])->middleware('auth')->name('admin.school-requests');
+Route::post('admin/school-requests/{id}/approve', [SchoolRequestController::class, 'approve'])->middleware('auth')->name('admin.school-requests.approve');
+Route::post('admin/school-requests/{id}/reject', [SchoolRequestController::class, 'reject'])->middleware('auth')->name('admin.school-requests.reject');
+
 Route::post('create-data',[Controller::class, 'stoteInstructorData'])->name('create-data');
 
 Route::get('upload-data/{id}',[Controller::class, 'trainerData']);
@@ -123,7 +147,9 @@ Route::post('claim-note',[Controller::class, 'trainerClaimNote'])->name('claim-n
 // Notes End
 Route::get('custom-date-data', [AdminController::class, 'uploadedData'])->name('custom-date-data');
 Route::get('uploaded-data',[AdminController::class, 'uploadedData'])->name('uploaded-data');
-Route::get('trainer_data/{id}',[AdminController::class, 'trainerData'])->name('trainer_data');
+Route::get('trainer_data/{id}',[AdminController::class, 'trainerData'])
+    ->whereNumber('id')
+    ->name('trainer_data');
 Route::post('remark/{id}',[AdminController::class, 'remarkNote'])->name('remark');
 Route::delete('a-school/{id}/{sid}', [AdminController::class, 'asignedSchoolDelete'])->name('a-school');
 Route::get('trainer_schools_data/{id}',[AdminController::class, 'trainerSchoolsData'])->name('trainer_schools_data');

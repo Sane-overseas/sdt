@@ -68,14 +68,18 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Training Hours</label>
-                        <input type="number" class="form-control" name="training_hours" min="0.5" step="0.5" placeholder="e.g. 40" value="{{ old('training_hours') }}" required>
+                        <label class="form-label">Total Training Hours</label>
+                        <input type="number" class="form-control" name="training_hours" min="0.5" step="0.5" placeholder="e.g. 60" value="{{ old('training_hours') }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Training Hours / Day</label>
+                        <input type="number" class="form-control" name="daily_training_hours" min="0.1" max="12" step="0.1" placeholder="e.g. 2" value="{{ old('daily_training_hours') }}" required>
+                        <small class="text-muted">Max hours per day. Example: 60 total ÷ 2/day = minimum 30 days.</small>
                     </div>
 
                     <button type="submit" class="btn btn-success">Add School</button>
                 </form>
-
-
 
                 {{-- Bulk Import Schools Section --}}
                 <hr class="my-4">
@@ -100,17 +104,19 @@
                                     <ul class="mb-2">
                                         <li><strong>School Name</strong></li>
                                         <li><strong>School Code</strong></li>
+                                        <li><strong>Block</strong></li>
                                     </ul>
                                 </div>
                                 <div class="col-md-6">
                                     <ul class="mb-2">
-                                        <li><strong>Block</strong></li>
                                         <li><strong>Total Students</strong></li>
+                                        <li><strong>Total Training Hours</strong> (e.g. 60)</li>
+                                        <li><strong>Daily Training Hours</strong> (e.g. 2)</li>
                                     </ul>
                                 </div>
                             </div>
                             <small class="text-muted">
-                                <i class="fas fa-info-circle"></i> Download the template to ensure correct formatting.
+                                <i class="fas fa-info-circle"></i> Download the new template. Same School Code in the selected district will be <strong>updated</strong>, new codes will be created.
                             </small>
                         </div>
 

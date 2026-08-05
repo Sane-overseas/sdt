@@ -192,10 +192,13 @@
                                             <span class="add-route-text">Please Add Route Plan</span>
                                         @endif
 
-                                        @if(!empty($data['planned_hours']) || !empty($data['required_hours']))
+                                        @if(!empty($data['planned_hours']) || !empty($data['required_hours']) || !empty($data['daily_training_hours']))
                                             <div class="route-plan-hours">
                                                 @if(!empty($data['required_hours']))
-                                                    <span class="route-pill required">Required: {{ number_format((float) $data['required_hours'], 1) }} hrs</span>
+                                                    <span class="route-pill required">Total: {{ number_format((float) $data['required_hours'], 1) }} hrs</span>
+                                                @endif
+                                                @if(!empty($data['daily_training_hours']))
+                                                    <span class="route-pill required">Max/day: {{ number_format((float) $data['daily_training_hours'], 1) }} hrs</span>
                                                 @endif
                                                 @if(!empty($data['planned_hours']))
                                                     <span class="route-pill">Planned: {{ number_format((float) $data['planned_hours'], 1) }} hrs</span>
@@ -239,9 +242,12 @@
                                     <!-- Modal Example End-->
                                 </form>
                             </td>
-                            <td style="text-align:center;"><a href="{{ url('upload-data/' . $data['id']) }}"
-                                    class="@if ($data['route_date'] == null) disable @endif"><i
-                                        class="bi bi-upload uplode-btn @if ($data['route_date'] == null) disable @endif"></i></a>
+                            <td style="text-align:center;">
+                                @php $canUpload = \App\Services\SessionUploadService::canUpload($data); @endphp
+                                <a href="{{ $canUpload ? url('upload-data/' . $data['id']) : 'javascript:void(0)' }}"
+                                    @if(!$canUpload) title="{{ empty($data['route_date']) ? 'Add route plan first' : 'Planned hours must cover total required hours' }}" @endif
+                                    class="@if(!$canUpload) disable @endif"><i
+                                        class="bi bi-upload uplode-btn @if(!$canUpload) disable @endif"></i></a>
                             </td>
                         </tr>
                     @endforeach
@@ -379,7 +385,10 @@
     @endif
     @endforeach
        </td>
-       <td style="text-align:center;"><a href="{{ url('upload-data/' . $data['id']) }}" class="@if ($data['route_date'] == null) disable @endif"><i class="bi bi-upload uplode-btn @if ($data['route_date'] == null) disable @endif"></i></a></td>
+       <td style="text-align:center;">
+           @php $canUploadModal = \App\Services\SessionUploadService::canUpload($data); @endphp
+           <a href="{{ $canUploadModal ? url('upload-data/' . $data['id']) : 'javascript:void(0)' }}" class="@if(!$canUploadModal) disable @endif"><i class="bi bi-upload uplode-btn @if(!$canUploadModal) disable @endif"></i></a>
+       </td>
           </tr>
     @endif
          @endforeach

@@ -146,36 +146,65 @@
         var $holidayNote = $form.find('.route-plan-holiday-note');
         var $intime = $form.find('.route-plan-intime');
         var $outtime = $form.find('.route-plan-outtime');
+        var $dailyDisplay = $form.find('.route-plan-daily-display');
         var $hoursDisplay = $form.find('.route-plan-hours-display');
         var $hoursNote = $form.find('.route-plan-hours-note');
+
         var requiredHours = parseFloat($fields.data('required-hours'));
-        if (isNaN(requiredHours)) {
-            requiredHours = null;
-        }
+        if (isNaN(requiredHours)) requiredHours = null;
+        var dailyMaxHours = parseFloat($fields.data('daily-max-hours'));
+        if (isNaN(dailyMaxHours)) dailyMaxHours = null;
+        var minWorkingDays = parseInt($fields.data('min-working-days'), 10);
+        if (isNaN(minWorkingDays)) minWorkingDays = null;
 
         function updateHours() {
             var days = parseInt($workingDays.val(), 10);
             var mins = minutesBetween($intime.val(), $outtime.val());
+            var notes = [];
 
-            if (!days || mins === null) {
+            if (mins === null) {
+                $dailyDisplay.val('');
                 $hoursDisplay.val('');
                 $hoursNote.text('');
                 return;
             }
 
             var daily = Math.round((mins / 60) * 100) / 100;
-            var planned = Math.round((days * daily) * 100) / 100;
-            $hoursDisplay.val(planned + ' hrs (' + days + ' days × ' + daily + ' hrs/day)');
+            $dailyDisplay.val(daily + ' hrs/day');
 
-            if (requiredHours !== null) {
-                if (planned + 0.001 < requiredHours) {
-                    $hoursNote.html('<span class="text-danger">Planned ' + planned + ' hrs is less than required ' + requiredHours + ' hrs.</span>');
-                } else {
-                    $hoursNote.html('<span class="text-success">Planned hours cover the required ' + requiredHours + ' hrs.</span>');
-                }
+            if (days) {
+                var planned = Math.round((days * daily) * 100) / 100;
+                $hoursDisplay.val(planned + ' hrs (' + days + ' days × ' + daily + ' hrs/day)');
             } else {
-                $hoursNote.text('');
+                $hoursDisplay.val('');
             }
+
+            if (dailyMaxHours !== null) {
+                if (daily - dailyMaxHours > 0.001) {
+                    notes.push('<span class="text-danger">Daily ' + daily + ' hrs exceeds max ' + dailyMaxHours + ' hrs/day.</span>');
+                } else {
+                    notes.push('<span class="text-success">Daily ' + daily + ' hrs ≤ max ' + dailyMaxHours + ' hrs/day.</span>');
+                }
+            }
+
+            if (minWorkingDays !== null && days) {
+                if (days < minWorkingDays) {
+                    notes.push('<span class="text-danger">Working days (' + days + ') below minimum ' + minWorkingDays + '.</span>');
+                } else {
+                    notes.push('<span class="text-success">Working days (' + days + ') meet minimum ' + minWorkingDays + '.</span>');
+                }
+            }
+
+            if (requiredHours !== null && days && mins !== null) {
+                var plannedCheck = Math.round((days * daily) * 100) / 100;
+                if (plannedCheck + 0.001 < requiredHours) {
+                    notes.push('<span class="text-danger">Planned ' + plannedCheck + ' hrs is less than required total ' + requiredHours + ' hrs.</span>');
+                } else {
+                    notes.push('<span class="text-success">Planned hours cover required total ' + requiredHours + ' hrs.</span>');
+                }
+            }
+
+            $hoursNote.html(notes.join('<br>'));
         }
 
         function updateEndDate() {
@@ -236,10 +265,33 @@
                 return;
             }
 
-            if (minutesBetween($intime.val(), $outtime.val()) === null) {
+            var mins = minutesBetween($intime.val(), $outtime.val());
+            if (mins === null) {
                 e.preventDefault();
                 alert('Outtime must be after Intime.');
                 return;
+            }
+
+            var daily = Math.round((mins / 60) * 100) / 100;
+            if (dailyMaxHours !== null && daily - dailyMaxHours > 0.001) {
+                e.preventDefault();
+                alert('Daily training hours (' + daily + ') cannot exceed max ' + dailyMaxHours + ' hrs/day.');
+                return;
+            }
+
+            if (minWorkingDays !== null && days < minWorkingDays) {
+                e.preventDefault();
+                alert('Working days must be at least ' + minWorkingDays + ' (total hours ÷ hours/day). You may take more days.');
+                return;
+            }
+
+            if (requiredHours !== null) {
+                var planned = Math.round((days * daily) * 100) / 100;
+                if (planned + 0.001 < requiredHours) {
+                    e.preventDefault();
+                    alert('Planned hours (' + planned + ') must cover required total ' + requiredHours + ' hrs. Increase working days or daily hours.');
+                    return;
+                }
             }
         });
 

@@ -70,7 +70,7 @@
         </table>
     </div>
 </div>
-<!-- boostrap trainer model -->
+<!-- bootstrap coordinator modal -->
 <div class="modal fade" id="Cordinator-modal" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -81,15 +81,40 @@
             <div class="modal-body">
                 <form action="javascript:void(0)" id="CordinatorForm" name="CordinatorForm" class="form-horizontal" enctype="multipart/form-data">
                     <div class="form-row">
-                         <div class="form-group col">
-                          <label for="inputEmail4">Cordinator Name</label>
-                          <input type="text" class="form-control " name="cordinator_name" >
+                        <div class="form-group col">
+                            <label>Cordinator Name</label>
+                            <input type="text" class="form-control" name="cordinator_name" required>
                         </div>
                         <div class="form-group col">
-                          <label for="inputPassword4">Cordinator code</label>
-                          <input type="text" class="form-control " name="code" >
+                            <label>Email (Login)</label>
+                            <input type="email" class="form-control" name="email" required>
                         </div>
-                    </div>                   
+                        <div class="form-group col">
+                            <label>Password</label>
+                            <input type="text" class="form-control" name="password" value="SOPL@1634" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label>Cordinator Code</label>
+                            <input type="text" class="form-control" name="code" required>
+                        </div>
+                        <div class="form-group col">
+                            <label>Phone Number</label>
+                            <input type="text" class="form-control" name="number" required>
+                        </div>
+                        <div class="form-group col">
+                            <label>District</label>
+                            <select name="district_name" class="form-control" required>
+                                <option value="">Select District</option>
+                                @if(isset($district))
+                                    @foreach($district as $d)
+                                        <option value="{{ $d['district'] }}">{{ $d['district'] }}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -157,12 +182,16 @@ jQuery(document).ready(function($){
                 });
             },
             error: function (data) {
-                const obj = JSON.parse(data.responseText);
+                let msg = 'Something went wrong';
+                try {
+                    const obj = JSON.parse(data.responseText);
+                    msg = obj.message || Object.values(obj.errors || {}).flat().join(', ') || msg;
+                } catch (e) {}
                 const Toast = Swal.mixin({
                     toast: true,
                     position: 'top-end',
                     showConfirmButton: false,
-                    timer: 3000,
+                    timer: 4000,
                     timerProgressBar: true,
                     didOpen: (toast) => {
                         toast.addEventListener('mouseenter', Swal.stopTimer)
@@ -172,7 +201,7 @@ jQuery(document).ready(function($){
 
                 Toast.fire({
                   icon: 'error',
-                  title: obj.message
+                  title: msg
                 })
             }
         });

@@ -17,6 +17,7 @@ class School extends Model
         'block',
         'total_students',
         'training_hours',
+        'daily_training_hours',
         'status',
         'image_status',
         'video_status',
@@ -28,6 +29,7 @@ class School extends Model
 
     protected $casts = [
         'training_hours' => 'float',
+        'daily_training_hours' => 'float',
     ];
 
     public function district()

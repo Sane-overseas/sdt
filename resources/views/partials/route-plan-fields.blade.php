@@ -13,6 +13,7 @@
     $holidayDistrictId = null;
     $holidayStateId = null;
     $requiredHours = $data['required_hours'] ?? null;
+    $dailyMaxHours = $data['daily_training_hours'] ?? null;
     if (!empty($data['school_name'])) {
         $schoolForHoliday = \App\Models\School::with('district')->find($data['school_name']);
         $holidayDistrictId = $schoolForHoliday?->district_id;
@@ -20,7 +21,15 @@
         if ($requiredHours === null && $schoolForHoliday) {
             $requiredHours = \App\Services\TrainingHoursService::getForSchool((int) $schoolForHoliday->id);
         }
+        if ($dailyMaxHours === null && $schoolForHoliday) {
+            $dailyMaxHours = \App\Services\TrainingHoursService::getDailyForSchool((int) $schoolForHoliday->id);
+        }
     }
+
+    $minWorkingDays = \App\Services\TrainingHoursService::minimumWorkingDays(
+        $requiredHours !== null ? (float) $requiredHours : null,
+        $dailyMaxHours !== null ? (float) $dailyMaxHours : null
+    );
 
     $intimeValue = !empty($data['start_route_plan']) ? substr((string) $data['start_route_plan'], 0, 5) : '';
     $outtimeValue = !empty($data['end_route_plan']) ? substr((string) $data['end_route_plan'], 0, 5) : '';
@@ -28,25 +37,30 @@
 <div class="row route-plan-fields"
      data-district-id="{{ $holidayDistrictId }}"
      data-state-id="{{ $holidayStateId }}"
-     data-required-hours="{{ $requiredHours !== null ? $requiredHours : '' }}">
+     data-required-hours="{{ $requiredHours !== null ? $requiredHours : '' }}"
+     data-daily-max-hours="{{ $dailyMaxHours !== null ? $dailyMaxHours : '' }}"
+     data-min-working-days="{{ $minWorkingDays !== null ? $minWorkingDays : '' }}">
     <strong>Route Plan</strong>
-    @if($requiredHours !== null)
     <p class="col-12 mb-2 text-muted small">
-        Required training hours for this school: <strong>{{ number_format((float) $requiredHours, 2) }} hrs</strong>
-        (covered by working days × daily intime–outtime).
+        @if($requiredHours !== null)
+            Total required: <strong>{{ number_format((float) $requiredHours, 2) }} hrs</strong>.
+        @endif
+        @if($dailyMaxHours !== null)
+            Max / day: <strong>{{ number_format((float) $dailyMaxHours, 2) }} hrs</strong>
+            (less allowed).
+        @endif
+        @if($minWorkingDays !== null)
+            Minimum working days: <strong>{{ $minWorkingDays }}</strong>
+            (you may take more days).
+        @endif
     </p>
-    @else
-    <p class="col-12 mb-2 text-muted small">
-        No training hours set for this school.  
-    </p>
-    @endif
     <div class="form-group col-12">
         <span>Start Date:</span>
         <input type="date" name="start_date" class="form-control route-plan-start" value="{{ $existingStart }}" required>
     </div>
     <div class="form-group col-12">
-        <span>Working Days (school visit days):</span>
-        <input type="number" name="working_days" class="form-control route-plan-working-days" min="1" value="{{ $existingWorkingDays }}" required>
+        <span>Working Days (school visit days){{ $minWorkingDays ? ' — min '.$minWorkingDays : '' }}:</span>
+        <input type="number" name="working_days" class="form-control route-plan-working-days" min="{{ $minWorkingDays ?: 1 }}" value="{{ $existingWorkingDays }}" required>
     </div>
     <div class="form-group col-12">
         <span>Calculated End Date (holidays excluded):</span>
@@ -55,14 +69,18 @@
     <p class="route-plan-holiday-note text-info small col-12"></p>
     <div class="form-group col-12">
         <span>Intime:</span>
-        <input type="time" name="intime" class="form-control route-plan-intime" value="{{ $intimeValue }}" required>    
+        <input type="time" name="intime" class="form-control route-plan-intime" value="{{ $intimeValue }}" required>
     </div>
     <div class="form-group col-12">
         <span>Outtime:</span>
         <input type="time" name="outtime" class="form-control route-plan-outtime" value="{{ $outtimeValue }}" required>
     </div>
     <div class="form-group col-12">
-        <span>Planned Training Hours:</span>
+        <span>Daily Hours (from intime–outtime):</span>
+        <input type="text" class="form-control route-plan-daily-display" readonly placeholder="out − in">
+    </div>
+    <div class="form-group col-12">
+        <span>Planned Total Hours:</span>
         <input type="text" class="form-control route-plan-hours-display" readonly placeholder="working days × daily hours">
     </div>
     <p class="route-plan-hours-note small col-12"></p>

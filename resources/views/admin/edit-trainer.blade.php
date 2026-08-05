@@ -119,46 +119,56 @@
 				<?php $role = Auth::user()->role; ?>
 				<div class="form-row">
 				     <div class="form-group col-md">
-				      <label for="inputEmail4">Trainer Name</label>
+				      <label>Trainer Name <span class="text-danger">*</span></label>
 				      <input type="text" class="form-control " name="trainer_name" value="{{$trainer_data['instructor_name']}}"  @if($role == 2) readonly @endif>
 				      <input type="hidden" class="form-control " name="id" value="{{$trainer_data['id']}}">
 				    </div>
 				    <div class="form-group col-md">
-				      <label for="inputPassword4">Email</label>
+				      <label>Father Name <span class="text-danger">*</span></label>
+				      <input type="text" class="form-control" name="father_name" value="{{ $trainer_data['father_name'] ?? '' }}" @if($role == 2) readonly @endif required>
+				    </div>
+				    <div class="form-group col-md">
+				      <label>Email <span class="text-danger">*</span></label>
 				      <input type="email" class="form-control " name="email"  value="{{$trainer_data['email']}}"  @if($role == 2) readonly @endif>
 				    </div>
 				    <div class="form-group col-md">
-				      <label for="inputEmail4">Amount per School</label>
+				      <label>Amount per School</label>
 				      <input type="number" class="form-control" name="amount" value="{{$trainer_data['amount']}}"  @if($role == 2) readonly @endif>
 				    </div>
                     <div class="form-group col-md">
-                        <label for="inputEmail4">Incentive Amount</label>
+                        <label>Incentive Amount</label>
                         <input type="number" class="form-control" name="extra_amount" value="{{$trainer_data['extra_amount']}}"  @if($role == 2) readonly @endif>
                       </div>
-				    @if($trainer_data['role'] == 2)
-				    {{-- <div class="form-group col-md">
-				      <label for="inputEmail4">Incentive Amount</label>
-				      <input type="number" class="form-control" name="extra_amount" value="{{$trainer_data['extra_amount']}}"  @if($role == 2) readonly @endif>
-				    </div> --}}
-				    @endif
 				</div>
 				<div class="form-row">
-                    {{-- <div class="form-group col-md">
-                        <label for="inputEmail4">Total Amount</label>
-                        <input type="number" class="form-control" name="total_amount" value="{{$trainer_data['total_amount']}}"  @if($role == 2) readonly @endif>
-                      </div> --}}
 					<div class="form-group col-md">
-				      <label for="inputPassword4">Trainer code</label>
+				      <label>Trainer code <span class="text-danger">*</span></label>
 				      <input type="text" class="form-control " name="code" value="{{$trainer_data['instructor_code']}}" @if($role == 2) readonly @endif>
 				    </div>
 				     <div class="form-group col-md">
-				      <label for="inputEmail4">Number</label>
-				      <input type="number" class="form-control" name="number" value="{{$trainer_data['instructor_number']}}"  @if($role == 2) readonly @endif>
+				      <label>Phone Number <span class="text-danger">*</span></label>
+				      <input type="text" class="form-control" name="number" id="phone_number" value="{{$trainer_data['instructor_number']}}" maxlength="10" @if($role == 2) readonly @endif>
+				    </div>
+				     <div class="form-group col-md">
+				      <label>Aadhar Number <span class="text-danger">*</span></label>
+				      <input type="text" class="form-control" name="aadhar_number" id="aadhar_number"
+				             value="{{ $trainer_data['aadhar_number'] ?? '' }}"
+				             inputmode="numeric" maxlength="12"
+				             placeholder="12 digit Aadhar" @if($role == 2) readonly @endif required>
 				    </div>
 				    <div class="form-group col-md">
-				      <label for="inputPassword4">Cordinator</label>
+				      <label>Blood Group <span class="text-danger">*</span></label>
+				      <select name="blood_group" class="form-control" @if($role == 2) disabled @endif required>
+				        <option value="">Select</option>
+				        @foreach(['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $bg)
+				            <option value="{{ $bg }}" {{ ($trainer_data['blood_group'] ?? '') === $bg ? 'selected' : '' }}>{{ $bg }}</option>
+				        @endforeach
+				      </select>
+				    </div>
+				    <div class="form-group col-md">
+				      <label>Coordinator <span class="text-danger">*</span></label>
 				      <select name="cordinator" class="form-control" @if($role == 2) readonly @endif>
-					       <option value="" selected>Select Cordinator</option>
+					       <option value="" selected>Select Coordinator</option>
 					        @if(isset($cordinator))
 								@foreach($cordinator as $key => $data)
 					        		<option value="{{$data['id']}}" {{ $trainer_data['cordinator_id'] == $data['id'] ? 'selected' : '' }}>{{$data['cordinator_name']}}</option>
@@ -167,7 +177,7 @@
 					      </select>
 				    </div>
 				     <div class="form-group col-md">
-                        <label>District Name</label>
+                        <label>District Name <span class="text-danger">*</span></label>
                         <select name="district_name" class="form-control"  @if($role == 2) readonly @endif>
                             <option value="">Select District</option>
                             @if(isset($district))
@@ -178,14 +188,57 @@
                         </select>
                     </div>
 				</div>
+				<div class="form-row">
+				    <div class="form-group col-md-12">
+				        <label>Address <span class="text-danger">*</span></label>
+				        <textarea class="form-control" name="address" rows="2" @if($role == 2) readonly @endif required>{{ $trainer_data['address'] ?? '' }}</textarea>
+				    </div>
+				    <div class="form-group col-md-6">
+				        <label>Expertise (Martial Art Type) <span class="text-danger">*</span></label>
+				        <input type="text" class="form-control" name="martial_art_type" value="{{ $trainer_data['martial_art_type'] ?? '' }}" @if($role == 2) readonly @endif required>
+				    </div>
+				</div>
+				<div class="form-row">
+				    <div class="form-group col-md-6">
+				        <label>Aadhar Document</label>
+				        <input type="file" class="form-control" name="aadhar_doc" accept=".jpg,.jpeg,.png,.pdf" @if($role == 2) disabled @endif>
+				        @if(!empty($trainer_data['aadhar_doc']))
+				            <small><a href="{{ asset('storage/'.$trainer_data['aadhar_doc']) }}" target="_blank">View current</a></small>
+				        @endif
+				    </div>
+				    <div class="form-group col-md-6">
+				        <label>Qualification</label>
+				        <input type="file" class="form-control" name="qualification_doc" accept=".jpg,.jpeg,.png,.pdf" @if($role == 2) disabled @endif>
+				        @if(!empty($trainer_data['qualification_doc']))
+				            <small><a href="{{ asset('storage/'.$trainer_data['qualification_doc']) }}" target="_blank">View current</a></small>
+				        @endif
+				    </div>
+				    <div class="form-group col-md-6">
+				        <label>Martial Art Certificate</label>
+				        <input type="file" class="form-control" name="martial_art_doc" accept=".jpg,.jpeg,.png,.pdf" @if($role == 2) disabled @endif>
+				        @if(!empty($trainer_data['martial_art_doc']))
+				            <small><a href="{{ asset('storage/'.$trainer_data['martial_art_doc']) }}" target="_blank">View current</a></small>
+				        @endif
+				    </div>
+				    <div class="form-group col-md-6">
+				        <label>Photo</label>
+				        <input type="file" class="form-control" name="photo" accept=".jpg,.jpeg,.png" @if($role == 2) disabled @endif>
+				        @if(!empty($trainer_data['photo']))
+				            <small><a href="{{ asset('storage/'.$trainer_data['photo']) }}" target="_blank">View current</a></small>
+				        @endif
+				    </div>
+				</div>
 				<div class="row">
                     <div class="form-group col-md">
-                        <label>District</label>
+                        <label>District <small class="text-muted">(for school assign)</small></label>
                         <select name="district" class="form-control" id="check_distt">
                             <option value="">Select District</option>
                             @if(isset($district))
                                 @foreach($district as $key => $data)
-                                    <option value="{{$data['id']}}">{{$data['district']}}</option>
+                                    <option value="{{$data['id']}}"
+                                        {{ isset($trainer_data['district']) && $trainer_data['district'] == $data['district'] ? 'selected' : '' }}>
+                                        {{$data['district']}}
+                                    </option>
                                 @endforeach
                             @endif
                         </select>
@@ -282,6 +335,57 @@
 	    searchHighlight: true,
 	});
 
+    const trainerSavedBlock = @json($trainer_data['block'] ?? null);
+
+    function loadBlocks(districtId, selectedBlock, thenLoadSchools) {
+        $("#check_block").html('<option value="">Select Block</option>');
+        $("#schoolChecklist").html('<div class="school-empty">Select block to load schools.</div>');
+        $("#selectAll").prop('checked', false);
+        $("#schoolSearch").val('');
+        if (!districtId) return;
+
+        $.ajaxSetup({
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') }
+        });
+        $.ajax({
+            type: "POST",
+            url: '/blockdata',
+            data: { id: districtId },
+            success: function (result) {
+                $('#check_block').html('<option value="">Select Block</option>');
+                $.each(result.block || [], function (key, value) {
+                    var sel = selectedBlock && selectedBlock === value.block ? 'selected' : '';
+                    $("#check_block").append('<option value="' + value.block + '" ' + sel + '>' + value.block + '</option>');
+                });
+                if (selectedBlock && thenLoadSchools) {
+                    $('#check_block').trigger('change');
+                }
+            }
+        });
+    }
+
+    // Profile district → assignment district sync
+    $('select[name="district_name"]').on('change', function () {
+        var name = $(this).val();
+        var matched = '';
+        $('#check_distt option').each(function () {
+            if ($(this).text().trim() === String(name).trim()) {
+                matched = $(this).val();
+                return false;
+            }
+        });
+        if (matched) {
+            $('#check_distt').val(matched).trigger('change');
+        }
+    });
+
+    $(function () {
+        var distId = $('#check_distt').val();
+        if (distId) {
+            loadBlocks(distId, trainerSavedBlock, false);
+        }
+    });
+
     function renderSchoolChecklist(list) {
         var $checklist = $("#schoolChecklist");
         $checklist.html('');
@@ -314,6 +418,13 @@
         });
     });
 
+	$(document).on('input', '#aadhar_number', function () {
+		this.value = this.value.replace(/\D/g, '').slice(0, 12);
+	});
+	$(document).on('input', '#phone_number', function () {
+		this.value = this.value.replace(/\D/g, '').slice(0, 10);
+	});
+
 	$("#btn-save").click(function (e) {
         $.ajaxSetup({
             headers: {
@@ -322,18 +433,16 @@
         });
         e.preventDefault();
 
-        var formData =  $("#trainerForm").serialize()
-        var type = "POST";
-        var ajaxurl = '/update-trainer';
+        var formData = new FormData(document.getElementById('trainerForm'));
 
         $.ajax({
-            type: type,
-            url: ajaxurl,
+            type: 'POST',
+            url: '/update-trainer',
             data: formData,
+            processData: false,
+            contentType: false,
             dataType: 'json',
             success: function (data) {
-            	var allInputs = document.querySelectorAll(['input','select']);
-         		allInputs.forEach(singleInput => singleInput.value = '');
             	Swal.fire({
 					position: 'center',
 					icon: 'success',
@@ -347,12 +456,20 @@
 					});
             },
             error: function (data) {
-                const obj = JSON.parse(data.responseText);
+                let title = 'Something went wrong';
+                try {
+                    const obj = JSON.parse(data.responseText);
+                    if (obj.errors) {
+                        title = Object.values(obj.errors)[0][0];
+                    } else if (obj.message) {
+                        title = obj.message;
+                    }
+                } catch (e) {}
 				const Toast = Swal.mixin({
 					toast: true,
 					position: 'top-end',
 					showConfirmButton: false,
-					timer: 3000,
+					timer: 4000,
 					timerProgressBar: true,
 					didOpen: (toast) => {
 					    toast.addEventListener('mouseenter', Swal.stopTimer)
@@ -362,35 +479,14 @@
 
 				Toast.fire({
 				  icon: 'error',
-				  title: obj.message
+				  title: title
 				})
             }
         });
     });
 
     $('#check_distt').change(function () {
-        $.ajaxSetup({
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            }
-        });
-
-        var id = this.value;
-        $("#check_block").html('');
-        $("#schoolChecklist").html('<div class="school-empty">Select block to load schools.</div>');
-        $("#selectAll").prop('checked', false);
-        $("#schoolSearch").val('');
-        $.ajax({
-            type: "POST",
-            url: '/blockdata',
-            data: { id: id },
-            success: function (result) {
-                $('#check_block').html('<option value="">Select Block</option>');
-                $.each(result.block, function (key, value) {
-                    $("#check_block").append('<option value="' + value.block + '">' + value.block + '</option>');
-                });
-            }
-        })
+        loadBlocks(this.value, null, false);
     });
 
     $('#check_block').change(function () {

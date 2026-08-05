@@ -19,6 +19,7 @@ class SchoolAssignmentService
 
         return AsignedSchool::withoutGlobalScopes()
             ->where('session_id', $sessionId)
+            ->whereIn('approval_status', ['pending', 'approved'])
             ->pluck('school_name');
     }
 
@@ -50,6 +51,7 @@ class SchoolAssignmentService
 
         $assignedIds = AsignedSchool::withoutGlobalScopes()
             ->where('session_id', $sessionId)
+            ->whereIn('approval_status', ['pending', 'approved'])
             ->pluck('school_name');
 
         if ($assignedIds->isNotEmpty()) {
@@ -83,6 +85,7 @@ class SchoolAssignmentService
             $exists = AsignedSchool::withoutGlobalScopes()
                 ->where('session_id', $sessionId)
                 ->where('school_name', $schoolId)
+                ->whereIn('approval_status', ['pending', 'approved'])
                 ->exists();
 
             if ($exists) {
@@ -91,6 +94,7 @@ class SchoolAssignmentService
             }
 
             $requiredHours = TrainingHoursService::getForSchool((int) $schoolId);
+            $dailyHours = TrainingHoursService::getDailyForSchool((int) $schoolId);
 
             AsignedSchool::create([
                 'user_id' => $trainerId,
@@ -99,9 +103,13 @@ class SchoolAssignmentService
                 'school_name' => $schoolId,
                 'session_id' => $sessionId,
                 'asigned_by' => $assignedBy,
+                'approval_status' => 'approved',
+                'approved_at' => now(),
+                'approved_by' => $assignedBy,
                 'start_route_plan' => null,
                 'end_route_plan' => null,
                 'required_hours' => $requiredHours,
+                'daily_training_hours' => $dailyHours,
                 'planned_hours' => null,
             ]);
 

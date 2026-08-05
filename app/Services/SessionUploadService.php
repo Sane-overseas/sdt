@@ -59,17 +59,69 @@ class SessionUploadService
         }
     }
 
+    /** Planned hours must cover required total before uploads are allowed. */
+    public static function assertPlannedHoursCoverRequired(AsignedSchool $assignment): void
+    {
+        if ($assignment->required_hours === null) {
+            return;
+        }
+
+        $required = (float) $assignment->required_hours;
+        $planned = $assignment->planned_hours !== null ? (float) $assignment->planned_hours : null;
+
+        if ($planned === null || ($planned + 0.001) < $required) {
+            abort(422, 'Planned hours must cover required total hours before uploading. Please update your route plan.');
+        }
+    }
+
+    public static function canUpload(AsignedSchool|array $assignment): bool
+    {
+        $approval = is_array($assignment)
+            ? ($assignment['approval_status'] ?? 'approved')
+            : ($assignment->approval_status ?? 'approved');
+        if ($approval !== 'approved') {
+            return false;
+        }
+
+        $routeDate = is_array($assignment) ? ($assignment['route_date'] ?? null) : $assignment->route_date;
+        if (empty($routeDate)) {
+            return false;
+        }
+
+        $required = is_array($assignment)
+            ? ($assignment['required_hours'] ?? null)
+            : $assignment->required_hours;
+        if ($required === null) {
+            return true;
+        }
+
+        $planned = is_array($assignment)
+            ? ($assignment['planned_hours'] ?? null)
+            : $assignment->planned_hours;
+
+        return $planned !== null && ((float) $planned + 0.001) >= (float) $required;
+    }
+
     public static function assertCanUpload(int $assignmentId, ?int $trainerUserId = null): AsignedSchool
     {
         $assignment = self::assertActiveSessionAssignment($assignmentId, $trainerUserId);
+        if (!$assignment->isApproved()) {
+            abort(403, 'This school request is not approved yet. Wait for admin approval.');
+        }
         self::assertRoutePlanSet($assignment);
+        self::assertPlannedHoursCoverRequired($assignment);
 
         return $assignment;
     }
 
     public static function assertCanSetRoutePlan(int $assignmentId): AsignedSchool
     {
-        return self::assertActiveSessionAssignment($assignmentId);
+        $assignment = self::assertActiveSessionAssignment($assignmentId);
+        if (!$assignment->isApproved()) {
+            abort(403, 'Route plan can be set only after admin approves the school request.');
+        }
+
+        return $assignment;
     }
 
     /** Derive assignment + school status from session-scoped upload records. */

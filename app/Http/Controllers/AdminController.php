@@ -28,6 +28,7 @@ use App\Models\AcademicSession;
 use App\Models\State;
 use App\Models\Testimonial;
 use App\Services\AcademicSessionService;
+use App\Support\MediaPath;
 use App\Services\HolidayService;
 use App\Services\SchoolAssignmentService;
 use App\Services\SessionUploadService;
@@ -290,20 +291,54 @@ class AdminController extends BaseController
         }
 
         $request->validate([
-            'cordinator_name' => 'required',
+            'cordinator_name' => 'required|string|max:255',
             'code' => [
                 'required',
+                'string',
+                'max:100',
                 Rule::unique('cordinators', 'cordinator_code')->where(fn ($query) => $query->where('state_id', $stateId)),
+                Rule::unique('users', 'instructor_code'),
             ],
+            'email' => 'required|email|max:255|unique:users,email',
+            'password' => 'required|string|min:6',
+            'number' => 'required|string|max:20',
+            'district_name' => 'required|string|max:255',
         ]);
 
-        $cordinator = new Cordinator;
-        $cordinator->cordinator_name = $request->cordinator_name;
-        $cordinator->cordinator_code = $request->code;
-        $cordinator->state_id = $stateId;
-        $cordinator->save();
+        $district = District::where('district', $request->district_name)->first();
+        if ($district) {
+            StateService::assertDistrictInScope((int) $district->id);
+        }
 
-        return Response::json($cordinator);
+        $cordinator = Cordinator::create([
+            'cordinator_name' => $request->cordinator_name,
+            'cordinator_code' => $request->code,
+            'state_id' => $stateId,
+        ]);
+
+        // Same login page as trainers/admin — password cast hashes automatically
+        $user = User::create([
+            'instructor_name' => $request->cordinator_name,
+            'email' => $request->email,
+            'password' => $request->password,
+            'instructor_code' => $request->code,
+            'instructor_number' => $request->number,
+            'cordinator_id' => $cordinator->id,
+            'district' => $request->district_name,
+            'state_id' => $stateId,
+            'amount' => 0,
+            'extra_amount' => 0,
+        ]);
+
+        $user->forceFill([
+            'role' => 2,
+            'active_status' => 1,
+        ])->save();
+
+        return Response::json([
+            'cordinator' => $cordinator,
+            'user' => $user,
+        ]);
     }
 
     public function cordinatorData($id)
@@ -540,7 +575,7 @@ class AdminController extends BaseController
         if ($blocked = $this->approvedDeleteBlocked($video, 'video')) {
             return $blocked;
         }
-        $this->deletePublicStorageFile('videos/'.$video->fst_video);
+        $this->deletePublicStorageFile(MediaPath::diskPath('videos', $video->fst_video));
         $video->fst_video = null;
         $video->status = 0;
         $video->save();
@@ -553,7 +588,7 @@ class AdminController extends BaseController
         if ($blocked = $this->approvedDeleteBlocked($video, 'video')) {
             return $blocked;
         }
-        $this->deletePublicStorageFile('videos/'.$video->snd_video);
+        $this->deletePublicStorageFile(MediaPath::diskPath('videos', $video->snd_video));
         $video->snd_video = null;
         $video->status = 0;
         $video->save();
@@ -566,8 +601,8 @@ class AdminController extends BaseController
         if ($blocked = $this->approvedDeleteBlocked($video, 'video')) {
             return $blocked;
         }
-        $this->deletePublicStorageFile('videos/'.$video->fst_video);
-        $this->deletePublicStorageFile('videos/'.$video->snd_video);
+        $this->deletePublicStorageFile(MediaPath::diskPath('videos', $video->fst_video));
+        $this->deletePublicStorageFile(MediaPath::diskPath('videos', $video->snd_video));
         $video->delete();
 
         $videoStatus = School::findOrFail($sid);
@@ -624,7 +659,7 @@ class AdminController extends BaseController
         }
 
         $field = $fields[$imgid];
-        $this->deletePublicStorageFile('images/'.$image->{$field});
+        $this->deletePublicStorageFile(MediaPath::diskPath('images', $image->{$field}));
         $image->{$field} = null;
         $image->status = 0;
         $image->save();
@@ -640,7 +675,7 @@ class AdminController extends BaseController
         }
 
         foreach (['ifsb_image', 'group_image', 'fst_aimage', 'snd_aimage', 'trd_aimage'] as $field) {
-            $this->deletePublicStorageFile('images/'.$image->{$field});
+            $this->deletePublicStorageFile(MediaPath::diskPath('images', $image->{$field}));
         }
         $image->delete();
 
@@ -687,7 +722,7 @@ class AdminController extends BaseController
         }
 
         $sessionId = $completion->session_id;
-        $this->deletePublicStorageFile('completion/'.$completion->completion_file);
+        $this->deletePublicStorageFile(MediaPath::diskPath('completion', $completion->completion_file));
         $completion->delete();
 
         AsignedSchool::withoutGlobalScopes()
@@ -730,7 +765,7 @@ class AdminController extends BaseController
         if ($blocked = $this->approvedDeleteBlocked($distribution, 'distribution')) {
             return $blocked;
         }
-        $this->deletePublicStorageFile('distribution/'.$distribution->distribution_file);
+        $this->deletePublicStorageFile(MediaPath::diskPath('distribution', $distribution->distribution_file));
         $distribution->delete();
 
         return response()->json(['success' => true]);
@@ -801,7 +836,7 @@ class AdminController extends BaseController
             return $blocked;
         }
         if ($testimonial->testimonial_video) {
-            Storage::disk('public')->delete('testimonials/'.$testimonial->testimonial_video);
+            Storage::disk('public')->delete(MediaPath::diskPath('testimonials', $testimonial->testimonial_video));
         }
         $testimonial->delete();
 
@@ -858,11 +893,16 @@ class AdminController extends BaseController
 
     public function trainerData($id)
     {
-        $trainer_data = User::where('id', $id)->with('videos', 'images', 'completions', 'distributions', 'asigned_schools')->first()->toArray();
+        $trainer = User::where('id', $id)->with('videos', 'images', 'completions', 'distributions', 'asigned_schools')->first();
+        if (!$trainer) {
+            abort(404, 'Trainer not found.');
+        }
 
+        $trainer_data = $trainer->toArray();
         $district = StateService::districtsQuery()->get();
         $school = StateService::schoolsQuery()->get();
         $cordinator = StateService::cordinatorsQuery()->get();
+
         return view('trainerLogs.trainer-details')
             ->with('trainer_data', $trainer_data)
             ->with('school', $school)

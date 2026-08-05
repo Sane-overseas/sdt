@@ -66,16 +66,19 @@ $total_students =$data['total_students'];
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Training Hours</label>
-                        <input type="number" class="form-control" name="training_hours" min="0.5" step="0.5" value="{{ old('training_hours', $trainingHours ?? '') }}" placeholder="e.g. 40">
+                        <label class="form-label">Total Training Hours</label>
+                        <input type="number" class="form-control" name="training_hours" min="0.5" step="0.5" value="{{ old('training_hours', $trainingHours ?? '') }}" placeholder="e.g. 60">
+                        <small class="text-muted d-block">Full course hours for this school (e.g. 60).</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Training Hours / Day</label>
+                        <input type="number" class="form-control" name="daily_training_hours" min="0.1" max="12" step="0.1" value="{{ old('daily_training_hours', $dailyTrainingHours ?? '') }}" placeholder="e.g. 2">
+                        <small class="text-muted d-block">Max hours/day. Min days = total ÷ per day (trainer can take more days).</small>
                         @if(!empty($isAssignedInActiveSession))
-                            <!-- <small class="text-muted d-block">
-                                This school is already assigned.
-                                Changing hours updates the school for <strong>future</strong> assignments only.
-                                The current trainer keeps their existing required-hours snapshot.
-                            </small> -->
-                        @else
-                            <small class="text-muted d-block">Permanent for this school (all sessions). Copied onto the trainer when assigned.</small>
+                            <small class="text-muted d-block">
+                                Changing hours updates the school for future assignments; current trainer keeps their existing snapshot.
+                            </small>
                         @endif
                     </div>
 

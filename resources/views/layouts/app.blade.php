@@ -63,14 +63,16 @@
                                             <a href="{{ route('paid-schools') }}">Paid Schools</a>
                                             <a href="{{ route('unpaid-schools') }}">Unpaid Schools</a>
                                             <a href="{{ route('today-assigned') }}">Assigned Schools</a>
+                                            <a href="{{ route('admin.school-requests') }}">School Requests</a>
                                             <a href="{{ route('route-plan-schools') }}">Route Plane Schools</a>
                                         </div>
                                     </li>
                                 </div>
                                 <div class="dropdown">
                                     <li class="nav-item">
-                                        <a class="nav-link dropbtn {{ Request::path() == 'add_trainers' ? 'active' : '' }}" href="{{ route('add_trainers') }}">Trainers Reporting</a>
+                                        <a class="nav-link dropbtn {{ in_array(Request::path(), ['add_trainers', 'trainer-registrations']) ? 'active' : '' }}" href="{{ route('add_trainers') }}">Trainers Reporting</a>
                                         <div class="dropdown-content">
+                                            <a href="{{ route('trainer.registrations') }}">Trainer Registrations</a>
                                             <a href="{{ route('ongoing-schools') }}">OnGoing Trainers</a>
                                             <a href="{{ route('not-workig-trainers') }}">Not Working Trainers</a>
                                             <a href="{{ route('trainers-schools-data') }}">Trainers Schools Data</a>
@@ -190,6 +192,9 @@
                                     <a class="nav-link trainer-nav-link {{ Request::path() == 'dashboard' ? 'active' : '' }}" href="{{ route('dashboard') }}">Upload</a>
                                 </li>
                                 <li class="nav-item">
+                                    <a class="nav-link trainer-nav-link {{ Request::path() == 'school-requests' ? 'active' : '' }}" href="{{ route('trainer.school-requests') }}">Request Schools</a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link trainer-nav-link {{ Request::path() == 'trainer-reporting' ? 'active' : '' }}" href="{{ route('trainer-reporting') }}">Cordinator Panel</a>
                                 </li>
                             </ul>
@@ -255,6 +260,9 @@
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link trainer-nav-link {{ Request::path() == 'dashboard' ? 'active' : '' }}" href="{{ route('dashboard') }}">Upload</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link trainer-nav-link {{ Request::path() == 'school-requests' ? 'active' : '' }}" href="{{ route('trainer.school-requests') }}">Request Schools</a>
                                     </li>
                                 </ul>
                             </div>

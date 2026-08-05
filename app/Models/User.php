@@ -28,14 +28,24 @@ class User extends Authenticatable
 
     protected $fillable = [
         'instructor_name',
+        'father_name',
         'instructor_code',
         'email',
         'password',
         'instructor_number',
+        'aadhar_number',
+        'address',
         'cordinator_id',
         'state_id',
         'district',
         'block',
+        'martial_art_type',
+        'blood_group',
+        'comment',
+        'aadhar_doc',
+        'qualification_doc',
+        'martial_art_doc',
+        'photo',
         'school_name',
         'amount',
         'extra_amount',
@@ -84,6 +94,15 @@ class User extends Authenticatable
     }
 
     public function asigned_schools()
+    {
+        return $this->hasMany(AsignedSchool::class)
+            ->where(function ($q) {
+                $q->where('approval_status', 'approved')
+                    ->orWhereNull('approval_status');
+            });
+    }
+
+    public function allAsignedSchools()
     {
         return $this->hasMany(AsignedSchool::class);
     }

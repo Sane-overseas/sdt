@@ -5,10 +5,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/switchery/0.8.2/switchery.min.js"></script>
 <div class="container mt-2">
      <div class="row margin-tb">
-        <div class="col-md-10">
+        <div class="col-md-8">
             <h2 class="heading ">Total Trainers</h2>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-4 text-right">
+        <a class="btn btn-secondary mb-1" href="{{ route('trainer.registrations') }}">Registrations</a>
         <a class="btn btn-info" onClick="add()" href="javascript:void(0)">Add Trainer</a>
         </div>
     </div>
@@ -30,7 +31,7 @@
                     <th>Name</th>
                     <th>Email</th>
                     <th>Trainer code</th>
-                    <th>Trainer Number</th>
+                    <th>Phone Number</th>
                     <th>Cordinator</th>
                     <th>District</th>
                     <th>Get Data</th>
@@ -63,73 +64,127 @@
         </table>
     </div>
 </div>
-<!-- boostrap trainer model -->
+<!-- bootstrap trainer modal -->
 <div class="modal fade" id="trainer-modal" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <h4 class="modal-title" id="trainerModal"></h4>
-                <button type="submit" class="btn btn-primary float-right" id="btn-save">Save</button>
+                <button type="button" class="btn btn-primary" id="btn-save">Save</button>
             </div>
             <div class="modal-body">
                 <form action="javascript:void(0)" id="trainerForm" name="trainerForm" class="form-horizontal" enctype="multipart/form-data">
+                    <h6 class="text-primary mb-2">Account</h6>
                     <div class="form-row">
-                         <div class="form-group col">
-                          <label for="inputEmail4">Trainer Name</label>
-                          <input type="text" class="form-control " name="trainer_name" >
+                        <div class="form-group col-md-4">
+                            <label>Trainer Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="trainer_name" required>
                         </div>
-                        <div class="form-group col">
-                          <label for="inputPassword4">Email</label>
-                          <input type="email" class="form-control " name="email" >
+                        <div class="form-group col-md-4">
+                            <label>Father Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="father_name" required>
                         </div>
-                         <div class="form-group col">
-                          <label for="inputPassword4">Password</label>
-                          <input type="text" class="form-control " name="password" value="Sopl@1634" >
+                        <div class="form-group col-md-4">
+                            <label>Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" name="email" required>
                         </div>
-                        <div class="form-group col">
-                          <label for="inputEmail4">Amount per School</label>
-                          <input type="number" class="form-control" name="amount" >
+                        <div class="form-group col-md-4">
+                            <label>Password <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="password" value="SOPL@1634" required>
                         </div>
-                        <div class="form-group col">
-                          <label for="inputEmail4">Incentive Amount</label>
-                          <input type="number" class="form-control" name="extra_amount" >
+                        <div class="form-group col-md-4">
+                            <label>Trainer Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="code" required>
+                        </div>
+                        <div class="form-group col-md-2">
+                            <label>Amount / School</label>
+                            <input type="number" class="form-control" name="amount">
+                        </div>
+                        <div class="form-group col-md-2">
+                            <label>Incentive</label>
+                            <input type="number" class="form-control" name="extra_amount">
                         </div>
                     </div>
+
+                    <h6 class="text-primary mb-2 mt-2">Personal Details</h6>
                     <div class="form-row">
-                        <div class="form-group col">
-                          <label for="inputPassword4">Trainer code</label>
-                          <input type="text" class="form-control " name="code" >
+                        <div class="form-group col-md-4">
+                            <label>Phone Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="number" id="phone_number"
+                                   inputmode="numeric" maxlength="10" placeholder="10 digit mobile" required>
                         </div>
-                         <div class="form-group col">
-                          <label for="inputEmail4">Number</label>
-                          <input type="number" class="form-control" name="number" >
+                        <div class="form-group col-md-4">
+                            <label>Aadhar Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="aadhar_number" id="aadhar_number"
+                                   inputmode="numeric" maxlength="12" placeholder="12 digit Aadhar" required>
                         </div>
-                        <div class="form-group col">
-                          <label for="inputPassword4">Cordinator</label>
-                          <select name="cordinator" class="form-control">
-                               <option value="" selected>Select Cordinator</option>
+                        <div class="form-group col-md-4">
+                            <label>Blood Group <span class="text-danger">*</span></label>
+                            <select name="blood_group" class="form-control" required>
+                                <option value="">Select</option>
+                                @foreach(['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $bg)
+                                    <option value="{{ $bg }}">{{ $bg }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group col-md-12">
+                            <label>Address <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="address" rows="2" required></textarea>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label>District <span class="text-danger">*</span></label>
+                            <select name="district_name" class="form-control" id="check_distt" required>
+                                <option value="">Select District</option>
+                                @if(isset($district))
+                                    @foreach($district as $key => $data)
+                                        <option value="{{$data['district']}}" data-id="{{ $data['id'] }}">{{$data['district']}}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label>Block <span class="text-danger">*</span></label>
+                            <select name="block" class="form-control" id="create_block" required>
+                                <option value="">Select Block</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label>Coordinator <span class="text-danger">*</span></label>
+                            <select name="cordinator" class="form-control" required>
+                                <option value="">Select Coordinator</option>
                                 @if(isset($cordinator))
                                     @foreach($cordinator as $key => $data)
                                         <option value="{{$data['id']}}">{{$data['cordinator_name']}}</option>
                                     @endforeach
                                 @endif
-                              </select>
-                        </div>
-                        <div class="form-group col">
-                            <label>District Name</label>
-                            <select name="district_name" class="form-control" id="check_distt">
-                                <option value="">Select District</option>
-                                @if(isset($district))
-                                    @foreach($district as $key => $data)
-                                        <option value="{{$data['district']}}">{{$data['district']}}</option>
-                                    @endforeach
-                                @endif
                             </select>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label>Expertise (Martial Art Type) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="martial_art_type" placeholder="e.g. Karate, Taekwondo" required>
+                        </div>
+                    </div>
+
+                    <h6 class="text-primary mb-2 mt-2">Documents</h6>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label>Aadhar Document <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" name="aadhar_doc" accept=".jpg,.jpeg,.png,.pdf" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label>Qualification <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" name="qualification_doc" accept=".jpg,.jpeg,.png,.pdf" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label>Martial Art Certificate <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" name="martial_art_doc" accept=".jpg,.jpeg,.png,.pdf" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label>Photo <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" name="photo" accept=".jpg,.jpeg,.png" required>
                         </div>
                     </div>
                 </form>
-            </div>
-            <div class="modal-footer">
             </div>
         </div>
     </div>
@@ -154,9 +209,37 @@ function add(){
     $('#trainerModal').html("Add Trainer");
     $('#trainer-modal').modal('show');
     $('#id').val('');
+    $('#create_block').html('<option value="">Select Block</option>');
 }
 
+$('#check_distt').on('change', function () {
+    var distId = $(this).find('option:selected').data('id');
+    $('#create_block').html('<option value="">Select Block</option>');
+    if (!distId) return;
+    $.ajaxSetup({
+        headers: { 'X-CSRF-TOKEN': jQuery('meta[name="csrf-token"]').attr('content') }
+    });
+    $.ajax({
+        type: 'POST',
+        url: '/blockdata',
+        data: { id: distId },
+        success: function (result) {
+            $('#create_block').html('<option value="">Select Block</option>');
+            $.each(result.block || [], function (key, value) {
+                $('#create_block').append('<option value="' + value.block + '">' + value.block + '</option>');
+            });
+        }
+    });
+});
+
 jQuery(document).ready(function($){
+    $(document).on('input', '#aadhar_number', function () {
+        this.value = this.value.replace(/\D/g, '').slice(0, 12);
+    });
+    $(document).on('input', '#phone_number', function () {
+        this.value = this.value.replace(/\D/g, '').slice(0, 10);
+    });
+
 // CREATE
     $("#btn-save").click(function (e) {
         $.ajaxSetup({
@@ -166,17 +249,15 @@ jQuery(document).ready(function($){
         });
         e.preventDefault();
 
-        var formData =  $("#trainerForm").serialize()
-        var type = "POST";
-        var ajaxurl = 'create-trainer';
+        var formData = new FormData(document.getElementById('trainerForm'));
         $.ajax({
-            type: type,
-            url: ajaxurl,
+            type: 'POST',
+            url: 'create-trainer',
             data: formData,
+            processData: false,
+            contentType: false,
             dataType: 'json',
             success: function (data) {
-                var allInputs = document.querySelectorAll(['input','select']);
-                allInputs.forEach(singleInput => singleInput.value = '');
                 Swal.fire({
                   position: 'center',
                   icon: 'success',
@@ -190,12 +271,20 @@ jQuery(document).ready(function($){
                 });
             },
             error: function (data) {
-                const obj = JSON.parse(data.responseText);
+                let title = 'Something went wrong';
+                try {
+                    const obj = JSON.parse(data.responseText);
+                    if (obj.errors) {
+                        title = Object.values(obj.errors)[0][0];
+                    } else if (obj.message) {
+                        title = obj.message;
+                    }
+                } catch (e) {}
                 const Toast = Swal.mixin({
                     toast: true,
                     position: 'top-end',
                     showConfirmButton: false,
-                    timer: 3000,
+                    timer: 4000,
                     timerProgressBar: true,
                     didOpen: (toast) => {
                         toast.addEventListener('mouseenter', Swal.stopTimer)
@@ -205,7 +294,7 @@ jQuery(document).ready(function($){
 
                 Toast.fire({
                   icon: 'error',
-                  title: obj.message
+                  title: title
                 })
             }
         });

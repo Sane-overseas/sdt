@@ -131,6 +131,7 @@ class SchoolController extends Controller
             'school_code' => 'required|string|max:255',
             'total_students' => 'required',
             'training_hours' => 'required|numeric|min:0.5|max:9999',
+            'daily_training_hours' => 'required|numeric|min:0.1|max:12',
         ]);
 
         if (!AcademicSessionService::activeId()) {
@@ -144,6 +145,7 @@ class SchoolController extends Controller
         $school->school_code = $request->school_code;
         $school->total_students = $request->total_students;
         $school->training_hours = (float) $request->training_hours;
+        $school->daily_training_hours = (float) $request->daily_training_hours;
         $school->save();
 
         return redirect()->back()->with('success', 'School added successfully.');
@@ -164,7 +166,7 @@ class SchoolController extends Controller
         try {
             // Import the schools
             Excel::import(new SchoolImport($request->district_id), $request->file('file'));
-            return redirect()->back()->with('success', 'Schools imported successfully into the selected district!');
+            return redirect()->back()->with('success', 'Schools imported successfully. Existing school codes were updated; new ones were created.');
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             $failures = $e->failures();
             $errorMessages = [];
@@ -190,16 +192,16 @@ class SchoolController extends Controller
     {
         // Create template data with headers and sample rows
         $templateData = [
-            ['ABC Primary School', '12345', 'Block A', '150'],
-            ['XYZ High School', '67890', 'Block B', '300'],
-            ['Sample Elementary School', '11111', 'Block C', '200'],
-            ['Demo Secondary School', '22222', 'Block D', '450'],
-            ['', '', '', ''],
-            ['', '', '', ''],
-            ['', '', '', ''],
-            ['', '', '', ''],
-            ['', '', '', ''],
-            ['', '', '', ''],
+            ['ABC Primary School', '12345', 'Block A', '150', '60', '2'],
+            ['XYZ High School', '67890', 'Block B', '300', '60', '2'],
+            ['Sample Elementary School', '11111', 'Block C', '200', '60', '2'],
+            ['Demo Secondary School', '22222', 'Block D', '450', '60', '2'],
+            ['', '', '', '', '', ''],
+            ['', '', '', '', '', ''],
+            ['', '', '', '', '', ''],
+            ['', '', '', '', '', ''],
+            ['', '', '', '', '', ''],
+            ['', '', '', '', '', ''],
         ];
 
         return Excel::download(new class($templateData) implements FromArray, WithHeadings, WithStyles {
@@ -221,7 +223,9 @@ class SchoolController extends Controller
                     'School Name',
                     'School Code',
                     'Block',
-                    'Total Students'
+                    'Total Students',
+                    'Total Training Hours',
+                    'Daily Training Hours',
                 ];
             }
 
@@ -249,6 +253,8 @@ class SchoolController extends Controller
                     'B' => ['width' => 15],
                     'C' => ['width' => 15],
                     'D' => ['width' => 15],
+                    'E' => ['width' => 20],
+                    'F' => ['width' => 20],
                 ];
             }
         }, 'school_import_template.xlsx');
@@ -391,6 +397,7 @@ class SchoolController extends Controller
         return view('admin.updateschool', [
             'school' => $data,
             'trainingHours' => $school?->training_hours,
+            'dailyTrainingHours' => $school?->daily_training_hours,
             'isAssignedInActiveSession' => SchoolAssignmentService::isAssignedInActiveSession((int) $id),
         ]);
     }
@@ -404,6 +411,7 @@ class SchoolController extends Controller
             'school_code' => 'required|string|max:255',
             'total_students' => 'required',
             'training_hours' => 'nullable|numeric|min:0.5|max:9999',
+            'daily_training_hours' => 'nullable|numeric|min:0.1|max:12',
         ]);
 
         $school = School::find($request->id);
@@ -420,12 +428,18 @@ class SchoolController extends Controller
         if ($request->filled('training_hours')) {
             $school->training_hours = (float) $request->training_hours;
         }
+        if ($request->filled('daily_training_hours')) {
+            $school->daily_training_hours = (float) $request->daily_training_hours;
+        }
 
         $school->save();
 
         $message = 'School updated successfully!';
-        if ($request->filled('training_hours') && SchoolAssignmentService::isAssignedInActiveSession((int) $school->id)) {
-            $message .= ' Existing assignment keeps its required-hours snapshot; new assignments will use the updated hours.';
+        if (
+            ($request->filled('training_hours') || $request->filled('daily_training_hours'))
+            && SchoolAssignmentService::isAssignedInActiveSession((int) $school->id)
+        ) {
+            $message .= ' Existing assignment keeps its hours snapshot; new assignments will use the updated hours.';
         }
 
         return redirect('admin/manageschool')->with('success', $message);

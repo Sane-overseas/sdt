@@ -27,6 +27,7 @@ use App\Services\AcademicSessionService;
 use App\Services\HolidayService;
 use App\Services\SessionUploadService;
 use App\Services\StateService;
+use App\Services\TrainerUploadPathService;
 use App\Services\TrainingHoursService;
 use View;
 use Session;
@@ -285,6 +286,10 @@ class Controller extends BaseController
             return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
         }
 
+        $uploadPaths = app(TrainerUploadPathService::class);
+        $schoolId = (int) $request->input('school_id');
+        $sessionId = AcademicSessionService::assignmentSessionId();
+
         if($request->hasfile('fst_videos') || $request->hasfile('snd_videos')){
 
                 $videoMaxKb = (int) config('uploads.video_max_kb', 20480);
@@ -312,39 +317,31 @@ class Controller extends BaseController
                     $video->outtime = $request->input('outtime');
                     $video->route_date = $request->input('route_date');
                     $video->school_id = $request->input('school_id');
-                    $video->session_id = AcademicSessionService::assignmentSessionId();
+                    $video->session_id = $sessionId;
                     if($request->file('fst_videos')){
                         $videoName = Auth::user()->instructor_code.'_'.'fst_videos'.'_'.$request->file('fst_videos')->getClientOriginalName();
-                        $videoPath = $request->file('fst_videos')->storeAs('videos', $videoName, 'public');
-                        $video->fst_video = $videoName;
+                        $video->fst_video = $uploadPaths->store($request->file('fst_videos'), $schoolId, 'videos', $videoName, $sessionId);
                         $video->created_date = date('d-m-y - h:i');
                     }else{
                         $videoName = Auth::user()->instructor_code.'_'.'snd_videos'.'_'.$request->file('snd_videos')->getClientOriginalName();
-                        $videoPath = $request->file('snd_videos')->storeAs('videos', $videoName, 'public');
-                        $video->snd_video = $videoName;
+                        $video->snd_video = $uploadPaths->store($request->file('snd_videos'), $schoolId, 'videos', $videoName, $sessionId);
                         $video->created_date = date('d-m-y - h:i');
                     }
                     $video->save();
                 }else{
                     $video_update = Video::find($user->id);
                     if($request->file('fst_videos')){
-                        if ($video_update->fst_video) {
-                            Storage::disk('public')->delete('videos/'.$video_update->fst_video);
-                        }
+                        TrainerUploadPathService::delete('videos', $video_update->fst_video);
                         $video_update->video_note = null;
                         $video_update->status = 0;
                         $videoName = Auth::user()->instructor_code.'_'.'fst_videos'.'_'.$request->file('fst_videos')->getClientOriginalName();
-                        $request->file('fst_videos')->storeAs('videos', $videoName, 'public');
-                        $video_update->fst_video = $videoName;
+                        $video_update->fst_video = $uploadPaths->store($request->file('fst_videos'), $schoolId, 'videos', $videoName, $sessionId);
                     }else{
-                        if ($video_update->snd_video) {
-                            Storage::disk('public')->delete('videos/'.$video_update->snd_video);
-                        }
+                        TrainerUploadPathService::delete('videos', $video_update->snd_video);
                         $video_update->video_note = null;
                         $video_update->status = 0;
                         $videoName = Auth::user()->instructor_code.'_'.'snd_videos'.'_'.$request->file('snd_videos')->getClientOriginalName();
-                        $request->file('snd_videos')->storeAs('videos', $videoName, 'public');
-                        $video_update->snd_video = $videoName;
+                        $video_update->snd_video = $uploadPaths->store($request->file('snd_videos'), $schoolId, 'videos', $videoName, $sessionId);
                     }
                     $video_update->uploaded_user = Auth::user()->id;
                     $video_update->created_date = date('d-m-y - h:i');
@@ -366,7 +363,7 @@ class Controller extends BaseController
                     ->first();
 
                 $videoName = Auth::user()->instructor_code.'_testimonial_'.$request->file('testimonial_video')->getClientOriginalName();
-                $request->file('testimonial_video')->storeAs('testimonials', $videoName, 'public');
+                $storedPath = $uploadPaths->store($request->file('testimonial_video'), $schoolId, 'testimonials', $videoName, $sessionId);
 
                 if ($existing === null) {
                     $testimonial = new Testimonial();
@@ -382,15 +379,13 @@ class Controller extends BaseController
                     $testimonial->route_date = $request->input('route_date');
                     $testimonial->school_id = $request->input('school_id');
                     $testimonial->session_id = $sessionId;
-                    $testimonial->testimonial_video = $videoName;
+                    $testimonial->testimonial_video = $storedPath;
                     $testimonial->created_date = date('d-m-y - h:i');
                     $testimonial->status = 0;
                     $testimonial->save();
                 } else {
-                    if ($existing->testimonial_video) {
-                        Storage::disk('public')->delete('testimonials/'.$existing->testimonial_video);
-                    }
-                    $existing->testimonial_video = $videoName;
+                    TrainerUploadPathService::delete('testimonials', $existing->testimonial_video);
+                    $existing->testimonial_video = $storedPath;
                     $existing->testimonial_note = null;
                     $existing->status = 0;
                     $existing->uploaded_user = Auth::user()->id;
@@ -424,28 +419,23 @@ class Controller extends BaseController
                     $image->route_date = $request->input('route_date');
                     if($request->hasfile('ifsb_image')){
                         $imageName = Auth::user()->instructor_code.'_'.'ifsb_image'.'_'.$request->file('ifsb_image')->getClientOriginalName();
-                        $imagePath = $request->file('ifsb_image')->storeAs('images', $imageName, 'public');
-                        $image->ifsb_image = $imageName;
+                        $image->ifsb_image = $uploadPaths->store($request->file('ifsb_image'), $schoolId, 'images', $imageName, $sessionId);
                     }elseif ($request->hasfile('group_image')) {
                         $imageName = Auth::user()->instructor_code.'_'.'group_image'.'_'.$request->file('group_image')->getClientOriginalName();
-                        $imagePath = $request->file('group_image')->storeAs('images', $imageName, 'public');
-                        $image->group_image = $imageName;
+                        $image->group_image = $uploadPaths->store($request->file('group_image'), $schoolId, 'images', $imageName, $sessionId);
                     }elseif ($request->hasfile('fst_aimage')) {
                         $imageName = Auth::user()->instructor_code.'_'.'fst_aimage'.'_'.$request->file('fst_aimage')->getClientOriginalName();
-                        $imagePath = $request->file('fst_aimage')->storeAs('images', $imageName, 'public');
-                        $image->fst_aimage = $imageName;
+                        $image->fst_aimage = $uploadPaths->store($request->file('fst_aimage'), $schoolId, 'images', $imageName, $sessionId);
                     }elseif ($request->hasfile('snd_aimage')) {
                         $imageName = Auth::user()->instructor_code.'_'.'snd_aimage'.'_'.$request->file('snd_aimage')->getClientOriginalName();
-                        $imagePath = $request->file('snd_aimage')->storeAs('images', $imageName, 'public');
-                        $image->snd_aimage = $imageName;
+                        $image->snd_aimage = $uploadPaths->store($request->file('snd_aimage'), $schoolId, 'images', $imageName, $sessionId);
                     }else{
                         $imageName = Auth::user()->instructor_code.'_'.'trd_aimage'.'_'.$request->file('trd_aimage')->getClientOriginalName();
-                        $imagePath = $request->file('trd_aimage')->storeAs('images', $imageName, 'public');
-                        $image->trd_aimage = $imageName;
+                        $image->trd_aimage = $uploadPaths->store($request->file('trd_aimage'), $schoolId, 'images', $imageName, $sessionId);
                     }
                     $image->created_date = date('d-m-y - h:i');
                     $image->school_id = $request->input('school_id');
-                    $image->session_id = AcademicSessionService::assignmentSessionId();
+                    $image->session_id = $sessionId;
                     $image->save();
                 }else{
                     $image_update = Image::find($user->id);
@@ -458,12 +448,9 @@ class Controller extends BaseController
                     ];
                     foreach ($imageFields as $input => $column) {
                         if ($request->hasFile($input)) {
-                            if ($image_update->{$column}) {
-                                Storage::disk('public')->delete('images/'.$image_update->{$column});
-                            }
+                            TrainerUploadPathService::delete('images', $image_update->{$column});
                             $imageName = Auth::user()->instructor_code.'_'.$input.'_'.$request->file($input)->getClientOriginalName();
-                            $request->file($input)->storeAs('images', $imageName, 'public');
-                            $image_update->{$column} = $imageName;
+                            $image_update->{$column} = $uploadPaths->store($request->file($input), $schoolId, 'images', $imageName, $sessionId);
                             break;
                         }
                     }
@@ -493,13 +480,12 @@ class Controller extends BaseController
                     $completion->intime = $request->input('intime');
                     $completion->outtime = $request->input('outtime');
                     $completionName = Auth::user()->instructor_code.'_'.$request->file('completion_file')->getClientOriginalName();
-                    $completionPath = $request->file('completion_file')->storeAs('completion', $completionName, 'public');
-                    $completion->completion_file = $completionName;
+                    $completion->completion_file = $uploadPaths->store($request->file('completion_file'), $schoolId, 'completion', $completionName, $sessionId);
                     $completion->route_date = $request->input('route_date');
                     $completion->created_date = date('d-m-y - h:i');
                     $completion->school_id = $request->input('school_id');
                     $completion->end_date = trim($route_date[1]);
-                    $completion->session_id = AcademicSessionService::assignmentSessionId();
+                    $completion->session_id = $sessionId;
                     $completion->save();
 
                     $uc_submitted = AsignedSchool::find($assignment->id);
@@ -508,12 +494,9 @@ class Controller extends BaseController
 
                 }else{
                     $completion = Completion::find($user->id);
-                    if ($completion->completion_file) {
-                        Storage::disk('public')->delete('completion/'.$completion->completion_file);
-                    }
+                    TrainerUploadPathService::delete('completion', $completion->completion_file);
                     $completionName = Auth::user()->instructor_code.'_'.$request->file('completion_file')->getClientOriginalName();
-                    $request->file('completion_file')->storeAs('completion', $completionName, 'public');
-                    $completion->completion_file = $completionName;
+                    $completion->completion_file = $uploadPaths->store($request->file('completion_file'), $schoolId, 'completion', $completionName, $sessionId);
                     $completion->status = 0;
                     $completion->completion_note = null;
                     $completion->emergency_approved = 0;
@@ -553,23 +536,19 @@ class Controller extends BaseController
                     $distribution->intime = $request->input('intime');
                     $distribution->outtime = $request->input('outtime');
                     $distributionName = Auth::user()->instructor_code.'_'.$request->file('distribution_file')->getClientOriginalName();
-                    $distributionPath = $request->file('distribution_file')->storeAs('distribution', $distributionName, 'public');
-                    $distribution->distribution_file = $distributionName;
+                    $distribution->distribution_file = $uploadPaths->store($request->file('distribution_file'), $schoolId, 'distribution', $distributionName, $sessionId);
                     $distribution->created_date = date('d-m-y - h:i');
                     $distribution->route_date = $request->input('route_date');
                     $distribution->complete_students = $request->input('complete_students');
                     $distribution->school_id = $request->input('school_id');
-                    $distribution->session_id = AcademicSessionService::assignmentSessionId();
+                    $distribution->session_id = $sessionId;
                     $distribution->save();
                 }else{
                     $distribution = Distribution::find($user->id);
-                    if ($distribution->distribution_file) {
-                        Storage::disk('public')->delete('distribution/'.$distribution->distribution_file);
-                    }
+                    TrainerUploadPathService::delete('distribution', $distribution->distribution_file);
                     $distributionName = Auth::user()->instructor_code.'_'.$request->file('distribution_file')->getClientOriginalName();
-                    $request->file('distribution_file')->storeAs('distribution', $distributionName, 'public');
+                    $distribution->distribution_file = $uploadPaths->store($request->file('distribution_file'), $schoolId, 'distribution', $distributionName, $sessionId);
                     $distribution->complete_students = $request->input('complete_students');
-                    $distribution->distribution_file = $distributionName;
                     $distribution->distribution_note = null;
                     $distribution->status = 0;
                     $distribution->uploaded_user = Auth::user()->id;
@@ -681,13 +660,44 @@ class Controller extends BaseController
             return redirect()->back()->with('error', 'Outtime must be after Intime so daily training hours can be calculated.');
         }
 
-        $plannedHours = TrainingHoursService::plannedHours($workingDays, $request->intime, $request->outtime);
-        $endDate = HolidayService::calculateEndDate($startDate, $workingDays, $districtId, $stateId);
-
-        // Snapshot required hours if missing (older assignments / school hours set later)
+        // Snapshots for older assignments
         if ($routeData->required_hours === null && $school) {
             $routeData->required_hours = TrainingHoursService::getForSchool((int) $school->id);
         }
+        if ($routeData->daily_training_hours === null && $school) {
+            $routeData->daily_training_hours = TrainingHoursService::getDailyForSchool((int) $school->id);
+        }
+
+        $totalRequired = $routeData->required_hours !== null ? (float) $routeData->required_hours : null;
+        $dailyMax = $routeData->daily_training_hours !== null
+            ? (float) $routeData->daily_training_hours
+            : ($school ? TrainingHoursService::getDailyForSchool((int) $school->id) : null);
+        $minDays = TrainingHoursService::minimumWorkingDays($totalRequired, $dailyMax);
+
+        if ($dailyMax !== null && TrainingHoursService::exceedsDailyMax($dailyHours, $dailyMax)) {
+            return redirect()->back()->with(
+                'error',
+                'Daily training hours ('.$dailyHours.') cannot exceed max '.$dailyMax.' hrs/day. You may mark less, but not more.'
+            );
+        }
+
+        if ($minDays !== null && $workingDays < $minDays) {
+            return redirect()->back()->with(
+                'error',
+                'Working days must be at least '.$minDays.' (total '.$totalRequired.' ÷ '.$dailyMax.'/day). You may take more days.'
+            );
+        }
+
+        $plannedHours = TrainingHoursService::plannedHours($workingDays, $request->intime, $request->outtime);
+
+        if ($totalRequired !== null && $plannedHours + 0.001 < $totalRequired) {
+            return redirect()->back()->with(
+                'error',
+                'Planned hours ('.$plannedHours.') must cover required total '.$totalRequired.' hrs. Increase working days or daily duration.'
+            );
+        }
+
+        $endDate = HolidayService::calculateEndDate($startDate, $workingDays, $districtId, $stateId);
 
         $routeData->route_date = $startDate->format('d/m/Y').' - '.$endDate->format('d/m/Y');
         $routeData->start_route_plan = date('H:i', strtotime($request->intime));
@@ -700,11 +710,11 @@ class Controller extends BaseController
         $routeData->save();
 
         $msg = 'Route plan saved. '.$workingDays.' working days × '.$dailyHours.' hrs/day = '.$plannedHours.' planned hours.';
-        if ($routeData->required_hours !== null) {
-            $msg .= ' Required: '.$routeData->required_hours.' hrs.';
-            if ($plannedHours + 0.001 < (float) $routeData->required_hours) {
-                $msg .= ' Warning: planned hours are less than required training hours.';
-            }
+        if ($totalRequired !== null) {
+            $msg .= ' Required total: '.$totalRequired.' hrs.';
+        }
+        if ($dailyMax !== null) {
+            $msg .= ' Max/day: '.$dailyMax.' hrs.';
         }
 
         return redirect()->back()->with('success', $msg);
