@@ -89,29 +89,41 @@ class TrainerRegistrationController extends BaseController
     public function coordinatorsByDistrict($districtId)
     {
         $district = District::findOrFail($districtId);
+        $districtName = trim((string) $district->district);
+        $districtNameLower = mb_strtolower($districtName);
 
-        $coordinators = User::where('role', 2)
+        // Only coordinators assigned to this district (never fall back to whole state).
+        $users = User::where('role', 2)
             ->where('state_id', $district->state_id)
-            ->where('district', $district->district)
+            ->where(function ($q) use ($district, $districtName, $districtNameLower) {
+                $q->whereRaw('LOWER(TRIM(district)) = ?', [$districtNameLower])
+                    ->orWhere('district', (string) $district->id)
+                    ->orWhere('district', $districtName);
+            })
             ->orderBy('instructor_name')
             ->get(['id', 'instructor_name', 'cordinator_id']);
 
-        if ($coordinators->isEmpty()) {
-            $coordinators = Cordinator::where('state_id', $district->state_id)
-                ->orderBy('cordinator_name')
-                ->get()
-                ->map(fn ($c) => [
-                    'id' => $c->id,
-                    'instructor_name' => $c->cordinator_name,
-                    'cordinator_id' => $c->id,
-                ]);
-        } else {
-            $coordinators = $coordinators->map(fn ($u) => [
-                'id' => $u->id,
-                'instructor_name' => $u->instructor_name,
-                'cordinator_id' => $u->cordinator_id ?: $u->id,
-            ])->filter(fn ($c) => !empty($c['cordinator_id']))->values();
-        }
+        $cordinatorIds = $users->pluck('cordinator_id')->filter()->unique()->values();
+        $cordinatorNames = $cordinatorIds->isEmpty()
+            ? collect()
+            : Cordinator::whereIn('id', $cordinatorIds)->pluck('cordinator_name', 'id');
+
+        $coordinators = $users
+            ->map(function ($u) use ($cordinatorNames) {
+                $cordinatorId = $u->cordinator_id ? (int) $u->cordinator_id : null;
+                if (!$cordinatorId) {
+                    return null;
+                }
+
+                return [
+                    'id' => $u->id,
+                    'instructor_name' => $cordinatorNames[$cordinatorId] ?? $u->instructor_name,
+                    'cordinator_id' => $cordinatorId,
+                ];
+            })
+            ->filter()
+            ->unique('cordinator_id')
+            ->values();
 
         return response()->json($coordinators);
     }
@@ -621,6 +633,23 @@ class TrainerRegistrationController extends BaseController
         if (!$cordinator || (int) $cordinator->state_id !== (int) $validated['state_id']) {
             throw ValidationException::withMessages([
                 'reference_by' => ['Selected coordinator is invalid for the chosen state.'],
+            ]);
+        }
+
+        $districtNameLower = mb_strtolower(trim((string) $district->district));
+        $assignedToDistrict = User::where('role', 2)
+            ->where('cordinator_id', $cordinator->id)
+            ->where('state_id', $district->state_id)
+            ->where(function ($q) use ($district, $districtNameLower) {
+                $q->whereRaw('LOWER(TRIM(district)) = ?', [$districtNameLower])
+                    ->orWhere('district', (string) $district->id)
+                    ->orWhere('district', $district->district);
+            })
+            ->exists();
+
+        if (!$assignedToDistrict) {
+            throw ValidationException::withMessages([
+                'reference_by' => ['Selected coordinator is not assigned to this district.'],
             ]);
         }
 
