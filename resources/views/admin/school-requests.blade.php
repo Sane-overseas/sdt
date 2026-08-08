@@ -5,7 +5,7 @@
     <div class="row margin-tb align-items-center mb-3">
         <div class="col-md-8">
             <h2 class="heading mb-1">School Requests</h2>
-            <p class="text-muted mb-0 small">Trainers requested schools from their block — approve to let them start training.</p>
+            <p class="text-muted mb-0 small">Trainer school requests — pending, approved, and rejected stay on this page.</p>
         </div>
     </div>
 
@@ -27,12 +27,16 @@
                         <th>School</th>
                         <th>Hrs</th>
                         <th>Requested</th>
+                        <th>Status</th>
                         <th style="min-width:200px;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($requests as $row)
-                        @php $school = $schools[$row->school_name] ?? null; @endphp
+                        @php
+                            $school = $schools[$row->school_name] ?? null;
+                            $status = $row->approval_status ?? 'approved';
+                        @endphp
                         <tr>
                             <td>{{ $row->user->instructor_name ?? '—' }}</td>
                             <td>{{ $row->user->email ?? '—' }}</td>
@@ -46,19 +50,38 @@
                             </td>
                             <td>{{ $row->created_at?->format('d-m-Y H:i') }}</td>
                             <td>
-                                <form method="POST" action="{{ route('admin.school-requests.approve', $row->id) }}" class="d-inline">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-success">Approve</button>
-                                </form>
-                                <form method="POST" action="{{ route('admin.school-requests.reject', $row->id) }}" class="d-inline reject-form">
-                                    @csrf
-                                    <input type="hidden" name="note" class="reject-note" value="">
-                                    <button type="button" class="btn btn-sm btn-danger btn-reject">Reject</button>
-                                </form>
+                                @if($status === 'pending')
+                                    <span class="badge badge-warning">Pending</span>
+                                @elseif($status === 'rejected')
+                                    <span class="badge badge-danger">Rejected</span>
+                                    @if($row->approval_note)
+                                        <div class="small text-muted mt-1">{{ $row->approval_note }}</div>
+                                    @endif
+                                @else
+                                    <span class="badge badge-success">Approved</span>
+                                    @if($row->approved_at)
+                                        <div class="small text-muted mt-1">{{ $row->approved_at->format('d-m-Y H:i') }}</div>
+                                    @endif
+                                @endif
+                            </td>
+                            <td>
+                                @if($status === 'pending')
+                                    <form method="POST" action="{{ route('admin.school-requests.approve', $row->id) }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('admin.school-requests.reject', $row->id) }}" class="d-inline reject-form">
+                                        @csrf
+                                        <input type="hidden" name="note" class="reject-note" value="">
+                                        <button type="button" class="btn btn-sm btn-danger btn-reject">Reject</button>
+                                    </form>
+                                @else
+                                    <span class="text-muted small">—</span>
+                                @endif
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="text-muted">No pending school requests.</td></tr>
+                        <tr><td colspan="8" class="text-muted">No school requests yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

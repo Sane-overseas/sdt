@@ -156,29 +156,68 @@ class SchoolController extends Controller
 
     public function import(Request $request)
     {
-        $request->validate([
+        $validator = validator($request->all(), [
             'district_id' => 'required|exists:districts,id',
-            'file' => 'required|file|mimes:xlsx,csv,xls'
+            // extensions (not mimes) — CSV often fails MIME checks as text/plain
+            'file' => 'required|file|extensions:xlsx,xls,csv|max:10240',
+        ], [
+            'district_id.required' => 'Please select a district.',
+            'district_id.exists' => 'The selected district is invalid.',
+            'file.required' => 'Please choose a file to upload.',
+            'file.file' => 'The upload must be a valid file.',
+            'file.extensions' => 'Only Excel (.xlsx, .xls) or CSV (.csv) files are allowed.',
+            'file.max' => 'The file may not be larger than 10 MB.',
         ]);
 
-        StateService::assertDistrictInScope((int) $request->district_id);
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput()
+                ->with('error', $validator->errors()->first());
+        }
 
         try {
-            // Import the schools
-            Excel::import(new SchoolImport($request->district_id), $request->file('file'));
-            return redirect()->back()->with('success', 'Schools imported successfully. Existing school codes were updated; new ones were created.');
-        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
-            $failures = $e->failures();
-            $errorMessages = [];
+            StateService::assertDistrictInScope((int) $request->district_id);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', $e->getMessage() ?: 'District does not belong to the selected state.');
+        }
 
-            foreach ($failures as $failure) {
-                $errorMessages[] = "Row {$failure->row()}: " . implode(', ', $failure->errors());
+        try {
+            $import = new SchoolImport((int) $request->district_id);
+            Excel::import($import, $request->file('file'));
+
+            $count = $import->getImportedCount();
+            if ($count === 0) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'No schools were imported. Check that your file has the correct headers (School Name, School Code, Block, Total Students, Total Training Hours, Daily Training Hours) and at least one data row.');
             }
 
-            return redirect()->back()->with('error', 'Validation errors: ' . implode(' | ', $errorMessages));
-        } catch (\Exception $e) {
-            Log::error('Import error: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Error importing schools: ' . $e->getMessage());
+            return redirect()->back()->with(
+                'success',
+                "Successfully imported {$count} school(s). Existing school codes in this district were updated; new codes were created."
+            );
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            $errorMessages = [];
+            foreach ($e->failures() as $failure) {
+                $errorMessages[] = 'Row '.$failure->row().': '.implode(', ', $failure->errors());
+            }
+
+            $preview = array_slice($errorMessages, 0, 8);
+            $message = 'Import failed. '.implode(' | ', $preview);
+            if (count($errorMessages) > 8) {
+                $message .= ' | …and '.(count($errorMessages) - 8).' more error(s).';
+            }
+
+            return redirect()->back()->withInput()->with('error', $message);
+        } catch (\Throwable $e) {
+            Log::error('Import error: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Error importing schools: '.$e->getMessage());
         }
     }
     public function showImportForm()

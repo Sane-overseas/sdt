@@ -14,10 +14,17 @@ class SchoolImport implements ToModel, WithHeadingRow, WithValidation, WithStart
 {
     private $district_id;
 
+    private int $importedCount = 0;
+
     public function __construct($district_id)
     {
         $this->district_id = $district_id;
         Log::info('Importing for district ID: '.$this->district_id);
+    }
+
+    public function getImportedCount(): int
+    {
+        return $this->importedCount;
     }
 
     public function startRow(): int
@@ -87,6 +94,8 @@ class SchoolImport implements ToModel, WithHeadingRow, WithValidation, WithStart
             ],
             $payload
         );
+
+        $this->importedCount++;
 
         // Already persisted — avoid double insert by ToModel
         return null;

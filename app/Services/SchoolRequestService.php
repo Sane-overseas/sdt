@@ -8,6 +8,7 @@ use App\Models\School;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class SchoolRequestService
 {
@@ -84,16 +85,16 @@ class SchoolRequestService
 
         $schoolIds = array_values(array_unique(array_map('intval', $schoolIds)));
         if (empty($schoolIds)) {
-            return ['error' => 'Please select at least one school.'];
+            return ['error' => 'Please choose at least 1 school.'];
         }
 
         $remaining = self::remainingSlots((int) $trainer->id, $sessionId);
         if ($remaining <= 0) {
-            return ['error' => 'You already have '.self::MAX_ACTIVE_SLOTS.' active schools (pending or in training). Complete one to request another.'];
+            return ['error' => 'You already have '.self::MAX_ACTIVE_SLOTS.' schools. Finish one, then you can ask for more.'];
         }
 
         if (count($schoolIds) > $remaining) {
-            return ['error' => 'You can select at most '.$remaining.' more school(s) right now (max '.self::MAX_ACTIVE_SLOTS.' active).'];
+            return ['error' => 'You can choose only '.$remaining.' school'.($remaining === 1 ? '' : 's').' right now.'];
         }
 
         $availableIds = self::availableSchoolsForTrainer($trainer)->pluck('id')->map(fn ($id) => (int) $id)->all();
@@ -155,7 +156,28 @@ class SchoolRequestService
 
         SchoolAssignmentService::syncSchoolAssignedFlag((int) $row->school_name);
 
-        return ['ok' => true, 'message' => 'School request approved.'];
+        $letterOk = false;
+        try {
+            $trainer = User::find($row->user_id);
+            $school = School::find($row->school_name);
+            if ($trainer && $school) {
+                $path = (new AuthorizationLetterGenerator())->generate($row, $trainer, $school);
+                $row->auth_letter_path = $path;
+                $row->save();
+                $letterOk = true;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Authorization letter failed for assignment '.$row->id.': '.$e->getMessage());
+        }
+
+        $message = 'School request approved.';
+        if ($letterOk) {
+            $message .= ' Authorization letter is ready for trainer download.';
+        } else {
+            $message .= ' (Authorization letter could not be created — check logs.)';
+        }
+
+        return ['ok' => true, 'message' => $message];
     }
 
     public static function reject(int $assignmentId, int $adminId, ?string $note = null): array
@@ -180,12 +202,17 @@ class SchoolRequestService
         return ['ok' => true, 'message' => 'School request rejected.'];
     }
 
-    public static function pendingRequests(?int $stateId = null)
+    public static function allForSession(?int $stateId = null)
     {
         $query = AsignedSchool::withoutGlobalScopes()
-            ->with(['user'])
-            ->where('approval_status', self::STATUS_PENDING)
+            ->with(['user', 'approvedByAdmin'])
             ->where('session_id', AcademicSessionService::scopeSessionId())
+            ->whereIn('approval_status', [
+                self::STATUS_PENDING,
+                self::STATUS_APPROVED,
+                self::STATUS_REJECTED,
+            ])
+            ->orderByRaw("FIELD(approval_status, 'pending', 'approved', 'rejected')")
             ->orderByDesc('created_at');
 
         if ($stateId) {

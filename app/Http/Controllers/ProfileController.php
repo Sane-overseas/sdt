@@ -15,7 +15,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Response;
 use App\Services\SchoolAssignmentService;
 use App\Services\StateService;
+use App\Services\IdCardGenerator;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ProfileController extends Controller
 {
@@ -152,6 +154,28 @@ class ProfileController extends Controller
         ]);
 
         $trainer = User::findOrFail($request->id);
+        $auth = Auth::user();
+
+        if (!$auth) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        if ((int) $auth->role === 2) {
+            if ((int) ($auth->school_assigned_status ?? 0) !== 1) {
+                return response()->json(['message' => 'You do not have permission to edit trainers.'], 403);
+            }
+            if ((int) $trainer->cordinator_id !== (int) $auth->cordinator_id) {
+                return response()->json(['message' => 'You can only edit your own trainers.'], 403);
+            }
+            // Coordinator cannot reassign trainer to another coordinator or change pay amounts
+            $request->merge([
+                'cordinator' => $auth->cordinator_id,
+                'amount' => $trainer->amount,
+                'extra_amount' => $trainer->extra_amount,
+            ]);
+        } elseif ((int) $auth->role !== 1) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
         $request->validate([
             'trainer_name' => 'required|string|max:255',
@@ -271,5 +295,66 @@ class ProfileController extends Controller
         }
 
         return $paths;
+    }
+
+    public function myIdCard(): View|RedirectResponse
+    {
+        $user = Auth::user();
+        if (!$user || !in_array((int) $user->role, [0, 2], true)) {
+            abort(403, 'ID card is only available for trainers and coordinators.');
+        }
+
+        try {
+            $path = $this->resolveIdCardPath($user);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()->back()->with('error', 'Could not generate ID card. Please contact admin.');
+        }
+
+        return view('trainer.id-card', [
+            'user' => $user,
+            'idCardUrl' => asset('storage/'.$path).'?v='.time(),
+            'downloadUrl' => route('my-id-card.download'),
+        ]);
+    }
+
+    public function downloadIdCard(): BinaryFileResponse|RedirectResponse
+    {
+        $user = Auth::user();
+        if (!$user || !in_array((int) $user->role, [0, 2], true)) {
+            abort(403, 'ID card is only available for trainers and coordinators.');
+        }
+
+        try {
+            $path = $this->resolveIdCardPath($user);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()->route('my-id-card')->with('error', 'Could not generate ID card. Please contact admin.');
+        }
+
+        $absolute = Storage::disk('public')->path($path);
+        $filename = preg_replace('/[^A-Za-z0-9_\-]/', '_', (string) $user->instructor_code).'_ID_Card.png';
+
+        return response()->download($absolute, $filename);
+    }
+
+    private function resolveIdCardPath(User $user): string
+    {
+        $safeCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', strtoupper((string) $user->instructor_code));
+        $relative = 'id_cards/'.$safeCode.'.png';
+
+        if (!Storage::disk('public')->exists($relative)) {
+            $relative = app(IdCardGenerator::class)->generate([
+                'name' => $user->instructor_name,
+                'code' => $user->instructor_code,
+                'blood_group' => $user->blood_group,
+                'designation' => (int) $user->role === 2 ? 'COORDINATOR' : 'TRAINER',
+                'photo_path' => $user->photo,
+            ]);
+        }
+
+        return $relative;
     }
 }

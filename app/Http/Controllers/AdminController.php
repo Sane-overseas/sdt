@@ -413,7 +413,7 @@ class AdminController extends BaseController
         ]);
     }
 
-    private function storeCoordinatorDocuments(Request $request, string $code): array
+    private function storeCoordinatorDocuments(Request $request, string $code, ?User $existing = null): array
     {
         $paths = [];
         $safeCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', $code);
@@ -431,10 +431,142 @@ class AdminController extends BaseController
             $file = $request->file($field);
             $ext = strtolower($file->getClientOriginalExtension());
             $name = $safeCode.'_'.$suffix.'.'.$ext;
+
+            if ($existing && $existing->{$field}) {
+                Storage::disk('public')->delete($existing->{$field});
+            }
+
             $paths[$field] = $file->storeAs('coordinator_data', $name, 'public');
         }
 
         return $paths;
+    }
+
+    public function editCordinator($id)
+    {
+        $user = User::where('id', $id)->where('role', 2)->firstOrFail();
+        $stateId = StateService::scopeStateId();
+        if ($stateId && (int) $user->state_id !== (int) $stateId) {
+            return response()->json(['message' => 'Coordinator belongs to another state.'], 403);
+        }
+
+        $district = District::where('district', $user->district)->first();
+
+        return response()->json([
+            'id' => $user->id,
+            'cordinator_id' => $user->cordinator_id,
+            'cordinator_name' => $user->instructor_name,
+            'father_name' => $user->father_name,
+            'email' => $user->email,
+            'code' => $user->instructor_code,
+            'number' => $user->instructor_number,
+            'aadhar_number' => $user->aadhar_number,
+            'blood_group' => $user->blood_group,
+            'address' => $user->address,
+            'district_name' => $user->district,
+            'district_id' => $district?->id,
+            'block' => $user->block,
+            'martial_art_type' => $user->martial_art_type,
+            'aadhar_doc' => $user->aadhar_doc,
+            'qualification_doc' => $user->qualification_doc,
+            'martial_art_doc' => $user->martial_art_doc,
+            'photo' => $user->photo,
+        ]);
+    }
+
+    public function cordinatorUpdate(Request $request)
+    {
+        $stateId = StateService::scopeStateId();
+        if (!$stateId) {
+            return response()->json(['message' => 'Please select a state first.'], 422);
+        }
+
+        $user = User::where('id', $request->id)->where('role', 2)->firstOrFail();
+        if ((int) $user->state_id !== (int) $stateId) {
+            return response()->json(['message' => 'Coordinator belongs to another state.'], 403);
+        }
+
+        $request->merge([
+            'aadhar_number' => preg_replace('/\D+/', '', (string) $request->input('aadhar_number', '')),
+            'number' => preg_replace('/\D+/', '', (string) $request->input('number', '')),
+        ]);
+
+        $cordinatorId = (int) $user->cordinator_id;
+
+        $request->validate([
+            'cordinator_name' => 'required|string|max:255',
+            'father_name' => 'required|string|max:255',
+            'code' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('cordinators', 'cordinator_code')
+                    ->ignore($cordinatorId)
+                    ->where(fn ($query) => $query->where('state_id', $stateId)),
+                Rule::unique('users', 'instructor_code')->ignore($user->id),
+            ],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'password' => 'nullable|string|min:6',
+            'number' => 'required|digits:10',
+            'aadhar_number' => [
+                'required',
+                'digits:12',
+                Rule::unique('users', 'aadhar_number')->ignore($user->id),
+                Rule::unique('trainer_registrations', 'aadhar_number')->ignore($user->id, 'user_id'),
+            ],
+            'address' => 'required|string|max:1000',
+            'blood_group' => 'required|string|max:20',
+            'martial_art_type' => 'required|string|max:255',
+            'district_name' => 'required|string|max:255',
+            'block' => 'required|string|max:255',
+            'aadhar_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'qualification_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'martial_art_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:3072'],
+        ]);
+
+        $district = District::where('district', $request->district_name)->first();
+        if ($district) {
+            StateService::assertDistrictInScope((int) $district->id);
+        }
+
+        $docPaths = $this->storeCoordinatorDocuments($request, $request->code, $user);
+
+        if ($cordinatorId) {
+            Cordinator::where('id', $cordinatorId)->update([
+                'cordinator_name' => $request->cordinator_name,
+                'cordinator_code' => $request->code,
+            ]);
+        }
+
+        $user->instructor_name = $request->cordinator_name;
+        $user->father_name = $request->father_name;
+        $user->email = $request->email;
+        $user->instructor_code = $request->code;
+        $user->instructor_number = $request->number;
+        $user->aadhar_number = $request->aadhar_number;
+        $user->address = $request->address;
+        $user->blood_group = $request->blood_group;
+        $user->martial_art_type = $request->martial_art_type;
+        $user->district = $request->district_name;
+        $user->block = $request->block;
+
+        if ($request->filled('password')) {
+            $user->password = $request->password;
+        }
+
+        foreach (['aadhar_doc', 'qualification_doc', 'martial_art_doc', 'photo'] as $field) {
+            if (!empty($docPaths[$field])) {
+                $user->{$field} = $docPaths[$field];
+            }
+        }
+
+        $user->save();
+
+        return response()->json([
+            'user' => $user,
+            'message' => 'Coordinator updated successfully.',
+        ]);
     }
 
     public function cordinatorData($id)
@@ -576,11 +708,32 @@ class AdminController extends BaseController
             abort(404, 'Trainer not found.');
         }
 
-        $stateId = StateService::scopeStateId();
-        if ($stateId && (int) $trainer->state_id !== (int) $stateId) {
-            return redirect()
-                ->route('add_trainers')
-                ->with('error', 'That trainer belongs to another state. Showing trainers for the selected state.');
+        $auth = Auth::user();
+        if (!$auth) {
+            return redirect()->route('login');
+        }
+
+        // Coordinator: only own trainers, and only if admin gave edit or upload permission
+        if ((int) $auth->role === 2) {
+            $canEdit = (int) ($auth->school_assigned_status ?? 0) === 1;
+            $canUpload = (int) ($auth->data_upload_status ?? 0) === 1;
+            if (!$canEdit && !$canUpload) {
+                return redirect()
+                    ->route('trainer-reporting')
+                    ->with('error', 'You do not have permission to edit or upload for trainers. Ask admin to enable it.');
+            }
+            if ((int) $trainer->cordinator_id !== (int) $auth->cordinator_id) {
+                return redirect()
+                    ->route('trainer-reporting')
+                    ->with('error', 'You can only manage your own trainers.');
+            }
+        } else {
+            $stateId = StateService::scopeStateId();
+            if ($stateId && (int) $trainer->state_id !== (int) $stateId) {
+                return redirect()
+                    ->route('add_trainers')
+                    ->with('error', 'That trainer belongs to another state. Showing trainers for the selected state.');
+            }
         }
 
         $trainer_data = $trainer->toArray();
@@ -603,6 +756,17 @@ class AdminController extends BaseController
         $assignment = AsignedSchool::withoutGlobalScopes()->find($id);
         if (!$assignment) {
             return response()->json(['error' => 'Assignment not found.'], 404);
+        }
+
+        $auth = Auth::user();
+        if ($auth && (int) $auth->role === 2) {
+            if ((int) ($auth->school_assigned_status ?? 0) !== 1) {
+                return response()->json(['error' => 'You do not have permission to remove schools.'], 403);
+            }
+            $trainer = User::find($assignment->user_id);
+            if (!$trainer || (int) $trainer->cordinator_id !== (int) $auth->cordinator_id) {
+                return response()->json(['error' => 'You can only manage your own trainers.'], 403);
+            }
         }
 
         $school = School::where('id', $sid)->first()->toArray();
@@ -1116,12 +1280,106 @@ class AdminController extends BaseController
         $workingTrainers = AsignedSchool::whereIn('district', $districtIds ?: [0])->get()->unique('user_id')->toArray();
         $distribution = Distribution::get()->toArray();
 
+        // districts.total_students / totol_schools are legacy columns nobody fills,
+        // so derive the reporting numbers from the schools actually on record
+        $schoolStats = School::whereIn('district_id', $districtIds ?: [0])
+            ->selectRaw('district_id, COUNT(*) as schools_count, COALESCE(SUM(total_students), 0) as students_count')
+            ->groupBy('district_id')
+            ->get()
+            ->keyBy('district_id');
+
+        $schoolsPerTrainer = max(1, (int) env('SCHOOLS_PER_TRAINER', 3));
+
+        $district = array_map(function ($row) use ($schoolStats, $schoolsPerTrainer) {
+            $stats = $schoolStats->get($row['id']);
+            $schoolCount = (int) ($stats->schools_count ?? 0);
+
+            $row['totol_schools'] = $schoolCount;
+            $row['total_students'] = (int) ($stats->students_count ?? 0);
+            $row['trainer_required'] = (int) ceil($schoolCount / $schoolsPerTrainer);
+
+            return $row;
+        }, $district);
+
         return view('districtReporting.by-districts')
             ->with('totalSchools', $totalSchools)
             ->with('distribution', $distribution)
             ->with('district', $district)
             ->with('workingTrainers', $workingTrainers)
             ->with('schoolsWithAssigned', $schoolsWithAssigned);
+    }
+
+    /** Graphical report: trainers required per district (schools ÷ SCHOOLS_PER_TRAINER). */
+    public function trainerNeedsGraph()
+    {
+        $sessionId = $this->reportSessionId();
+        $districts = StateService::districtsQuery()->orderBy('district')->get();
+        $districtIds = $this->reportDistrictIds();
+        $schoolsPerTrainer = max(1, (int) env('SCHOOLS_PER_TRAINER', 3));
+
+        $schoolStats = School::whereIn('district_id', $districtIds ?: [0])
+            ->selectRaw('district_id, COUNT(*) as schools_count')
+            ->groupBy('district_id')
+            ->get()
+            ->keyBy('district_id');
+
+        $workingQuery = AsignedSchool::withoutGlobalScopes()
+            ->whereIn('district', $districtIds ?: [0])
+            ->when($sessionId, fn ($q) => $q->where('session_id', $sessionId))
+            ->where(function ($q) {
+                $q->whereNull('approval_status')
+                    ->orWhereIn('approval_status', ['pending', 'approved']);
+            })
+            ->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', 0);
+            })
+            ->select('district', 'user_id')
+            ->get()
+            ->groupBy('district');
+
+        $rows = [];
+        $totalSchools = 0;
+        $totalRequired = 0;
+        $totalWorking = 0;
+
+        foreach ($districts as $district) {
+            $schools = (int) ($schoolStats->get($district->id)->schools_count ?? 0);
+            $required = (int) ceil($schools / $schoolsPerTrainer);
+            $working = isset($workingQuery[$district->id])
+                ? $workingQuery[$district->id]->unique('user_id')->count()
+                : 0;
+            $stillNeed = max(0, $required - $working);
+
+            $rows[] = [
+                'id' => $district->id,
+                'district' => $district->district,
+                'schools' => $schools,
+                'trainer_required' => $required,
+                'working' => $working,
+                'still_need' => $stillNeed,
+            ];
+
+            $totalSchools += $schools;
+            $totalRequired += $required;
+            $totalWorking += $working;
+        }
+
+        $summary = [
+            'schools' => $totalSchools,
+            'required' => $totalRequired,
+            'working' => $totalWorking,
+            'still_need' => max(0, $totalRequired - $totalWorking),
+            'schools_per_trainer' => $schoolsPerTrainer,
+            'state_name' => StateService::current()?->name ?? 'State',
+        ];
+
+        $chart = [
+            'labels' => array_column($rows, 'district'),
+            'required' => array_column($rows, 'trainer_required'),
+            'working' => array_column($rows, 'working'),
+        ];
+
+        return view('districtReporting.trainer-needs-graph', compact('rows', 'summary', 'chart'));
     }
 
     public function districtsData($id)

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Providers\RouteServiceProvider;
+use App\Services\StateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +29,10 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        // Admin state selection lives in session and was cleared on logout —
+        // restore last viewed state from cookie so Haryana stays Haryana.
+        StateService::restoreViewingStateForAdmin();
 
         return redirect()->intended(RouteServiceProvider::HOME);
     }

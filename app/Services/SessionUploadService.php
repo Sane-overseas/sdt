@@ -6,6 +6,7 @@ use App\Models\AsignedSchool;
 use App\Models\Completion;
 use App\Models\Image;
 use App\Models\School;
+use App\Models\User;
 use App\Models\Video;
 use Illuminate\Support\Facades\Auth;
 
@@ -44,8 +45,22 @@ class SessionUploadService
         }
 
         if (Auth::check() && in_array((int) Auth::user()->role, [0, 2], true)) {
-            if ((int) Auth::user()->id !== (int) $assignment->user_id) {
-                abort(403, 'Unauthorized.');
+            $auth = Auth::user();
+            $role = (int) $auth->role;
+
+            if ($role === 0) {
+                if ((int) $auth->id !== (int) $assignment->user_id) {
+                    abort(403, 'Unauthorized.');
+                }
+            } elseif ($role === 2) {
+                if ((int) ($auth->data_upload_status ?? 0) !== 1) {
+                    abort(403, 'You do not have data upload permission. Ask admin to enable it.');
+                }
+
+                $trainer = User::find($assignment->user_id);
+                if (!$trainer || (int) $trainer->cordinator_id !== (int) $auth->cordinator_id) {
+                    abort(403, 'You can only upload for your own trainers.');
+                }
             }
         }
 

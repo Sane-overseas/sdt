@@ -25,6 +25,19 @@
                 @if (session('success'))
                     <div class="alert alert-success">{{ session('success') }}</div>
                 @endif
+                @if (session('error'))
+                    <div class="alert alert-danger">{{ session('error') }}</div>
+                @endif
+                @if ($errors->any())
+                    <div class="alert alert-danger">
+                        <strong>Please fix the following:</strong>
+                        <ul class="mb-0 mt-1">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
                 <form id="schoolForm" method="POST" action="{{ route('schools.store') }}">
                     @csrf
@@ -88,16 +101,8 @@
                         <h4 class="mb-0">Bulk Import Schools</h4>
                     </div>
                     <div class="card-body">
-                        @if (session('success'))
-                            <div class="alert alert-success">{{ session('success') }}</div>
-                        @endif
-
-                        @if (session('error'))
-                            <div class="alert alert-danger">{{ session('error') }}</div>
-                        @endif
-
                         <div class="alert alert-light border">
-                            <h6 class="mb-2 text-primary">📋 Import Instructions</h6>
+                            <h6 class="mb-2 text-primary">Import Instructions</h6>
                             <p class="mb-2">Upload an Excel/CSV file with school data. Your file must include these columns:</p>
                             <div class="row">
                                 <div class="col-md-6">
@@ -116,21 +121,21 @@
                                 </div>
                             </div>
                             <small class="text-muted">
-                                <i class="fas fa-info-circle"></i> Download the new template. Same School Code in the selected district will be <strong>updated</strong>, new codes will be created.
+                                Download the template. Same School Code in the selected district will be <strong>updated</strong>; new codes will be created.
                             </small>
                         </div>
 
-                        <form action="{{ route('schools.import') }}" method="POST" enctype="multipart/form-data">
+                        <form id="bulkImportForm" action="{{ route('schools.import') }}" method="POST" enctype="multipart/form-data">
                             @csrf
 
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label fw-semibold">Select District</label>
-                                        <select name="district_id" class="form-select" required>
+                                        <select name="district_id" class="form-control" required>
                                             <option value="">Choose District</option>
                                             @foreach ($districts as $district)
-                                                <option value="{{ $district->id }}">{{ $district->district }}</option>
+                                                <option value="{{ $district->id }}" @selected(old('district_id') == $district->id)>{{ $district->district }}</option>
                                             @endforeach
                                         </select>
                                         @error('district_id')
@@ -152,10 +157,10 @@
 
                             <div class="d-flex justify-content-between align-items-center">
                                 <a href="{{ route('schools.download-template') }}" class="btn btn-outline-primary">
-                                    <i class="fas fa-download"></i> Download Template
+                                    Download Template
                                 </a>
-                                <button type="submit" class="btn btn-success px-4">
-                                    <i class="fas fa-upload"></i> Import Schools
+                                <button type="submit" class="btn btn-success px-4" id="bulkImportBtn">
+                                    Import Schools
                                 </button>
                             </div>
                         </form>
@@ -330,6 +335,35 @@
                     console.error("Fetch error:", error);
                     alert("Failed to add district. Check console for details.");
                 });
+        }
+
+        @if (session('success'))
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: @json(session('success'))
+            });
+        }
+        @elseif (session('error'))
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: @json(session('error'))
+            });
+        }
+        @endif
+
+        var bulkImportForm = document.getElementById('bulkImportForm');
+        if (bulkImportForm) {
+            bulkImportForm.addEventListener('submit', function () {
+                var btn = document.getElementById('bulkImportBtn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = 'Importing…';
+                }
+            });
         }
     </script>
 @endsection

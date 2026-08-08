@@ -1,24 +1,35 @@
 @extends('layouts.app')
   
 @section('content')
+@php
+    $auth = Auth::user();
+    $isAdmin = $auth && (int) $auth->role === 1;
+    $isCoordinator = $auth && (int) $auth->role === 2;
+    $canEditTrainer = $isAdmin || ($isCoordinator && (int) ($auth->school_assigned_status ?? 0) === 1);
+    $canUploadData = $isAdmin || ($isCoordinator && (int) ($auth->data_upload_status ?? 0) === 1);
+@endphp
 <body>
 <div class="container">
     <div id="exTab1" > 
         <ul  class="nav nav-pills row ">
-            @if($trainer_data['role'] == 0 || $trainer_data['school_assigned_status'] == 1)
+            @if($canEditTrainer)
             <li class="col card1"><a href="#1a" class="dash-text" data-toggle="tab">Edit Trainer</a></li>
             @endif
-            @if($trainer_data['role'] == 0 || $trainer_data['data_upload_status'] == 1)
+            @if($canUploadData)
             <li class="col card1"><a href="#2a" class="dash-text" data-toggle="tab">Upload Data</a></li>
             @endif           
         </ul>
         <div class="tab-content clearfix">
-            <div class="tab-pane active" id="1a">
-                @include('admin.edit-trainer')
+            @if($canEditTrainer)
+            <div class="tab-pane {{ $canEditTrainer ? 'active' : '' }}" id="1a">
+                @include('admin.edit-trainer', ['canEditTrainer' => $canEditTrainer, 'isAdmin' => $isAdmin])
             </div>
-            <div class="tab-pane" id="2a">
+            @endif
+            @if($canUploadData)
+            <div class="tab-pane {{ !$canEditTrainer && $canUploadData ? 'active' : '' }}" id="2a">
                 @include('admin.upload-data')
             </div>
+            @endif
         </div>
     </div>
 </div>

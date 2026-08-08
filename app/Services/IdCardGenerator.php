@@ -12,6 +12,10 @@ class IdCardGenerator
      * Border approx L=261 R=732 T=411 B=944 — sit nearly flush so no template
      * strip remains under the photo (old H=426 ended ~y=844 and leaked).
      */
+    private ?string $font = null;
+
+    private bool $fontResolved = false;
+
     private const PHOTO_X = 266;
     private const PHOTO_Y = 416;
     private const PHOTO_W = 461;
@@ -53,7 +57,6 @@ class IdCardGenerator
         // Extra strip on the left for Blood Group line (do not cover signature)
         imagefilledrectangle($img, 70, 1215, 470, 1285, $white);
 
-        $font = $this->fontBold();
         $size = 22;
         $labelX = 100;
         $colonX = 310;
@@ -69,17 +72,15 @@ class IdCardGenerator
 
         foreach ($rows as $i => [$label, $value]) {
             $y = $baselines[$i];
-            imagettftext($img, $size, 0, $labelX, $y, $black, $font, $label);
-            imagettftext($img, $size, 0, $colonX, $y, $black, $font, ':');
-            imagettftext(
+            $this->drawText($img, $size, $labelX, $y, $black, $label);
+            $this->drawText($img, $size, $colonX, $y, $black, ':');
+            $this->drawText(
                 $img,
                 $size,
-                0,
                 $valueX,
                 $y,
                 $black,
-                $font,
-                $this->fitText($font, $size, $value, $i === 3 ? 130 : 450)
+                $this->fitText($size, $value, $i === 3 ? 130 : 450)
             );
         }
 
@@ -99,10 +100,14 @@ class IdCardGenerator
 
     private function templatePath(): string
     {
-        $candidates = [
+        // resources/ and public/ copies are committed, storage/ is not deployed
+        $candidates = array_filter([
+            env('ID_CARD_TEMPLATE'),
+            resource_path('id-card/id_card.jpg'),
+            public_path('images/id_card_template.jpg'),
             storage_path('app/templates/id_card.jpg'),
             base_path('IMG-20260707-WA0031.jpg'),
-        ];
+        ]);
 
         foreach ($candidates as $path) {
             if (is_file($path)) {
@@ -110,7 +115,7 @@ class IdCardGenerator
             }
         }
 
-        throw new RuntimeException('ID card template image not found.');
+        throw new RuntimeException('ID card template image not found. Checked: '.implode(', ', $candidates));
     }
 
     private function pastePhoto($img, ?string $photoPath, int $x, int $y, int $w, int $h, $white, $black): void
@@ -120,20 +125,10 @@ class IdCardGenerator
 
         $source = $this->loadImageOpaque($photoPath, $w, $h);
         if (!$source) {
-            $font = $this->fontBold();
             $label = 'NO PHOTO';
-            $box = imagettfbbox(16, 0, $font, $label);
-            $tw = abs($box[2] - $box[0]);
-            imagettftext(
-                $img,
-                16,
-                0,
-                (int) ($x + ($w - $tw) / 2),
-                (int) ($y + $h / 2),
-                $black,
-                $font,
-                $label
-            );
+            $tw = $this->textWidth(16, $label);
+            $this->drawText($img, 16, (int) ($x + ($w - $tw) / 2), (int) ($y + $h / 2), $black, $label);
+
             return;
         }
 
@@ -220,21 +215,35 @@ class IdCardGenerator
         return $img;
     }
 
-    private function fitText(string $font, float $size, string $text, int $maxWidth): string
+    private function textWidth(float $size, string $text): int
+    {
+        $font = $this->fontBold();
+
+        if ($font) {
+            $box = imagettfbbox($size, 0, $font, $text);
+
+            return (int) abs($box[2] - $box[0]);
+        }
+
+        $scale = max(1, (int) round($size / 8));
+
+        return imagefontwidth(5) * strlen($text) * $scale;
+    }
+
+    private function fitText(float $size, string $text, int $maxWidth): string
     {
         if ($text === '') {
             return '—';
         }
-        $box = imagettfbbox($size, 0, $font, $text);
-        if (abs($box[2] - $box[0]) <= $maxWidth) {
+
+        if ($this->textWidth($size, $text) <= $maxWidth) {
             return $text;
         }
 
         while (mb_strlen($text) > 3) {
             $text = mb_substr($text, 0, -1);
             $try = $text.'…';
-            $box = imagettfbbox($size, 0, $font, $try);
-            if (abs($box[2] - $box[0]) <= $maxWidth) {
+            if ($this->textWidth($size, $try) <= $maxWidth) {
                 return $try;
             }
         }
@@ -242,19 +251,92 @@ class IdCardGenerator
         return $text;
     }
 
-    private function fontBold(): string
+    /**
+     * Bold TTF used for the card text. Returns null when the host has no usable
+     * font — caller then falls back to GD's built-in bitmap font.
+     */
+    private function fontBold(): ?string
     {
-        foreach ([
+        if ($this->fontResolved) {
+            return $this->font;
+        }
+
+        $this->fontResolved = true;
+
+        $candidates = array_filter([
+            env('ID_CARD_FONT'),
+            resource_path('fonts/arialbd.ttf'),
+            resource_path('fonts/DejaVuSans-Bold.ttf'),
+            public_path('fonts/arialbd.ttf'),
             'C:\\Windows\\Fonts\\arialbd.ttf',
             'C:\\Windows\\Fonts\\segoeuib.ttf',
             '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
             '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
-        ] as $path) {
+            '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
+            '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/liberation/LiberationSans-Bold.ttf',
+            '/usr/share/fonts/gnu-free/FreeSansBold.ttf',
+            '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+        ]);
+
+        foreach ($candidates as $path) {
             if (is_file($path)) {
-                return $path;
+                return $this->font = $path;
             }
         }
 
-        throw new RuntimeException('No usable bold TTF font found for ID card.');
+        foreach (['/usr/share/fonts', '/usr/local/share/fonts'] as $dir) {
+            if (!is_dir($dir)) {
+                continue;
+            }
+            $found = glob($dir.'/**/*[Bb]old*.ttf', GLOB_BRACE) ?: [];
+            if ($found) {
+                return $this->font = $found[0];
+            }
+        }
+
+        return $this->font = null;
+    }
+
+    /**
+     * Draw text with the bold TTF when available, otherwise upscale GD's
+     * built-in font so the card still renders on hosts without any TTF.
+     */
+    private function drawText($img, float $size, int $x, int $baselineY, $color, string $text): void
+    {
+        $font = $this->fontBold();
+
+        if ($font) {
+            imagettftext($img, $size, 0, $x, $baselineY, $color, $font, $text);
+
+            return;
+        }
+
+        $scale = max(1, (int) round($size / 8));
+        $charW = imagefontwidth(5);
+        $charH = imagefontheight(5);
+        $w = max(1, $charW * strlen($text));
+
+        $strip = imagecreatetruecolor($w, $charH);
+        $bg = imagecolorallocate($strip, 255, 255, 255);
+        imagefilledrectangle($strip, 0, 0, $w, $charH, $bg);
+        imagecolortransparent($strip, $bg);
+        $fg = imagecolorallocate($strip, 0, 0, 0);
+        imagestring($strip, 5, 0, 0, $text, $fg);
+
+        imagecopyresampled(
+            $img,
+            $strip,
+            $x,
+            (int) ($baselineY - $charH * $scale),
+            0,
+            0,
+            $w * $scale,
+            $charH * $scale,
+            $w,
+            $charH
+        );
+
+        imagedestroy($strip);
     }
 }

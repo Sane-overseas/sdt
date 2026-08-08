@@ -35,6 +35,22 @@
         <p>{{ $message }}</p>
     </div>
     @endif
+    @if ($message = Session::get('error'))
+    <div class="alert alert-danger">
+        <p>{{ $message }}</p>
+    </div>
+    @endif
+    @if(isset($canEditTrainer) || isset($canUploadData))
+    <div class="alert alert-info py-2">
+        Permissions:
+        <strong>{{ !empty($canEditTrainer) ? 'Edit/Assign Schools ON' : 'Edit/Assign Schools OFF' }}</strong>
+        |
+        <strong>{{ !empty($canUploadData) ? 'Data Upload ON' : 'Data Upload OFF' }}</strong>
+        @if(empty($canEditTrainer) && empty($canUploadData))
+            <span class="d-block small">Ask adminstrator to enable permissions from Coordinators page.</span>
+        @endif
+    </div>
+    @endif
     <div class="card-body">
         <table class="table table-bordered" id="trainerTable">
             <thead>

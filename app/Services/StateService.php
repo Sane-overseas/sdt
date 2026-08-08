@@ -9,10 +9,13 @@ use App\Models\State;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Session;
 
 class StateService
 {
+    public const VIEW_STATE_COOKIE = 'sopl_view_state_id';
+
     public static function all()
     {
         return State::where('is_active', true)->orderBy('name')->get();
@@ -22,14 +25,20 @@ class StateService
     public static function current(): ?State
     {
         if (Auth::check() && (int) Auth::user()->role === 1) {
-            $viewId = Session::get('view_state_id');
+            $viewId = Session::get('view_state_id') ?: self::cookieStateId();
             if ($viewId) {
-                $state = State::find($viewId);
+                $state = State::where('is_active', true)->find($viewId);
                 if ($state) {
+                    // Keep session in sync after login (cookie survives logout).
+                    if ((int) Session::get('view_state_id') !== (int) $state->id) {
+                        Session::put('view_state_id', (int) $state->id);
+                    }
+
                     return $state;
                 }
 
                 Session::forget('view_state_id');
+                self::forgetCookie();
             }
         } elseif (Auth::check() && in_array((int) Auth::user()->role, [0, 2], true) && Auth::user()->state_id) {
             return State::find(Auth::user()->state_id);
@@ -52,9 +61,44 @@ class StateService
     {
         if ($stateId) {
             Session::put('view_state_id', $stateId);
+            Cookie::queue(cookie(self::VIEW_STATE_COOKIE, (string) $stateId, 60 * 24 * 365));
         } else {
             Session::forget('view_state_id');
+            self::forgetCookie();
         }
+    }
+
+    /** Restore admin's last viewed state into the session (e.g. after login). */
+    public static function restoreViewingStateForAdmin(): void
+    {
+        if (!Auth::check() || (int) Auth::user()->role !== 1) {
+            return;
+        }
+
+        if (Session::get('view_state_id')) {
+            return;
+        }
+
+        $cookieId = self::cookieStateId();
+        if ($cookieId && State::where('is_active', true)->where('id', $cookieId)->exists()) {
+            Session::put('view_state_id', $cookieId);
+        }
+    }
+
+    private static function cookieStateId(): ?int
+    {
+        try {
+            $value = request()->cookie(self::VIEW_STATE_COOKIE);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return $value !== null && $value !== '' ? (int) $value : null;
+    }
+
+    private static function forgetCookie(): void
+    {
+        Cookie::queue(Cookie::forget(self::VIEW_STATE_COOKIE));
     }
 
     public static function create(string $name, string $code): State

@@ -65,7 +65,7 @@ class SchoolRequestController extends BaseController
             abort(403);
         }
 
-        $requests = SchoolRequestService::pendingRequests(StateService::scopeStateId());
+        $requests = SchoolRequestService::allForSession(StateService::scopeStateId());
         $schoolIds = $requests->pluck('school_name')->filter()->unique()->all();
         $schools = School::whereIn('id', $schoolIds)->get()->keyBy('id');
 
@@ -104,5 +104,35 @@ class SchoolRequestController extends BaseController
         }
 
         return redirect()->back()->with('success', $result['message'] ?? 'Rejected.');
+    }
+
+    /** Trainer: download authorization letter for an approved request. */
+    public function downloadAuthLetter($id)
+    {
+        $user = Auth::user();
+        if (!$user || !in_array((int) $user->role, [0, 2], true)) {
+            abort(403);
+        }
+
+        $row = AsignedSchool::withoutGlobalScopes()
+            ->where('id', (int) $id)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        if (($row->approval_status ?? '') !== 'approved' || empty($row->auth_letter_path)) {
+            abort(404, 'Authorization letter not available.');
+        }
+
+        $absolute = \Illuminate\Support\Facades\Storage::disk('public')->path($row->auth_letter_path);
+        if (!is_file($absolute)) {
+            abort(404, 'Authorization letter file missing.');
+        }
+
+        $school = School::find($row->school_name);
+        $filename = 'SOPL_Auth_'.preg_replace('/[^A-Za-z0-9_-]+/', '_', $school->school_name ?? 'school').'.pdf';
+
+        return response()->download($absolute, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
     }
 }

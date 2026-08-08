@@ -35,6 +35,7 @@ class AsignedSchool extends Model
         'approval_note',
         'approved_at',
         'approved_by',
+        'auth_letter_path',
     ];
 
     public const APPROVAL_PENDING = 'pending';
@@ -48,6 +49,11 @@ class AsignedSchool extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function approvedByAdmin()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function school()

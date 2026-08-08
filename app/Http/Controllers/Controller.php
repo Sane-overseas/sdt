@@ -232,7 +232,10 @@ class Controller extends BaseController
 
     public function CordinatorTrainerReporting()
     {
-        $cordinator_trainers = User::where('cordinator_id' ,  Auth::user()->cordinator_id)->get();
+        $auth = Auth::user();
+        $cordinator_trainers = User::where('cordinator_id', $auth->cordinator_id)
+            ->where('role', 0)
+            ->get();
         foreach ($cordinator_trainers as $trainer) {
             $trainer->setRelation(
                 'asigned_schools',
@@ -268,7 +271,9 @@ class Controller extends BaseController
         ->with('pendingSchools', $pendingSchools)
         ->with('notstartedSchools', $notstartedSchools)
         ->with('schools', $schools)
-        ->with('district', $district);
+        ->with('district', $district)
+        ->with('canEditTrainer', (int) ($auth->school_assigned_status ?? 0) === 1)
+        ->with('canUploadData', (int) ($auth->data_upload_status ?? 0) === 1);
     }
 
     public function stoteInstructorData(Request $request)
@@ -563,10 +568,13 @@ class Controller extends BaseController
     public function trainerData($id)
     {
         try {
-            // Admin can open any assignment; trainers only their own.
-            $trainerFilter = (Auth::check() && (int) Auth::user()->role === 1)
-                ? null
-                : Auth::id();
+            $auth = Auth::user();
+            if (!$auth) {
+                return response()->json(['error' => 'User not authenticated'], 401);
+            }
+
+            // Admin: any assignment. Trainer: own only. Coordinator: checked inside SessionUploadService.
+            $trainerFilter = ((int) $auth->role === 0) ? $auth->id : null;
             $assignment = SessionUploadService::assertCanUpload((int) $id, $trainerFilter);
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
             return redirect()->route('dashboard')->with('error', $e->getMessage());
@@ -651,13 +659,19 @@ class Controller extends BaseController
         $stateId = $school?->district?->state_id ? (int) $school->district->state_id : null;
 
         if (HolidayService::isHoliday($startDate, $districtId, $stateId)) {
-            return redirect()->back()->with('error', 'Start date cannot be on a holiday ('.HolidayService::holidayLabel($startDate, $districtId, $stateId).'). Please choose a working day.');
+            return redirect()->back()->with(
+                'error',
+                'This date is a holiday. Please choose another day. / यह तारीख छुट्टी है। दूसरी तारीख चुनें।'
+            );
         }
 
         $workingDays = (int) $request->working_days;
         $dailyHours = TrainingHoursService::dailyHours($request->intime, $request->outtime);
         if ($dailyHours <= 0) {
-            return redirect()->back()->with('error', 'Outtime must be after Intime so daily training hours can be calculated.');
+            return redirect()->back()->with(
+                'error',
+                'Outtime must be after Intime. / जाने का समय, आने के समय के बाद होना चाहिए।'
+            );
         }
 
         // Snapshots for older assignments
@@ -677,14 +691,14 @@ class Controller extends BaseController
         if ($dailyMax !== null && TrainingHoursService::exceedsDailyMax($dailyHours, $dailyMax)) {
             return redirect()->back()->with(
                 'error',
-                'Daily training hours ('.$dailyHours.') cannot exceed max '.$dailyMax.' hrs/day. You may mark less, but not more.'
+                'One day max '.$dailyMax.' hours. You put '.$dailyHours.' hours. Please put less time. / एक दिन में ज्यादा से ज्यादा '.$dailyMax.' घंटे। आपने '.$dailyHours.' घंटे डाले हैं। कृपया कम समय डालें।'
             );
         }
 
         if ($minDays !== null && $workingDays < $minDays) {
             return redirect()->back()->with(
                 'error',
-                'Working days must be at least '.$minDays.' (total '.$totalRequired.' ÷ '.$dailyMax.'/day). You may take more days.'
+                'Please choose at least '.$minDays.' working days. / कृपया कम से कम '.$minDays.' काम के दिन चुनें।'
             );
         }
 
@@ -693,7 +707,7 @@ class Controller extends BaseController
         if ($totalRequired !== null && $plannedHours + 0.001 < $totalRequired) {
             return redirect()->back()->with(
                 'error',
-                'Planned hours ('.$plannedHours.') must cover required total '.$totalRequired.' hrs. Increase working days or daily duration.'
+                'Total hours are less than needed ('.$totalRequired.'). Add more days or hours. / कुल घंटे पूरे नहीं हो रहे ('.$totalRequired.')। और दिन या घंटे बढ़ाएँ।'
             );
         }
 

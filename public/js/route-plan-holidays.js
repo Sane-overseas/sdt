@@ -1,4 +1,19 @@
 (function () {
+    function showTrainerAlert(en, hi) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Notice / सूचना',
+                html: '<p style="margin:0 0 8px;font-weight:600;">' + en + '</p>'
+                    + '<p style="margin:0;color:#555;">' + hi + '</p>',
+                confirmButtonText: 'OK / ठीक है',
+                confirmButtonColor: '#0d6efd',
+                allowOutsideClick: true,
+            });
+            return;
+        }
+        alert(en + '\n' + hi);
+    }
+
     function toDateStr(date) {
         var y = date.getFullYear();
         var m = String(date.getMonth() + 1).padStart(2, '0');
@@ -160,7 +175,6 @@
         function updateHours() {
             var days = parseInt($workingDays.val(), 10);
             var mins = minutesBetween($intime.val(), $outtime.val());
-            var notes = [];
 
             if (mins === null) {
                 $dailyDisplay.val('');
@@ -179,32 +193,8 @@
                 $hoursDisplay.val('');
             }
 
-            if (dailyMaxHours !== null) {
-                if (daily - dailyMaxHours > 0.001) {
-                    notes.push('<span class="text-danger">Daily ' + daily + ' hrs exceeds max ' + dailyMaxHours + ' hrs/day.</span>');
-                } else {
-                    notes.push('<span class="text-success">Daily ' + daily + ' hrs ≤ max ' + dailyMaxHours + ' hrs/day.</span>');
-                }
-            }
-
-            if (minWorkingDays !== null && days) {
-                if (days < minWorkingDays) {
-                    notes.push('<span class="text-danger">Working days (' + days + ') below minimum ' + minWorkingDays + '.</span>');
-                } else {
-                    notes.push('<span class="text-success">Working days (' + days + ') meet minimum ' + minWorkingDays + '.</span>');
-                }
-            }
-
-            if (requiredHours !== null && days && mins !== null) {
-                var plannedCheck = Math.round((days * daily) * 100) / 100;
-                if (plannedCheck + 0.001 < requiredHours) {
-                    notes.push('<span class="text-danger">Planned ' + plannedCheck + ' hrs is less than required total ' + requiredHours + ' hrs.</span>');
-                } else {
-                    notes.push('<span class="text-success">Planned hours cover required total ' + requiredHours + ' hrs.</span>');
-                }
-            }
-
-            $hoursNote.html(notes.join('<br>'));
+            // Keep notes empty — validation popup shows on submit only
+            $hoursNote.html('');
         }
 
         function updateEndDate() {
@@ -219,7 +209,7 @@
             }
 
             if (isHoliday(start, holidayDates, workingDates)) {
-                $holidayNote.html('<span class="text-danger">Start date is a holiday (' + holidayLabel(start, holidayMap) + '). Choose a working day.</span>');
+                $holidayNote.html('<span class="text-danger">This date is a holiday. Choose another day. / यह तारीख छुट्टी है। दूसरी तारीख चुनें।</span>');
                 $endDisplay.val('');
                 updateHours();
                 return;
@@ -230,9 +220,9 @@
 
             var excluded = excludedHolidaysBetween(start, end, holidayDates, workingDates, holidayMap);
             if (excluded.length > 0) {
-                $holidayNote.text(days + ' working days — ' + excluded.length + ' holiday(s) excluded: ' + excluded.join(', ') + '.');
+                $holidayNote.text(days + ' working days — ' + excluded.length + ' holiday(s) skipped. / ' + days + ' काम के दिन — ' + excluded.length + ' छुट्टियाँ हटाई गईं।');
             } else {
-                $holidayNote.text(days + ' working days — no holidays in this range.');
+                $holidayNote.text(days + ' working days — no holiday. / ' + days + ' काम के दिन — कोई छुट्टी नहीं।');
             }
 
             updateHours();
@@ -249,39 +239,57 @@
 
             if (!start || !days) {
                 e.preventDefault();
-                alert('Please enter start date and working days.');
+                showTrainerAlert(
+                    'Please fill start date and working days.',
+                    'कृपया शुरू की तारीख और काम के दिन भरें।'
+                );
                 return;
             }
 
             if (isHoliday(start, holidayDates, workingDates)) {
                 e.preventDefault();
-                alert('Start date cannot be a holiday (' + holidayLabel(start, holidayMap) + '). Please choose a working day.');
+                showTrainerAlert(
+                    'This date is a holiday. Please choose another day.',
+                    'यह तारीख छुट्टी है। दूसरी तारीख चुनें।'
+                );
                 return;
             }
 
             if (!$intime.val() || !$outtime.val()) {
                 e.preventDefault();
-                alert('Please enter Intime and Outtime.');
+                showTrainerAlert(
+                    'Please fill Intime and Outtime.',
+                    'कृपया आने और जाने का समय भरें।'
+                );
                 return;
             }
 
             var mins = minutesBetween($intime.val(), $outtime.val());
             if (mins === null) {
                 e.preventDefault();
-                alert('Outtime must be after Intime.');
+                showTrainerAlert(
+                    'Outtime must be after Intime.',
+                    'जाने का समय, आने के समय के बाद होना चाहिए।'
+                );
                 return;
             }
 
             var daily = Math.round((mins / 60) * 100) / 100;
             if (dailyMaxHours !== null && daily - dailyMaxHours > 0.001) {
                 e.preventDefault();
-                alert('Daily training hours (' + daily + ') cannot exceed max ' + dailyMaxHours + ' hrs/day.');
+                showTrainerAlert(
+                    'One day max ' + dailyMaxHours + ' hours. You put ' + daily + ' hours. Please put less time.',
+                    'एक दिन में ज्यादा से ज्यादा ' + dailyMaxHours + ' घंटे। आपने ' + daily + ' घंटे डाले हैं। कृपया कम समय डालें।'
+                );
                 return;
             }
 
             if (minWorkingDays !== null && days < minWorkingDays) {
                 e.preventDefault();
-                alert('Working days must be at least ' + minWorkingDays + ' (total hours ÷ hours/day). You may take more days.');
+                showTrainerAlert(
+                    'Please choose at least ' + minWorkingDays + ' working days.',
+                    'कृपया कम से कम ' + minWorkingDays + ' काम के दिन चुनें।'
+                );
                 return;
             }
 
@@ -289,7 +297,10 @@
                 var planned = Math.round((days * daily) * 100) / 100;
                 if (planned + 0.001 < requiredHours) {
                     e.preventDefault();
-                    alert('Planned hours (' + planned + ') must cover required total ' + requiredHours + ' hrs. Increase working days or daily hours.');
+                    showTrainerAlert(
+                        'Total hours are less than needed (' + requiredHours + '). Add more days or hours.',
+                        'कुल घंटे पूरे नहीं हो रहे (' + requiredHours + ')। और दिन या घंटे बढ़ाएँ।'
+                    );
                     return;
                 }
             }

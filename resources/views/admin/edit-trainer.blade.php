@@ -116,58 +116,67 @@
 				<div class="modal-header">
 				<h4 class="modal-title">Edit Trainer</h4>
 				</div>
-				<?php $role = Auth::user()->role; ?>
+				<?php
+					$role = Auth::user()->role;
+					$canEditTrainer = $canEditTrainer ?? ((int) $role === 1);
+					$isAdmin = $isAdmin ?? ((int) $role === 1);
+					$lockProfile = !$canEditTrainer;
+					$lockPay = !$isAdmin;
+				?>
 				<div class="form-row">
 				     <div class="form-group col-md">
 				      <label>Trainer Name <span class="text-danger">*</span></label>
-				      <input type="text" class="form-control " name="trainer_name" value="{{$trainer_data['instructor_name']}}"  @if($role == 2) readonly @endif>
+				      <input type="text" class="form-control " name="trainer_name" value="{{$trainer_data['instructor_name']}}"  @if($lockProfile) readonly @endif>
 				      <input type="hidden" class="form-control " name="id" value="{{$trainer_data['id']}}">
 				    </div>
 				    <div class="form-group col-md">
 				      <label>Father Name <span class="text-danger">*</span></label>
-				      <input type="text" class="form-control" name="father_name" value="{{ $trainer_data['father_name'] ?? '' }}" @if($role == 2) readonly @endif required>
+				      <input type="text" class="form-control" name="father_name" value="{{ $trainer_data['father_name'] ?? '' }}" @if($lockProfile) readonly @endif required>
 				    </div>
 				    <div class="form-group col-md">
 				      <label>Email <span class="text-danger">*</span></label>
-				      <input type="email" class="form-control " name="email"  value="{{$trainer_data['email']}}"  @if($role == 2) readonly @endif>
+				      <input type="email" class="form-control " name="email"  value="{{$trainer_data['email']}}"  @if($lockProfile) readonly @endif>
 				    </div>
 				    <div class="form-group col-md">
 				      <label>Amount per School</label>
-				      <input type="number" class="form-control" name="amount" value="{{$trainer_data['amount']}}"  @if($role == 2) readonly @endif>
+				      <input type="number" class="form-control" name="amount" value="{{$trainer_data['amount']}}"  @if($lockPay) readonly @endif>
 				    </div>
                     <div class="form-group col-md">
                         <label>Incentive Amount</label>
-                        <input type="number" class="form-control" name="extra_amount" value="{{$trainer_data['extra_amount']}}"  @if($role == 2) readonly @endif>
+                        <input type="number" class="form-control" name="extra_amount" value="{{$trainer_data['extra_amount']}}"  @if($lockPay) readonly @endif>
                       </div>
 				</div>
 				<div class="form-row">
 					<div class="form-group col-md">
 				      <label>Trainer code <span class="text-danger">*</span></label>
-				      <input type="text" class="form-control " name="code" value="{{$trainer_data['instructor_code']}}" @if($role == 2) readonly @endif>
+				      <input type="text" class="form-control " name="code" value="{{$trainer_data['instructor_code']}}" @if($lockProfile) readonly @endif>
 				    </div>
 				     <div class="form-group col-md">
 				      <label>Phone Number <span class="text-danger">*</span></label>
-				      <input type="text" class="form-control" name="number" id="phone_number" value="{{$trainer_data['instructor_number']}}" maxlength="10" @if($role == 2) readonly @endif>
+				      <input type="text" class="form-control" name="number" id="phone_number" value="{{$trainer_data['instructor_number']}}" maxlength="10" @if($lockProfile) readonly @endif>
 				    </div>
 				     <div class="form-group col-md">
 				      <label>Aadhar Number <span class="text-danger">*</span></label>
 				      <input type="text" class="form-control" name="aadhar_number" id="aadhar_number"
 				             value="{{ $trainer_data['aadhar_number'] ?? '' }}"
 				             inputmode="numeric" maxlength="12"
-				             placeholder="12 digit Aadhar" @if($role == 2) readonly @endif required>
+				             placeholder="12 digit Aadhar" @if($lockProfile) readonly @endif required>
 				    </div>
 				    <div class="form-group col-md">
 				      <label>Blood Group <span class="text-danger">*</span></label>
-				      <select name="blood_group" class="form-control" @if($role == 2) disabled @endif required>
+				      <select name="blood_group" class="form-control" @if($lockProfile) disabled @endif required>
 				        <option value="">Select</option>
 				        @foreach(['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $bg)
 				            <option value="{{ $bg }}" {{ ($trainer_data['blood_group'] ?? '') === $bg ? 'selected' : '' }}>{{ $bg }}</option>
 				        @endforeach
 				      </select>
+				      @if($lockProfile)
+				        <input type="hidden" name="blood_group" value="{{ $trainer_data['blood_group'] ?? '' }}">
+				      @endif
 				    </div>
 				    <div class="form-group col-md">
 				      <label>Coordinator <span class="text-danger">*</span></label>
-				      <select name="cordinator" class="form-control" @if($role == 2) readonly @endif>
+				      <select name="cordinator" class="form-control" @if(!$isAdmin) disabled @endif>
 					       <option value="" selected>Select Coordinator</option>
 					        @if(isset($cordinator))
 								@foreach($cordinator as $key => $data)
@@ -175,10 +184,13 @@
 					        	@endforeach
 					        @endif
 					      </select>
+					      @if(!$isAdmin)
+					        <input type="hidden" name="cordinator" value="{{ $trainer_data['cordinator_id'] }}">
+					      @endif
 				    </div>
 				     <div class="form-group col-md">
                         <label>District Name <span class="text-danger">*</span></label>
-                        <select name="district_name" class="form-control"  @if($role == 2) readonly @endif>
+                        <select name="district_name" class="form-control"  @if($lockProfile) disabled @endif>
                             <option value="">Select District</option>
                             @if(isset($district))
                                 @foreach($district as $key => $data)
@@ -186,48 +198,52 @@
                                 @endforeach
                             @endif
                         </select>
+                        @if($lockProfile)
+                          <input type="hidden" name="district_name" value="{{ $trainer_data['district'] ?? '' }}">
+                        @endif
                     </div>
 				</div>
 				<div class="form-row">
 				    <div class="form-group col-md-12">
 				        <label>Address <span class="text-danger">*</span></label>
-				        <textarea class="form-control" name="address" rows="2" @if($role == 2) readonly @endif required>{{ $trainer_data['address'] ?? '' }}</textarea>
+				        <textarea class="form-control" name="address" rows="2" @if($lockProfile) readonly @endif required>{{ $trainer_data['address'] ?? '' }}</textarea>
 				    </div>
 				    <div class="form-group col-md-6">
 				        <label>Expertise (Martial Art Type) <span class="text-danger">*</span></label>
-				        <input type="text" class="form-control" name="martial_art_type" value="{{ $trainer_data['martial_art_type'] ?? '' }}" @if($role == 2) readonly @endif required>
+				        <input type="text" class="form-control" name="martial_art_type" value="{{ $trainer_data['martial_art_type'] ?? '' }}" @if($lockProfile) readonly @endif required>
 				    </div>
 				</div>
 				<div class="form-row">
 				    <div class="form-group col-md-6">
 				        <label>Aadhar Document</label>
-				        <input type="file" class="form-control" name="aadhar_doc" accept=".jpg,.jpeg,.png,.pdf" @if($role == 2) disabled @endif>
+				        <input type="file" class="form-control" name="aadhar_doc" accept=".jpg,.jpeg,.png,.pdf" @if($lockProfile) disabled @endif>
 				        @if(!empty($trainer_data['aadhar_doc']))
 				            <small><a href="{{ asset('storage/'.$trainer_data['aadhar_doc']) }}" target="_blank">View current</a></small>
 				        @endif
 				    </div>
 				    <div class="form-group col-md-6">
 				        <label>Qualification</label>
-				        <input type="file" class="form-control" name="qualification_doc" accept=".jpg,.jpeg,.png,.pdf" @if($role == 2) disabled @endif>
+				        <input type="file" class="form-control" name="qualification_doc" accept=".jpg,.jpeg,.png,.pdf" @if($lockProfile) disabled @endif>
 				        @if(!empty($trainer_data['qualification_doc']))
 				            <small><a href="{{ asset('storage/'.$trainer_data['qualification_doc']) }}" target="_blank">View current</a></small>
 				        @endif
 				    </div>
 				    <div class="form-group col-md-6">
 				        <label>Martial Art Certificate</label>
-				        <input type="file" class="form-control" name="martial_art_doc" accept=".jpg,.jpeg,.png,.pdf" @if($role == 2) disabled @endif>
+				        <input type="file" class="form-control" name="martial_art_doc" accept=".jpg,.jpeg,.png,.pdf" @if($lockProfile) disabled @endif>
 				        @if(!empty($trainer_data['martial_art_doc']))
 				            <small><a href="{{ asset('storage/'.$trainer_data['martial_art_doc']) }}" target="_blank">View current</a></small>
 				        @endif
 				    </div>
 				    <div class="form-group col-md-6">
 				        <label>Photo</label>
-				        <input type="file" class="form-control" name="photo" accept=".jpg,.jpeg,.png" @if($role == 2) disabled @endif>
+				        <input type="file" class="form-control" name="photo" accept=".jpg,.jpeg,.png" @if($lockProfile) disabled @endif>
 				        @if(!empty($trainer_data['photo']))
 				            <small><a href="{{ asset('storage/'.$trainer_data['photo']) }}" target="_blank">View current</a></small>
 				        @endif
 				    </div>
 				</div>
+				@if($canEditTrainer)
 				<div class="row">
                     <div class="form-group col-md">
                         <label>District <small class="text-muted">(for school assign)</small></label>
@@ -267,6 +283,7 @@
 				<div class="save-trainer">
 					<button type="submit" class="btn btn-primary float-right update-btn" id="btn-save">Save</button>
 				</div>
+				@endif
 			</div>
 		</form>
 		<div class="card-body">
@@ -308,10 +325,12 @@
 	                        	@endforeach
 	                        </td>
 	                        <td>
-	                        	@if($data['uc_submitted'] == 0)
+	                        	@if($canEditTrainer && $data['uc_submitted'] == 0)
 	                            <a href="javascript:void(0)" data-url="{{ route('a-school' ,[$data['id'] ,$data['school_name']]) }}" class="btn" id="asignedSchoolDelete"><i class="bi bi-x-circle-fill remove"></i> </a>
-	                            @else
+	                            @elseif($data['uc_submitted'] != 0)
 	                            	<span class="compete">UC Received</span>
+	                            @else
+	                            	—
 	                            @endif
 							</td>
 	                    </tr>

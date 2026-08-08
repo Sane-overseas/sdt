@@ -217,6 +217,118 @@ class TrainerRegistrationController extends BaseController
         return response()->json($registration);
     }
 
+    public function adminEdit($id)
+    {
+        $registration = TrainerRegistration::with('state')->findOrFail($id);
+
+        if ($registration->status === TrainerRegistration::STATUS_APPROVED) {
+            return redirect()
+                ->route('trainer.registrations')
+                ->with('error', 'Approved registrations are edited from the trainer profile.');
+        }
+
+        $stateId = StateService::scopeStateId();
+        if ($stateId && (int) $registration->state_id !== (int) $stateId) {
+            return redirect()
+                ->route('trainer.registrations')
+                ->with('error', 'That registration belongs to another state.');
+        }
+
+        $states = State::where('is_active', true)->orderBy('name')->get();
+        $districts = District::where('state_id', $registration->state_id)->orderBy('district')->get();
+        $selectedDistrict = $districts->firstWhere('district', $registration->district);
+        $blocks = $selectedDistrict
+            ? Block::where('district_id', $selectedDistrict->id)->orderBy('block')->get()
+            : collect();
+
+        $coordinators = Cordinator::when($registration->state_id, fn ($q) => $q->where('state_id', $registration->state_id))
+            ->orderBy('cordinator_name')
+            ->get();
+
+        return view('admin.trainer-registration-edit', [
+            'registration' => $registration,
+            'states' => $states,
+            'districts' => $districts,
+            'blocks' => $blocks,
+            'selectedDistrictId' => $selectedDistrict?->id,
+            'coordinators' => $coordinators,
+        ]);
+    }
+
+    public function adminUpdate(Request $request, $id)
+    {
+        $registration = TrainerRegistration::findOrFail($id);
+
+        if ($registration->status === TrainerRegistration::STATUS_APPROVED) {
+            return redirect()
+                ->route('trainer.registrations')
+                ->with('error', 'Approved registrations cannot be edited here.');
+        }
+
+        $stateId = StateService::scopeStateId();
+        if ($stateId && (int) $registration->state_id !== (int) $stateId) {
+            return redirect()
+                ->route('trainer.registrations')
+                ->with('error', 'That registration belongs to another state.');
+        }
+
+        $validated = $this->validateRegistration($request, true, $registration, false);
+        $data = $this->registrationPayload($validated);
+        $paths = $this->storeDocuments($request, $registration, $registration->instructor_code);
+
+        foreach (array_keys($this->documentFields) as $field) {
+            $key = $field.'_cropped';
+            if ($request->filled($key)) {
+                $croppedPath = $this->storeCroppedDocument($request->input($key), $registration, $field);
+                if ($croppedPath) {
+                    $paths[$field] = $croppedPath;
+                }
+            }
+        }
+
+        $registration->update(array_merge($data, $paths));
+
+        return redirect()
+            ->route('trainer.registrations.edit', $registration->id)
+            ->with('success', 'Registration updated successfully.');
+    }
+
+    public function adminCropDocument(Request $request, $id)
+    {
+        $registration = TrainerRegistration::findOrFail($id);
+
+        if ($registration->status === TrainerRegistration::STATUS_APPROVED) {
+            return response()->json(['message' => 'Approved registrations cannot be edited here.'], 422);
+        }
+
+        $stateId = StateService::scopeStateId();
+        if ($stateId && (int) $registration->state_id !== (int) $stateId) {
+            return response()->json(['message' => 'That registration belongs to another state.'], 403);
+        }
+
+        $validated = $request->validate([
+            'field' => 'required|in:aadhar_doc,qualification_doc,martial_art_doc,photo',
+            'image' => 'required|string',
+        ]);
+
+        $path = $this->storeCroppedDocument($validated['image'], $registration, $validated['field']);
+        if (!$path) {
+            return response()->json(['message' => 'Could not save cropped image.'], 422);
+        }
+
+        $registration->{$validated['field']} = $path;
+        $registration->save();
+
+        $url = url('/m/r/'.rawurlencode(basename($path))).'?v='.time();
+
+        return response()->json([
+            'message' => 'Cropped image saved.',
+            'field' => $validated['field'],
+            'path' => $path,
+            'url' => $url,
+        ]);
+    }
+
     public function approve(Request $request, $id)
     {
         $registration = TrainerRegistration::findOrFail($id);
@@ -394,7 +506,7 @@ class TrainerRegistrationController extends BaseController
         ]);
     }
 
-    private function validateRegistration(Request $request, bool $isUpdate, ?TrainerRegistration $registration = null): array
+    private function validateRegistration(Request $request, bool $isUpdate, ?TrainerRegistration $registration = null, bool $requireTerms = true): array
     {
         $emailRules = [
             'required',
@@ -404,6 +516,15 @@ class TrainerRegistrationController extends BaseController
         ];
 
         if ($isUpdate && $registration) {
+            if ($registration->user_id) {
+                $emailRules = [
+                    'required',
+                    'email',
+                    'max:255',
+                    Rule::unique('users', 'email')->ignore($registration->user_id),
+                ];
+            }
+
             $emailRules[] = Rule::unique('trainer_registrations', 'email')
                 ->ignore($registration->id)
                 ->where(fn ($q) => $q->whereIn('status', [
@@ -427,6 +548,7 @@ class TrainerRegistrationController extends BaseController
 
         $request->merge([
             'aadhar_number' => preg_replace('/\D+/', '', (string) $request->input('aadhar_number', '')),
+            'instructor_number' => preg_replace('/\D+/', '', (string) $request->input('instructor_number', '')),
         ]);
 
         $aadharNumberRules = [
@@ -449,7 +571,7 @@ class TrainerRegistrationController extends BaseController
             ];
         }
 
-        $validated = $request->validate([
+        $rules = [
             'instructor_name' => 'required|string|max:255',
             'father_name' => 'required|string|max:255',
             'email' => $emailRules,
@@ -467,12 +589,21 @@ class TrainerRegistrationController extends BaseController
             'blood_group' => 'required|string|max:20',
             'reference_by' => 'required|integer|exists:cordinators,id',
             'comment' => 'nullable|string|max:2000',
-            'terms_accepted' => 'accepted',
             'aadhar_doc' => [$aadharRule, 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'qualification_doc' => [$qualificationRule, 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'martial_art_doc' => [$martialRule, 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'photo' => [$photoRule, 'file', 'mimes:jpg,jpeg,png', 'max:3072'],
-        ]);
+            'aadhar_doc_cropped' => 'nullable|string',
+            'qualification_doc_cropped' => 'nullable|string',
+            'martial_art_doc_cropped' => 'nullable|string',
+            'photo_cropped' => 'nullable|string',
+        ];
+
+        if ($requireTerms) {
+            $rules['terms_accepted'] = 'accepted';
+        }
+
+        $validated = $request->validate($rules);
 
         $district = District::findOrFail($validated['district_id']);
         $validated['district'] = $district->district;
@@ -621,6 +752,36 @@ class TrainerRegistrationController extends BaseController
             }
         }
         Session::forget(self::DRAFT_DOCS_SESSION);
+    }
+
+    private function storeCroppedDocument(string $dataUrl, TrainerRegistration $registration, string $field): ?string
+    {
+        if (!isset($this->documentFields[$field])) {
+            return null;
+        }
+
+        if (!preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $dataUrl, $matches)) {
+            return null;
+        }
+
+        $ext = strtolower($matches[1]) === 'png' ? 'png' : 'jpg';
+        $binary = base64_decode(substr($dataUrl, strpos($dataUrl, ',') + 1), true);
+        if ($binary === false || $binary === '') {
+            return null;
+        }
+
+        $suffix = $this->documentFields[$field];
+        $safeCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', (string) $registration->instructor_code);
+        // Unique name so browser /media cache cannot serve the old image
+        $relative = 'trainer_data/'.$safeCode.'_'.$suffix.'_'.time().'.'.$ext;
+
+        if ($registration->{$field}) {
+            Storage::disk('public')->delete($registration->{$field});
+        }
+
+        Storage::disk('public')->put($relative, $binary);
+
+        return $relative;
     }
 
     private function generateInstructorCode(int $stateId): string

@@ -8,8 +8,8 @@
             <p class="text-muted mb-0 small">
                 Block: <strong>{{ $user->block ?: '—' }}</strong>
                 · District: <strong>{{ $user->district ?: '—' }}</strong>
-                · You can have max <strong>{{ \App\Services\SchoolRequestService::MAX_ACTIVE_SLOTS }}</strong> active schools (pending + training).
-                Remaining slots: <strong>{{ $remaining }}</strong>
+                · Max <strong>{{ \App\Services\SchoolRequestService::MAX_ACTIVE_SLOTS }}</strong> schools at a time
+                · Left: <strong>{{ $remaining }}</strong>
             </p>
         </div>
         <div class="col-md-4 text-right">
@@ -25,19 +25,22 @@
     @endif
 
     @if(empty($user->block))
-        <div class="alert alert-warning">Your profile has no block set. Contact admin to set your block before requesting schools.</div>
+        <div class="alert alert-warning">Your block is not set. Please ask admin to set it first.</div>
     @else
         <div class="card mb-4">
-            <div class="card-header"><strong>Available schools in your block</strong></div>
+            <div class="card-header"><strong>Schools in your block</strong></div>
             <div class="card-body">
                 @if($available->isEmpty())
-                    <p class="text-muted mb-0">No available schools in your block right now.</p>
+                    <p class="text-muted mb-0">No free schools in your block right now.</p>
                 @elseif($remaining <= 0)
-                    <p class="text-muted mb-0">No remaining slots. Complete a school (or wait for pending approval) to request more.</p>
+                    <p class="text-muted mb-0">You already have {{ \App\Services\SchoolRequestService::MAX_ACTIVE_SLOTS }} schools. Finish one, then you can ask for more.</p>
                 @else
                     <form method="POST" action="{{ route('trainer.school-requests.store') }}" id="schoolRequestForm">
                         @csrf
-                        <p class="small text-muted">Select up to <strong>{{ $remaining }}</strong> school(s). Requests go to admin for approval.</p>
+                        <p class="small text-muted mb-2">
+                            Tick up to <strong>{{ $remaining }}</strong> school{{ $remaining == 1 ? '' : 's' }}.
+                            Admin will approve your request.
+                        </p>
                         <div class="table-responsive">
                             <table class="table table-bordered table-sm" id="availableSchoolsTable">
                                 <thead>
@@ -72,7 +75,7 @@
     @endif
 
     <div class="card">
-        <div class="card-header"><strong>My school requests / assignments</strong></div>
+        <div class="card-header"><strong>My requests</strong></div>
         <div class="card-body table-responsive">
             <table class="table table-bordered table-sm mb-0">
                 <thead>
@@ -82,6 +85,7 @@
                         <th>Training</th>
                         <th>Requested</th>
                         <th>Note</th>
+                        <th>Auth Letter</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -110,9 +114,20 @@
                             </td>
                             <td>{{ $row->created_at?->format('d-m-Y H:i') }}</td>
                             <td>{{ $row->approval_note ?: '—' }}</td>
+                            <td>
+                                @if(($row->approval_status ?? '') === 'approved' && !empty($row->auth_letter_path))
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('trainer.school-requests.auth-letter', $row->id) }}">
+                                        Download
+                                    </a>
+                                @elseif(($row->approval_status ?? '') === 'approved')
+                                    <span class="text-muted small">Preparing…</span>
+                                @else
+                                    —
+                                @endif
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="text-muted">No requests yet.</td></tr>
+                        <tr><td colspan="6" class="text-muted">No requests yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -123,22 +138,51 @@
 <script>
 (function () {
     var maxSelect = {{ (int) $remaining }};
+
+    function showPickPopup(en, hi) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Alert',
+                html: '<p style="margin:0 0 8px;font-weight:600;">' + en + '</p>'
+                    + '<p style="margin:0;color:#555;">' + hi + '</p>',
+                confirmButtonText: 'OK / ठीक है',
+                confirmButtonColor: '#0d6efd',
+                allowOutsideClick: true,
+            });
+            return;
+        }
+        // fallback
+        alert(en + '\n' + hi);
+    }
+
+    function maxMsg() {
+        var en = 'You can choose only ' + maxSelect + ' school' + (maxSelect === 1 ? '' : 's') + '.';
+        var hi = maxSelect === 1
+            ? 'आप सिर्फ 1 स्कूल चुन सकते हैं।'
+            : 'आप सिर्फ ' + maxSelect + ' स्कूल चुन सकते हैं।';
+        showPickPopup(en, hi);
+    }
+
     $('#schoolRequestForm').on('submit', function (e) {
         var n = $('.school-check:checked').length;
         if (n < 1) {
             e.preventDefault();
-            alert('Select at least one school.');
+            showPickPopup(
+                'Please choose at least 1 school.',
+                'कृपया कम से कम 1 स्कूल चुनें।'
+            );
             return;
         }
         if (n > maxSelect) {
             e.preventDefault();
-            alert('You can select at most ' + maxSelect + ' school(s).');
+            maxMsg();
         }
     });
+
     $(document).on('change', '.school-check', function () {
         if ($('.school-check:checked').length > maxSelect) {
             this.checked = false;
-            alert('You can select at most ' + maxSelect + ' school(s).');
+            maxMsg();
         }
     });
 })();

@@ -108,6 +108,23 @@
         border: 1px solid #d7e4ef;
         background: #eee;
     }
+    .modal-header .modal-close-btn,
+    .modal-header .close {
+        position: relative;
+        z-index: 1056;
+        color: #fff !important;
+        opacity: 1 !important;
+        text-shadow: none;
+        font-size: 1.75rem;
+        font-weight: 700;
+        line-height: 1;
+        background: transparent;
+        border: 0;
+        padding: 0 4px;
+        cursor: pointer;
+    }
+    .modal-header .modal-close-btn:hover,
+    .modal-header .close:hover { opacity: .85 !important; color: #fff !important; }
     @media (max-width: 576px) {
         .view-grid { grid-template-columns: 1fr; }
     }
@@ -219,6 +236,9 @@
                     <td>
                         <div class="reg-actions">
                             <button type="button" class="btn btn-secondary btn-view" data-id="{{ $row->id }}">View</button>
+                            @if(in_array($row->status, ['pending', 'revision'], true))
+                                <a href="{{ route('trainer.registrations.edit', $row->id) }}" class="btn btn-primary">Edit</a>
+                            @endif
                             @if($row->status === 'pending')
                                 <button type="button" class="btn btn-success btn-approve"
                                     data-id="{{ $row->id }}"
@@ -255,7 +275,9 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h4 class="modal-title">Approve Trainer Registration</h4>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <button type="button" class="close modal-close-btn" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="modal-body">
                 <p class="mb-3">
@@ -297,7 +319,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary modal-close-btn" data-dismiss="modal" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-success" id="btn-approve-save">Approve &amp; Send Email</button>
             </div>
         </div>
@@ -310,13 +332,15 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h4 class="modal-title">Registration Details</h4>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <button type="button" class="close modal-close-btn" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="modal-body" id="view-modal-body">
                 Loading...
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary modal-close-btn" data-dismiss="modal" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -325,6 +349,54 @@
 <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script>
+function hideBsModal(selector) {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    try {
+        if (window.bootstrap && bootstrap.Modal) {
+            const inst = bootstrap.Modal.getInstance(el) || bootstrap.Modal.getOrCreateInstance(el);
+            inst.hide();
+            return;
+        }
+    } catch (e) {}
+    if (window.jQuery && typeof jQuery(el).modal === 'function') {
+        jQuery(el).modal('hide');
+        return;
+    }
+    el.classList.remove('show');
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden', 'true');
+    document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('padding-right');
+    document.body.style.removeProperty('overflow');
+}
+
+function showBsModal(selector) {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    try {
+        if (window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(el).show();
+            return;
+        }
+    } catch (e) {}
+    if (window.jQuery && typeof jQuery(el).modal === 'function') {
+        jQuery(el).modal('show');
+    }
+}
+
+$(document).on('click', '#view-modal .modal-close-btn, #view-modal [data-dismiss="modal"], #view-modal [data-bs-dismiss="modal"]', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    hideBsModal('#view-modal');
+});
+$(document).on('click', '#approve-modal .modal-close-btn, #approve-modal [data-dismiss="modal"], #approve-modal [data-bs-dismiss="modal"]', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    hideBsModal('#approve-modal');
+});
+
 const table = $('#registrationTable').DataTable({
     pageLength: 25,
     order: [],
@@ -385,7 +457,7 @@ function esc(v) {
 $(document).on('click', '.btn-view', function () {
     const id = $(this).data('id');
     $('#view-modal-body').html('Loading...');
-    $('#view-modal').modal('show');
+    showBsModal('#view-modal');
 
     $.get('/trainer-registrations/' + id, function (d) {
         const photoUrl = mediaFileUrl(d.photo);
@@ -476,7 +548,7 @@ $(document).on('click', '.btn-approve', function () {
         $('#approve_cordinator').val('');
     }
 
-    $('#approve-modal').modal('show');
+    showBsModal('#approve-modal');
 });
 
 $('#btn-approve-save').on('click', function () {

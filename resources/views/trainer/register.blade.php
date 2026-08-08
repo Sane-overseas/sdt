@@ -366,7 +366,7 @@
                                placeholder="10 digit mobile number" required>
                         <div class="field-error d-none" id="phone-error">Phone number must be exactly 10 digits.</div>
                         @if($err('instructor_number'))<div class="field-error">{{ $err('instructor_number') }}</div>@endif
-                    </div>
+                    </div>          
                     <div class="col-md-6">
                         <label class="form-label">Aadhar Number <span class="req">*</span></label>
                         <input type="text" name="aadhar_number" id="aadhar_number" class="form-control {{ $err('aadhar_number') ? 'is-invalid' : '' }}"
@@ -480,7 +480,7 @@
                         @endif
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Photo {{ $hasDoc('photo') ? '(optional — already saved)' : '' }} <span class="req">{{ $hasDoc('photo') ? '' : '*' }}</span></label>
+                        <label class="form-label">Photo (FOR ID CARD){{ $hasDoc('photo') ? '(optional — already saved)' : '' }} <span class="req">{{ $hasDoc('photo') ? '' : '*' }}</span></label>
                         <input type="file" name="photo" class="form-control doc-file {{ $err('photo') ? 'is-invalid' : '' }}" data-max-mb="3" data-types="jpg,jpeg,png" accept=".jpg,.jpeg,.png" {{ $hasDoc('photo') ? '' : 'required' }}>
                         <div class="field-error file-error d-none"></div>
                         @if($err('photo'))<div class="field-error">{{ $err('photo') }}</div>@endif

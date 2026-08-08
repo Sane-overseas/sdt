@@ -31,8 +31,9 @@
                     <th>Cordinator Number</th>
                     <th>District</th>
                     <th>Total Trainers</th>
-                    <th>Schools Assigned Permission</th>
-                    <th>Data upload Permission</th>
+                    <th>Edit / Assign Schools</th>
+                    <th>Data Upload</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -64,6 +65,9 @@
                 <td style="text-align:center;">
                     <input class="permission-status data_upload" data-id="{{$data['id']}}"  type="checkbox" {{ $data['data_upload_status'] == 1 ? 'checked' : '' }}>
                 </td>
+                <td style="text-align:center; white-space:nowrap;">
+                    <button type="button" class="btn btn-sm btn-warning edit-cordinator" data-id="{{$data['id']}}">Edit</button>
+                </td>
             </tr>
             @endforeach
             </tbody>
@@ -80,6 +84,7 @@
             </div>
             <div class="modal-body">
                 <form action="javascript:void(0)" id="CordinatorForm" name="CordinatorForm" class="form-horizontal" enctype="multipart/form-data">
+                    <input type="hidden" name="id" id="cordinator_user_id" value="">
                     <h6 class="text-primary mb-2">Account</h6>
                     <div class="form-row">
                         <div class="form-group col-md-4">
@@ -95,8 +100,9 @@
                             <input type="email" class="form-control" name="email" required>
                         </div>
                         <div class="form-group col-md-4">
-                            <label>Password <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="password" value="SOPL@1634" required>
+                            <label id="password_label">Password <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="password" id="cordinator_password" value="SOPL@1634" required>
+                            <small id="password_hint" class="text-muted d-none">Leave blank to keep current password.</small>
                         </div>
                         <div class="form-group col-md-4">
                             <label>Coordinator Code <span class="text-danger">*</span></label>
@@ -153,22 +159,23 @@
                     </div>
 
                     <h6 class="text-primary mb-2 mt-2">Documents</h6>
+                    <div id="existing_docs" class="mb-2 d-none small text-muted"></div>
                     <div class="form-row">
                         <div class="form-group col-md-6">
-                            <label>Aadhar Document <span class="text-danger">*</span></label>
-                            <input type="file" class="form-control" name="aadhar_doc" accept=".jpg,.jpeg,.png,.pdf" required>
+                            <label>Aadhar Document <span class="text-danger doc-req">*</span></label>
+                            <input type="file" class="form-control doc-input" name="aadhar_doc" accept=".jpg,.jpeg,.png,.pdf" required>
                         </div>
                         <div class="form-group col-md-6">
-                            <label>Qualification <span class="text-danger">*</span></label>
-                            <input type="file" class="form-control" name="qualification_doc" accept=".jpg,.jpeg,.png,.pdf" required>
+                            <label>Qualification <span class="text-danger doc-req">*</span></label>
+                            <input type="file" class="form-control doc-input" name="qualification_doc" accept=".jpg,.jpeg,.png,.pdf" required>
                         </div>
                         <div class="form-group col-md-6">
-                            <label>Martial Art Certificate <span class="text-danger">*</span></label>
-                            <input type="file" class="form-control" name="martial_art_doc" accept=".jpg,.jpeg,.png,.pdf" required>
+                            <label>Martial Art Certificate <span class="text-danger doc-req">*</span></label>
+                            <input type="file" class="form-control doc-input" name="martial_art_doc" accept=".jpg,.jpeg,.png,.pdf" required>
                         </div>
                         <div class="form-group col-md-6">
-                            <label>Photo <span class="text-danger">*</span></label>
-                            <input type="file" class="form-control" name="photo" accept=".jpg,.jpeg,.png" required>
+                            <label>Photo <span class="text-danger doc-req">*</span></label>
+                            <input type="file" class="form-control doc-input" name="photo" accept=".jpg,.jpeg,.png" required>
                         </div>
                     </div>
                 </form>
@@ -187,7 +194,9 @@ let  cordinatorTable = $('#cordinatorTable').DataTable( {
 });
 
 cordinatorTable.on('click', 'tbody tr', function (evt) {
-    let data = cordinatorTable.row(this).data();
+    if ($(evt.target).closest('.edit-cordinator, .permission-status').length) {
+        return;
+    }
     let id = $(this).find("td:first").text();
     if($(evt.target).is(".get-data")){
         let newUrl = "cordinator_data/"+id;
@@ -195,16 +204,31 @@ cordinatorTable.on('click', 'tbody tr', function (evt) {
     }
 });
 
-function add(){
+function setCreateMode() {
     $('#CordinatorForm').trigger("reset");
+    $('#cordinator_user_id').val('');
     $('#CordinatorModal').html("Add Coordinator");
-    $('#Cordinator-modal').modal('show');
-    $('#id').val('');
+    $('#btn-save').text('Save');
+    $('#cordinator_password').val('SOPL@1634').prop('required', true);
+    $('#password_label').html('Password <span class="text-danger">*</span>');
+    $('#password_hint').addClass('d-none');
+    $('.doc-input').prop('required', true);
+    $('.doc-req').removeClass('d-none');
+    $('#existing_docs').addClass('d-none').empty();
     $('#create_block').html('<option value="">Select Block</option>');
 }
 
-$('#check_distt').on('change', function () {
-    var distId = $(this).find('option:selected').data('id');
+function setEditMode() {
+    $('#CordinatorModal').html("Edit Coordinator");
+    $('#btn-save').text('Update');
+    $('#cordinator_password').val('').prop('required', false);
+    $('#password_label').html('Password');
+    $('#password_hint').removeClass('d-none');
+    $('.doc-input').prop('required', false);
+    $('.doc-req').addClass('d-none');
+}
+
+function loadBlocks(distId, selectedBlock) {
     $('#create_block').html('<option value="">Select Block</option>');
     if (!distId) return;
     $.ajaxSetup({
@@ -217,10 +241,67 @@ $('#check_distt').on('change', function () {
         success: function (result) {
             $('#create_block').html('<option value="">Select Block</option>');
             $.each(result.block || [], function (key, value) {
-                $('#create_block').append('<option value="' + value.block + '">' + value.block + '</option>');
+                var selected = (selectedBlock && selectedBlock === value.block) ? ' selected' : '';
+                $('#create_block').append('<option value="' + value.block + '"' + selected + '>' + value.block + '</option>');
             });
         }
     });
+}
+
+function add(){
+    setCreateMode();
+    $('#Cordinator-modal').modal('show');
+}
+
+function editCoordinator(id) {
+    $.ajaxSetup({
+        headers: { 'X-CSRF-TOKEN': jQuery('meta[name="csrf-token"]').attr('content') }
+    });
+    $.ajax({
+        type: 'GET',
+        url: 'edit-cordinator/' + id,
+        dataType: 'json',
+        success: function (data) {
+            setCreateMode();
+            setEditMode();
+            $('#cordinator_user_id').val(data.id);
+            $('[name="cordinator_name"]').val(data.cordinator_name || '');
+            $('[name="father_name"]').val(data.father_name || '');
+            $('[name="email"]').val(data.email || '');
+            $('[name="code"]').val(data.code || '');
+            $('[name="number"]').val(data.number || '');
+            $('[name="aadhar_number"]').val(data.aadhar_number || '');
+            $('[name="blood_group"]').val(data.blood_group || '');
+            $('[name="address"]').val(data.address || '');
+            $('[name="martial_art_type"]').val(data.martial_art_type || '');
+            $('[name="district_name"]').val(data.district_name || '');
+            loadBlocks(data.district_id, data.block || '');
+
+            var docs = [];
+            if (data.aadhar_doc) docs.push('Aadhar uploaded');
+            if (data.qualification_doc) docs.push('Qualification uploaded');
+            if (data.martial_art_doc) docs.push('Martial art cert uploaded');
+            if (data.photo) docs.push('Photo uploaded');
+            if (docs.length) {
+                $('#existing_docs').removeClass('d-none').text('Existing: ' + docs.join(', ') + '. Upload only to replace.');
+            }
+
+            $('#Cordinator-modal').modal('show');
+        },
+        error: function (xhr) {
+            let msg = 'Could not load coordinator';
+            try {
+                const obj = JSON.parse(xhr.responseText);
+                if (obj.message) msg = obj.message;
+            } catch (e) {}
+            Swal.fire({ icon: 'error', title: msg });
+        }
+    });
+}
+
+$('#check_distt').on('change', function () {
+    var distId = $(this).find('option:selected').data('id');
+    loadBlocks(distId);
 });
 
 jQuery(document).ready(function($){
@@ -231,7 +312,13 @@ jQuery(document).ready(function($){
         this.value = this.value.replace(/\D/g, '').slice(0, 10);
     });
 
-// CREATE
+    $(document).on('click', '.edit-cordinator', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        editCoordinator($(this).data('id'));
+    });
+
+// CREATE / UPDATE
     $("#btn-save").click(function (e) {
         $.ajaxSetup({
             headers: {
@@ -241,9 +328,10 @@ jQuery(document).ready(function($){
         e.preventDefault();
 
         var formData = new FormData(document.getElementById('CordinatorForm'));
+        var isEdit = !!$('#cordinator_user_id').val();
         $.ajax({
             type: 'POST',
-            url: 'create-cordinator',
+            url: isEdit ? 'update-cordinator' : 'create-cordinator',
             data: formData,
             processData: false,
             contentType: false,
@@ -252,7 +340,7 @@ jQuery(document).ready(function($){
                 Swal.fire({
                   position: 'center',
                   icon: 'success',
-                  title: (data && data.message) ? data.message : 'Coordinator has been created',
+                  title: (data && data.message) ? data.message : (isEdit ? 'Coordinator updated' : 'Coordinator has been created'),
                   showConfirmButton: false,
                   timer: 2500
                 }).then(function(isConfirm) {

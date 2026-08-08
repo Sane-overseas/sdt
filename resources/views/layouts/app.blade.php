@@ -58,13 +58,14 @@
                                 </div>
                                 <div class="dropdown">
                                     <li class="nav-item">
-                                    <a class="nav-link {{ Request::path() == 'schools-reporting' ? 'active' : '' }}" href="{{ route('schools-reporting') }}">Schools Reporting</a>
+                                    <a class="nav-link {{ in_array(Request::path(), ['schools-reporting', 'schools-reporting/trainer-needs']) ? 'active' : '' }}" href="{{ route('schools-reporting') }}">Schools Reporting</a>
                                         <div class="dropdown-content">
                                             <a href="{{ route('paid-schools') }}">Paid Schools</a>
                                             <a href="{{ route('unpaid-schools') }}">Unpaid Schools</a>
                                             <a href="{{ route('today-assigned') }}">Assigned Schools</a>
                                             <a href="{{ route('admin.school-requests') }}">School Requests</a>
                                             <a href="{{ route('route-plan-schools') }}">Route Plane Schools</a>
+                                            <a href="{{ route('schools-reporting.trainer-needs') }}">Trainer Needs (Graph)</a>
                                         </div>
                                     </li>
                                 </div>
@@ -195,6 +196,9 @@
                                     <a class="nav-link trainer-nav-link {{ Request::path() == 'school-requests' ? 'active' : '' }}" href="{{ route('trainer.school-requests') }}">Request Schools</a>
                                 </li>
                                 <li class="nav-item">
+                                    <a class="nav-link trainer-nav-link {{ Request::is('my-id-card*') ? 'active' : '' }}" href="{{ route('my-id-card') }}">ID Card</a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link trainer-nav-link {{ Request::path() == 'trainer-reporting' ? 'active' : '' }}" href="{{ route('trainer-reporting') }}">Cordinator Panel</a>
                                 </li>
                             </ul>
@@ -263,6 +267,9 @@
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link trainer-nav-link {{ Request::path() == 'school-requests' ? 'active' : '' }}" href="{{ route('trainer.school-requests') }}">Request Schools</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link trainer-nav-link {{ Request::is('my-id-card*') ? 'active' : '' }}" href="{{ route('my-id-card') }}">ID Card</a>
                                     </li>
                                 </ul>
                             </div>

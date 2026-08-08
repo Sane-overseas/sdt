@@ -8,77 +8,74 @@
             <p class="text-muted mb-0">Import multiple schools from Excel or CSV file</p>
         </div>
         <a href="{{ route('admin.manageschool') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Back to Manage Schools
+            Back to Manage Schools
         </a>
     </div>
 
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">
-                <i class="fas fa-file-import"></i> Import Schools from File
-            </h4>
+            <h4 class="mb-0">Import Schools from File</h4>
         </div>
         <div class="card-body">
             @if (session('success'))
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="fas fa-check-circle"></i> {{ session('success') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
+                <div class="alert alert-success">{{ session('success') }}</div>
             @endif
 
             @if (session('error'))
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="fas fa-exclamation-triangle"></i> {{ session('error') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <div class="alert alert-danger">{{ session('error') }}</div>
+            @endif
+
+            @if ($errors->any())
+                <div class="alert alert-danger">
+                    <strong>Please fix the following:</strong>
+                    <ul class="mb-0 mt-1">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
                 </div>
             @endif
 
-            <div class="alert alert-light border-start border-primary border-4">
-                <div class="d-flex align-items-start">
-                    <div class="flex-grow-1">
-                        <h6 class="mb-2 text-primary">
-                            <i class="fas fa-info-circle"></i> File Format Requirements
-                        </h6>
-                        <p class="mb-2">Your Excel/CSV file must contain these columns in the exact order:</p>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <ul class="list-unstyled">
-                                    <li><i class="fas fa-check text-success"></i> <strong>School Name</strong></li>
-                                    <li><i class="fas fa-check text-success"></i> <strong>School Code</strong></li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <ul class="list-unstyled">
-                                    <li><i class="fas fa-check text-success"></i> <strong>Block</strong></li>
-                                    <li><i class="fas fa-check text-success"></i> <strong>Total Students</strong></li>
-                                </ul>
-                            </div>
-                        </div>
-                        <small class="text-muted">
-                            <i class="fas fa-lightbulb"></i> Download the template to ensure correct formatting.
-                        </small>
+            <div class="alert alert-light border">
+                <h6 class="mb-2 text-primary">File Format Requirements</h6>
+                <p class="mb-2">Your Excel/CSV file must contain these columns:</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li><strong>School Name</strong></li>
+                            <li><strong>School Code</strong></li>
+                            <li><strong>Block</strong></li>
+                        </ul>
                     </div>
-                    <div class="ms-3">
-                        <a href="{{ route('schools.download-template') }}" class="btn btn-primary btn-sm">
-                            <i class="fas fa-download"></i> Download Template
-                        </a>
+                    <div class="col-md-6">
+                        <ul>
+                            <li><strong>Total Students</strong></li>
+                            <li><strong>Total Training Hours</strong> (e.g. 60)</li>
+                            <li><strong>Daily Training Hours</strong> (e.g. 2)</li>
+                        </ul>
                     </div>
+                </div>
+                <small class="text-muted">
+                    Download the template to ensure correct formatting. Same School Code in the selected district will be updated; new codes will be created.
+                </small>
+                <div class="mt-2">
+                    <a href="{{ route('schools.download-template') }}" class="btn btn-primary btn-sm">
+                        Download Template
+                    </a>
                 </div>
             </div>
 
-            <form method="POST" action="{{ route('schools.import') }}" enctype="multipart/form-data">
+            <form id="bulkImportForm" method="POST" action="{{ route('schools.import') }}" enctype="multipart/form-data">
                 @csrf
 
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <label for="district_id" class="form-label fw-semibold">
-                                <i class="fas fa-map-marker-alt"></i> Select District
-                            </label>
-                            <select id="district_id" class="form-select" name="district_id" required>
+                            <label for="district_id" class="form-label">Select District</label>
+                            <select id="district_id" class="form-control" name="district_id" required>
                                 <option value="">-- Choose District --</option>
                                 @foreach ($districts as $district)
-                                    <option value="{{ $district->id }}">{{ $district->district }}</option>
+                                    <option value="{{ $district->id }}" @selected(old('district_id') == $district->id)>{{ $district->district }}</option>
                                 @endforeach
                             </select>
                             @error('district_id')
@@ -88,9 +85,7 @@
                     </div>
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <label for="file" class="form-label fw-semibold">
-                                <i class="fas fa-file-upload"></i> Select File
-                            </label>
+                            <label for="file" class="form-label">Select File</label>
                             <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.csv,.xls" required>
                             <div class="form-text small">Excel (.xlsx, .xls) or CSV (.csv) files only</div>
                             @error('file')
@@ -102,18 +97,16 @@
 
                 <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                     <a href="{{ route('admin.manageschool') }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left"></i> Back to Manage Schools
+                        Back to Manage Schools
                     </a>
-                    <button type="submit" class="btn btn-success px-4">
-                        <i class="fas fa-upload"></i> Import Schools
+                    <button type="submit" class="btn btn-success px-4" id="bulkImportBtn">
+                        Import Schools
                     </button>
                 </div>
             </form>
 
             <div class="mt-4">
-                <h6 class="text-muted mb-3">
-                    <i class="fas fa-table"></i> Sample File Format
-                </h6>
+                <h6 class="text-muted mb-3">Sample File Format</h6>
                 <div class="table-responsive">
                     <table class="table table-bordered table-sm bg-light">
                         <thead class="table-primary">
@@ -122,6 +115,8 @@
                                 <th class="text-center">School Code</th>
                                 <th class="text-center">Block</th>
                                 <th class="text-center">Total Students</th>
+                                <th class="text-center">Total Training Hours</th>
+                                <th class="text-center">Daily Training Hours</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -130,12 +125,16 @@
                                 <td>12345</td>
                                 <td>Block A</td>
                                 <td class="text-center">150</td>
+                                <td class="text-center">60</td>
+                                <td class="text-center">2</td>
                             </tr>
                             <tr>
                                 <td>XYZ High School</td>
                                 <td>67890</td>
                                 <td>Block B</td>
                                 <td class="text-center">300</td>
+                                <td class="text-center">60</td>
+                                <td class="text-center">2</td>
                             </tr>
                         </tbody>
                     </table>
@@ -144,4 +143,35 @@
         </div>
     </div>
 </div>
+
+<script>
+@if (session('success'))
+if (typeof Swal !== 'undefined') {
+    Swal.fire({
+        icon: 'success',
+        title: 'Import successful',
+        text: @json(session('success'))
+    });
+}
+@elseif (session('error'))
+if (typeof Swal !== 'undefined') {
+    Swal.fire({
+        icon: 'error',
+        title: 'Import failed',
+        text: @json(session('error'))
+    });
+}
+@endif
+
+var bulkImportForm = document.getElementById('bulkImportForm');
+if (bulkImportForm) {
+    bulkImportForm.addEventListener('submit', function () {
+        var btn = document.getElementById('bulkImportBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Importing…';
+        }
+    });
+}
+</script>
 @endsection

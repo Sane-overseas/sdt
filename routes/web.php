@@ -76,6 +76,9 @@ Route::get('/trainer-register/coordinators/{districtId}', [TrainerRegistrationCo
 
 // Admin trainer registration approval
 Route::get('/trainer-registrations', [TrainerRegistrationController::class, 'index'])->name('trainer.registrations');
+Route::get('/trainer-registrations/{id}/edit', [TrainerRegistrationController::class, 'adminEdit'])->name('trainer.registrations.edit');
+Route::put('/trainer-registrations/{id}', [TrainerRegistrationController::class, 'adminUpdate'])->name('trainer.registrations.update');
+Route::post('/trainer-registrations/{id}/crop-document', [TrainerRegistrationController::class, 'adminCropDocument'])->name('trainer.registrations.crop-document');
 Route::get('/trainer-registrations/{id}', [TrainerRegistrationController::class, 'show'])->name('trainer.registrations.show');
 Route::post('/trainer-registrations/{id}/approve', [TrainerRegistrationController::class, 'approve'])->name('trainer.registrations.approve');
 Route::post('/trainer-registrations/{id}/reject', [TrainerRegistrationController::class, 'reject'])->name('trainer.registrations.reject');
@@ -96,6 +99,8 @@ Route::get('/trainers-schools-data',[AdminController::class, 'TrainersSchoolsDat
 Route::get('/claim-trainers',[AdminController::class, 'ClaimTraniers'])->name('claim-trainers');
 Route::get('/cordinators',[AdminController::class, 'Cordinators'])->name('cordinators');
 Route::post('create-cordinator',[AdminController::class, 'cordinatorStore'])->name('create-cordinator');
+Route::get('edit-cordinator/{id}',[AdminController::class, 'editCordinator'])->name('edit-cordinator');
+Route::post('update-cordinator',[AdminController::class, 'cordinatorUpdate'])->name('update-cordinator');
 Route::get('cordinator_data/{id}',[AdminController::class, 'cordinatorData'])->name('cordinator_data');
 
 Route::get('/school-assigned-status', [AdminController::class, 'schoolAssignedStatus']);
@@ -113,6 +118,7 @@ Route::post('add-schools-new',[AdminController::class, 'addAssigndData'])->name(
 
 Route::get('school-requests', [SchoolRequestController::class, 'trainerIndex'])->middleware('auth')->name('trainer.school-requests');
 Route::post('school-requests', [SchoolRequestController::class, 'trainerStore'])->middleware('auth')->name('trainer.school-requests.store');
+Route::get('school-requests/{id}/auth-letter', [SchoolRequestController::class, 'downloadAuthLetter'])->middleware('auth')->name('trainer.school-requests.auth-letter');
 Route::get('admin/school-requests', [SchoolRequestController::class, 'adminIndex'])->middleware('auth')->name('admin.school-requests');
 Route::post('admin/school-requests/{id}/approve', [SchoolRequestController::class, 'approve'])->middleware('auth')->name('admin.school-requests.approve');
 Route::post('admin/school-requests/{id}/reject', [SchoolRequestController::class, 'reject'])->middleware('auth')->name('admin.school-requests.reject');
@@ -154,6 +160,7 @@ Route::post('remark/{id}',[AdminController::class, 'remarkNote'])->name('remark'
 Route::delete('a-school/{id}/{sid}', [AdminController::class, 'asignedSchoolDelete'])->name('a-school');
 Route::get('trainer_schools_data/{id}',[AdminController::class, 'trainerSchoolsData'])->name('trainer_schools_data');
 Route::get('schools-reporting',[AdminController::class, 'schoolsReportingByDistricts'])->name('schools-reporting');
+Route::get('schools-reporting/trainer-needs',[AdminController::class, 'trainerNeedsGraph'])->name('schools-reporting.trainer-needs');
 Route::get('trainers-reporting',[AdminController::class, 'trainersReporting'])->name('trainers-reporting');
 
 Route::get('/image-status', [AdminController::class, 'imageStatus']);
@@ -192,6 +199,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get('/my-id-card', [ProfileController::class, 'myIdCard'])->name('my-id-card');
+    Route::get('/my-id-card/download', [ProfileController::class, 'downloadIdCard'])->name('my-id-card.download');
 });
 
 require __DIR__.'/auth.php';

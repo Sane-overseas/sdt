@@ -43,15 +43,16 @@
     <strong>Route Plan</strong>
     <p class="col-12 mb-2 text-muted small">
         @if($requiredHours !== null)
-            Total required: <strong>{{ number_format((float) $requiredHours, 2) }} hrs</strong>.
+            <!-- Total hours needed: <strong>{{ number_format((float) $requiredHours, 2) }}</strong> -->
+             कुल घंटे: <strong>{{ number_format((float) $requiredHours, 2) }}</strong>.
         @endif
         @if($dailyMaxHours !== null)
-            Max / day: <strong>{{ number_format((float) $dailyMaxHours, 2) }} hrs</strong>
-            (less allowed).
+            <!-- One day max: <strong>{{ number_format((float) $dailyMaxHours, 2) }} hrs</strong> -->
+            एक दिन ज्यादा से ज्यादा: <strong>{{ number_format((float) $dailyMaxHours, 2) }} घंटे</strong>.
         @endif
         @if($minWorkingDays !== null)
-            Minimum working days: <strong>{{ $minWorkingDays }}</strong>
-            (you may take more days).
+            <!-- Min days: <strong>{{ $minWorkingDays }}</strong> -->
+            कम से कम दिन: <strong>{{ $minWorkingDays }}</strong>.
         @endif
     </p>
     <div class="form-group col-12">
