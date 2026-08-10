@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\District;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Response;
+use App\Services\CoordinatorScopeService;
 use App\Services\SchoolAssignmentService;
 use App\Services\StateService;
 use App\Services\IdCardGenerator;
@@ -161,15 +162,17 @@ class ProfileController extends Controller
         }
 
         if ((int) $auth->role === 2) {
-            if ((int) ($auth->school_assigned_status ?? 0) !== 1) {
+            // Own profile / own training schools always editable for route+basic; pay/coordinator fields stay locked below
+            if ((int) $auth->id === (int) $trainer->id) {
+                // continue
+            } elseif ((int) ($auth->school_assigned_status ?? 0) !== 1) {
                 return response()->json(['message' => 'You do not have permission to edit trainers.'], 403);
-            }
-            if ((int) $trainer->cordinator_id !== (int) $auth->cordinator_id) {
-                return response()->json(['message' => 'You can only edit your own trainers.'], 403);
+            } elseif (!CoordinatorScopeService::canManageAssignmentTarget($auth, $trainer)) {
+                return response()->json(['message' => 'You can only edit trainers in your scope.'], 403);
             }
             // Coordinator cannot reassign trainer to another coordinator or change pay amounts
             $request->merge([
-                'cordinator' => $auth->cordinator_id,
+                'cordinator' => $trainer->cordinator_id,
                 'amount' => $trainer->amount,
                 'extra_amount' => $trainer->extra_amount,
             ]);
@@ -350,7 +353,9 @@ class ProfileController extends Controller
                 'name' => $user->instructor_name,
                 'code' => $user->instructor_code,
                 'blood_group' => $user->blood_group,
-                'designation' => (int) $user->role === 2 ? 'COORDINATOR' : 'TRAINER',
+                'designation' => (int) $user->role === 2
+                    ? ((($user->coordinator_level ?? 'district') === 'state') ? 'STATE COORDINATOR' : 'DISTRICT COORDINATOR')
+                    : 'TRAINER',
                 'photo_path' => $user->photo,
             ]);
         }

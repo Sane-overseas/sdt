@@ -5,8 +5,16 @@
     $auth = Auth::user();
     $isAdmin = $auth && (int) $auth->role === 1;
     $isCoordinator = $auth && (int) $auth->role === 2;
-    $canEditTrainer = $isAdmin || ($isCoordinator && (int) ($auth->school_assigned_status ?? 0) === 1);
-    $canUploadData = $isAdmin || ($isCoordinator && (int) ($auth->data_upload_status ?? 0) === 1);
+    $canEditTrainer = $isAdmin
+        || ($isCoordinator && (
+            (int) ($auth->school_assigned_status ?? 0) === 1
+            || (int) ($auth->id) === (int) ($trainer_data['id'] ?? 0)
+        ));
+    $canUploadData = $isAdmin
+        || ($isCoordinator && (
+            (int) ($auth->data_upload_status ?? 0) === 1
+            || (int) ($auth->id) === (int) ($trainer_data['id'] ?? 0)
+        ));
 @endphp
 <body>
 <div class="container">
@@ -28,6 +36,12 @@
             @if($canUploadData)
             <div class="tab-pane {{ !$canEditTrainer && $canUploadData ? 'active' : '' }}" id="2a">
                 @include('admin.upload-data')
+            </div>
+            @endif
+            @if(!$canEditTrainer && !$canUploadData)
+            <div class="alert alert-warning mt-3">
+                You can view this trainer, but edit/assign and upload are disabled.
+                Ask admin to enable permissions on the Coordinators page.
             </div>
             @endif
         </div>

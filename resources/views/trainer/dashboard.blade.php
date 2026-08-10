@@ -1,6 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $isStateCoordinator = !empty($isStateCoordinator);
+@endphp
 <style type="text/css">
 .claim_btn {
     border-radius: 5px;
@@ -17,7 +20,102 @@
 	    margin-top: -33px;
 	}
 }
+.district-school-block {
+    margin-bottom: 1.5rem;
+}
+.district-school-block h3 {
+    font-size: 1.15rem;
+    margin-bottom: 0.5rem;
+    color: #004857;
+}
 </style>
+
+@if($isStateCoordinator)
+{{-- State coordinator dashboard: all schools by district, no Paid card --}}
+<div class="mt-4">
+	<div class="row m-2">
+		<div class="col-md total-div td-div">
+			<span class="trainer-as-hed total-text">Total Schools</span>
+			<span class="trainer-as-amt total-text">{{ $stateSchoolSummary['total'] ?? 0 }}</span>
+		</div>
+		<div class="col-md compete-div td-div">
+			<span class="trainer-as-hed complete-text">Complete Schools</span>
+			<span class="trainer-as-amt complete-text">{{ $stateSchoolSummary['complete'] ?? 0 }}</span>
+		</div>
+		<div class="col-md pending-div td-div">
+			<span class="trainer-as-hed pending-text">Assigned Schools</span>
+			<span class="trainer-as-amt pending-text">{{ $stateSchoolSummary['assigned'] ?? 0 }}</span>
+		</div>
+		<div class="col-md not-started-dev td-div">
+			<span class="trainer-as-hed pending-text">Not Assigned</span>
+			<span class="trainer-as-amt pending-text">{{ $stateSchoolSummary['not_assigned'] ?? 0 }}</span>
+		</div>
+	</div>
+</div>
+<div class="container mt-2">
+	<div class="row margin-tb mb-2 mt-2">
+        <div class="col-md-12">
+            <h2 class="heading">All Schools (District-wise)</h2>
+        </div>
+    </div>
+
+	@foreach(($schoolsByDistrict ?? []) as $block)
+	<div class="district-school-block">
+		<h3>{{ $block['district'] }} <span class="text-muted">({{ $block['count'] }})</span></h3>
+		<table class="table table-bordered state-district-schools-table">
+			<thead>
+				<tr>
+					<th>School Name</th>
+					<th>Block</th>
+					<th>Status</th>
+				</tr>
+			</thead>
+			<tbody>
+			@forelse($block['schools'] as $school)
+				<tr>
+					<td><strong>{{ $school['school_name'] }}</strong></td>
+					<td>{{ $school['block'] ?: '—' }}</td>
+					<td>
+						@if($school['status_label'] === 'Complete')
+							<span class="compete">{{ $school['status_label'] }}</span>
+						@elseif($school['status_label'] === 'Pending')
+							<span class="pending">{{ $school['status_label'] }}</span>
+						@elseif($school['status_label'] === 'Not Assigned')
+							<span class="not-started">{{ $school['status_label'] }}</span>
+						@else
+							<span class="pending">{{ $school['status_label'] }}</span>
+						@endif
+					</td>
+				</tr>
+			@empty
+				<tr>
+					<td class="text-muted">No schools in this district.</td>
+					<td></td>
+					<td></td>
+				</tr>
+			@endforelse
+			</tbody>
+		</table>
+	</div>
+	@endforeach
+</div>
+<script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+<script type="text/javascript">
+$('.state-district-schools-table').each(function () {
+	if ($(this).find('tbody tr td').length >= 3) {
+		$(this).DataTable({
+			ordering: false,
+			pageLength: 10,
+			lengthMenu: [[10, 25, 50, -1], [10, 25, 50, 'All']]
+		});
+	}
+});
+</script>
+
+@else
+{{-- District coordinator / trainer dashboard --}}
 <div class="mt-4">
 	<div class="row m-2">
 		<div class="col-md total-div td-div">
@@ -185,7 +283,6 @@
 	       										$value = count(array_filter($cunt));
 							    				?>
 							    				@if($value > 0){{$value}}/5 @endif
-							    				{{-- @if($image['status'] == 0) --}}
                                                 @if (($image['status'] ?? null) == 0)
 							    					<i class="bi bi-info-circle-fill dash-pending"></i>
 							    				@else
@@ -262,12 +359,10 @@
 <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
-<script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
 <script type="text/javascript">
 $('#dashboardTable').DataTable( {
     ordering: false,
     info:     false,
-    lengthMenu:     "Show _MENU_ entries",
     responsive: true,
     	lengthMenu: [
         [10, 25, 50, -1],
@@ -275,4 +370,5 @@ $('#dashboardTable').DataTable( {
     ]
 });
 </script>
+@endif
 @endsection

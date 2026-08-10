@@ -65,6 +65,17 @@
     }
     .status-pill.pending { background: #fff3cd; color: #856404; }
     .status-pill.revision { background: #d1ecf1; color: #0c5460; }
+    .edit-link-box {
+        display: flex;
+        gap: 8px;
+        align-items: stretch;
+        margin-top: 8px;
+    }
+    .edit-link-box input {
+        flex: 1;
+        font-size: 12px;
+        font-family: monospace;
+    }
     .status-pill.approved { background: #d4edda; color: #155724; }
     .status-pill.rejected { background: #f8d7da; color: #721c24; }
     .view-section {
@@ -454,6 +465,55 @@ function esc(v) {
         .replace(/"/g, '&quot;');
 }
 
+function copyTextToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+        document.execCommand('copy');
+        return Promise.resolve();
+    } finally {
+        document.body.removeChild(ta);
+    }
+}
+
+function editLinkSection(editUrl) {
+    if (!editUrl) return '';
+    const safeUrl = esc(editUrl);
+    return `
+        <div class="view-section">
+            <h6>Trainer Edit Link</h6>
+            <div class="edit-link-box">
+                <input type="text" class="form-control form-control-sm" readonly value="${safeUrl}" id="trainer-edit-link-input">
+                <button type="button" class="btn btn-sm btn-outline-primary btn-copy-edit-link" data-url="${safeUrl}">Copy</button>
+                <a href="${safeUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Open</a>
+            </div>  
+        </div>
+    `;
+}
+
+$(document).on('click', '.btn-copy-edit-link', function () {
+    const url = $(this).data('url') || $('#trainer-edit-link-input').val();
+    if (!url) return;
+    copyTextToClipboard(String(url)).then(function () {
+        Swal.fire({
+            icon: 'success',
+            title: 'Link copied',
+            timer: 1500,
+            showConfirmButton: false
+        });
+    }).catch(function () {
+        Swal.fire({ icon: 'error', title: 'Could not copy link' });
+    });
+});
+
 $(document).on('click', '.btn-view', function () {
     const id = $(this).data('id');
     $('#view-modal-body').html('Loading...');
@@ -509,6 +569,7 @@ $(document).on('click', '.btn-view', function () {
             </div>
 
             ${d.admin_remarks ? `<div class="view-section"><h6>Admin Remarks</h6><div class="view-val">${esc(d.admin_remarks)}</div></div>` : ''}
+            ${editLinkSection(d.edit_url)}
             ${d.rejection_note ? `<div class="view-section"><h6>Rejection Note</h6><div class="view-val">${esc(d.rejection_note)}</div></div>` : ''}
         `;
         $('#view-modal-body').html(html);
@@ -602,21 +663,27 @@ $(document).on('click', '.btn-revision', function () {
             data: { admin_remarks: result.value },
             dataType: 'json',
             success: function (res) {
-                if (res.edit_url) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Remarks saved',
-                        html: 'Email could not be sent. Share this edit link manually:<br><a href="' + res.edit_url + '" target="_blank">' + res.edit_url + '</a>',
-                        confirmButtonText: 'OK'
-                    }).then(function () { location.reload(); });
-                } else {
-                    Swal.fire({
-                        icon: 'success',
-                        title: res.message || 'Correction remarks emailed',
-                        timer: 2500,
-                        showConfirmButton: false
-                    }).then(function () { location.reload(); });
-                }
+                const editUrl = res.edit_url || '';
+                const linkHtml = editUrl
+                    ? '<div class="text-start mt-3"><div class="small text-muted mb-1">Share this edit link manually if needed:</div>'
+                        + '<div class="edit-link-box"><input type="text" class="form-control form-control-sm" readonly value="' + editUrl + '" id="revision-edit-link">'
+                        + '<button type="button" class="btn btn-sm btn-outline-primary" id="btn-copy-revision-link">Copy</button></div></div>'
+                    : '';
+
+                Swal.fire({
+                    icon: res.edit_url && res.message && res.message.indexOf('could not be sent') !== -1 ? 'warning' : 'success',
+                    title: res.message || 'Correction remarks sent',
+                    html: linkHtml,
+                    confirmButtonText: 'OK',
+                    didOpen: function () {
+                        $('#btn-copy-revision-link').on('click', function () {
+                            copyTextToClipboard($('#revision-edit-link').val()).then(function () {
+                                Swal.showValidationMessage('Link copied');
+                                setTimeout(function () { Swal.resetValidationMessage(); }, 1500);
+                            });
+                        });
+                    }
+                }).then(function () { location.reload(); });
             },
             error: function (xhr) {
                 let msg = 'Something went wrong';

@@ -37,6 +37,7 @@ class User extends Authenticatable
         'address',
         'cordinator_id',
         'state_id',
+        'coordinator_level',
         'district',
         'block',
         'martial_art_type',

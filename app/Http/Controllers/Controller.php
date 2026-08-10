@@ -24,6 +24,7 @@ use App\Models\AsignedSchool;
 use App\Models\PaidSchool;
 use App\Models\Testimonial;
 use App\Services\AcademicSessionService;
+use App\Services\CoordinatorScopeService;
 use App\Services\HolidayService;
 use App\Services\SessionUploadService;
 use App\Services\StateService;
@@ -86,6 +87,12 @@ class Controller extends BaseController
             ->with('schools', $schools)
             ->with('activeAcademicSession', $activeSession);
         }elseif(Auth::user()->role == 2){
+             if (CoordinatorScopeService::isStateCoordinator(Auth::user())) {
+                 return redirect()
+                     ->route('t-dashboard')
+                     ->with('error', 'Upload is not available for state coordinators.');
+             }
+
              $activeSession = AcademicSessionService::active();
 
              $a1 = AsignedSchool::where('user_id', Auth::user()->id)->where('status', 0)
@@ -173,21 +180,115 @@ class Controller extends BaseController
     public function uploadData()
     {
         $this->schoolCompleteStatus();
-         $schools = StateService::schoolsQuery()->get();
-        if(Auth::user() == null) {
+        if (Auth::user() == null) {
             return redirect()->route('login');
-        }else{
+        }
 
-            $user = User::where('id', Auth::user()->id)->with('asigned_schools')->first()->toArray();
-            $videos = Video::where('user_id', Auth::user()->id)->get()->toArray();
-            $images = Image::where('user_id', Auth::user()->id)->get()->toArray();
-            $completion = Completion::where('user_id', Auth::user()->id)->get()->toArray();
-            $distribution = Distribution::where('user_id', Auth::user()->id)->get()->toArray();
-            $district = StateService::districtsQuery()->get()->toArray();
-            $cordinators = Cordinator::where('id' , Auth::user()->cordinator_id )->first()->toArray();
-            $activeSession = AcademicSessionService::active();
+        $auth = Auth::user();
+        $isStateCoordinator = CoordinatorScopeService::isStateCoordinator($auth);
+        $activeSession = AcademicSessionService::active();
+        $district = StateService::districtsQuery()->orderBy('district')->get()->toArray();
+        $schools = StateService::schoolsQuery()->orderBy('school_name')->get();
+
+        if ($isStateCoordinator) {
+            $districtModels = StateService::districtsQuery()->orderBy('district')->get();
+            $assignedBySchool = AsignedSchool::query()
+                ->select('school_name')
+                ->selectRaw('COUNT(*) as assignment_count')
+                ->selectRaw('SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as complete_count')
+                ->selectRaw('SUM(CASE WHEN route_date IS NOT NULL AND status = 0 THEN 1 ELSE 0 END) as pending_count')
+                ->selectRaw('SUM(CASE WHEN route_date IS NULL THEN 1 ELSE 0 END) as not_started_count')
+                ->groupBy('school_name')
+                ->get()
+                ->keyBy(fn ($row) => (string) $row->school_name);
+
+            $schoolsByDistrict = [];
+            $totalSchools = 0;
+            $completeSchools = 0;
+            $assignedSchools = 0;
+            $notAssignedSchools = 0;
+
+            foreach ($districtModels as $dist) {
+                $distSchools = $schools->where('district_id', $dist->id)->values();
+                $rows = [];
+                foreach ($distSchools as $school) {
+                    $totalSchools++;
+                    $asg = $assignedBySchool->get((string) $school->id);
+                    $isComplete = (int) $school->status === 1;
+                    if ($isComplete) {
+                        $completeSchools++;
+                    }
+                    $hasAssignment = $asg && (int) $asg->assignment_count > 0;
+                    if ($hasAssignment) {
+                        $assignedSchools++;
+                    } else {
+                        $notAssignedSchools++;
+                    }
+
+                    $statusLabel = 'Not Assigned';
+                    if ($isComplete) {
+                        $statusLabel = 'Complete';
+                    } elseif ($hasAssignment) {
+                        if ((int) ($asg->pending_count ?? 0) > 0) {
+                            $statusLabel = 'Pending';
+                        } elseif ((int) ($asg->not_started_count ?? 0) > 0) {
+                            $statusLabel = 'Not Started';
+                        } else {
+                            $statusLabel = 'Assigned';
+                        }
+                    }
+
+                    $rows[] = [
+                        'id' => $school->id,
+                        'school_name' => $school->school_name,
+                        'block' => $school->block,
+                        'status' => (int) $school->status,
+                        'status_label' => $statusLabel,
+                        'assigned' => $hasAssignment,
+                    ];
+                }
+
+                $schoolsByDistrict[] = [
+                    'district_id' => $dist->id,
+                    'district' => $dist->district,
+                    'schools' => $rows,
+                    'count' => count($rows),
+                ];
+            }
+
+            $user = User::where('id', $auth->id)->with('asigned_schools')->first()->toArray();
+
             return view('trainer.dashboard')
+                ->with('user', $user)
+                ->with('isStateCoordinator', true)
+                ->with('schoolsByDistrict', $schoolsByDistrict)
+                ->with('stateSchoolSummary', [
+                    'total' => $totalSchools,
+                    'complete' => $completeSchools,
+                    'assigned' => $assignedSchools,
+                    'not_assigned' => $notAssignedSchools,
+                ])
+                ->with('videos', [])
+                ->with('images', [])
+                ->with('completion', [])
+                ->with('distribution', [])
+                ->with('district', $district)
+                ->with('cordinators', [])
+                ->with('schools', $schools)
+                ->with('activeAcademicSession', $activeSession);
+        }
+
+        $user = User::where('id', $auth->id)->with('asigned_schools')->first()->toArray();
+        $videos = Video::where('user_id', $auth->id)->get()->toArray();
+        $images = Image::where('user_id', $auth->id)->get()->toArray();
+        $completion = Completion::where('user_id', $auth->id)->get()->toArray();
+        $distribution = Distribution::where('user_id', $auth->id)->get()->toArray();
+        $cordinator = Cordinator::where('id', $auth->cordinator_id)->first();
+        $cordinators = $cordinator ? $cordinator->toArray() : [];
+
+        return view('trainer.dashboard')
             ->with('user', $user)
+            ->with('isStateCoordinator', false)
             ->with('videos', $videos)
             ->with('images', $images)
             ->with('completion', $completion)
@@ -196,7 +297,6 @@ class Controller extends BaseController
             ->with('cordinators', $cordinators)
             ->with('schools', $schools)
             ->with('activeAcademicSession', $activeSession);
-        }
     }
 
     public function blockData(Request $request)
@@ -233,9 +333,7 @@ class Controller extends BaseController
     public function CordinatorTrainerReporting()
     {
         $auth = Auth::user();
-        $cordinator_trainers = User::where('cordinator_id', $auth->cordinator_id)
-            ->where('role', 0)
-            ->get();
+        $cordinator_trainers = CoordinatorScopeService::trainersInScopeQuery($auth)->get();
         foreach ($cordinator_trainers as $trainer) {
             $trainer->setRelation(
                 'asigned_schools',
@@ -244,36 +342,118 @@ class Controller extends BaseController
         }
         $cordinator_trainers = $cordinator_trainers->toArray();
 
+        // Coordinator's own training schools (they also train)
+        $ownAssignments = AsignedSchool::withoutGlobalScopes()
+            ->where('user_id', $auth->id)
+            ->get();
+        $ownSchoolNames = School::whereIn(
+            'id',
+            $ownAssignments->pluck('school_name')->filter()->unique()->values()
+        )->pluck('school_name', 'id');
+        $ownSchoolRows = $ownAssignments->map(function ($a) use ($ownSchoolNames) {
+            return [
+                'id' => $a->id,
+                'school_name' => $ownSchoolNames[$a->school_name] ?? ('#'.$a->school_name),
+                'status' => $a->status,
+                'route_date' => $a->route_date,
+            ];
+        })->values()->toArray();
+
+        $scope_coordinators = CoordinatorScopeService::coordinatorsInScopeQuery($auth)->get();
+        foreach ($scope_coordinators as $coord) {
+            $teamTrainers = User::where('role', 0)
+                ->where('cordinator_id', $coord->cordinator_id)
+                ->when($coord->state_id, fn ($q) => $q->where('state_id', $coord->state_id))
+                ->pluck('id');
+
+            // Include schools the coordinator themselves is training
+            $userIds = $teamTrainers->push($coord->id)->unique()->values();
+
+            $assignments = $userIds->isEmpty()
+                ? collect()
+                : AsignedSchool::withoutGlobalScopes()->whereIn('user_id', $userIds)->get();
+
+            $coord->setAttribute('assigned_total', $assignments->count());
+            $coord->setAttribute('assigned_complete', $assignments->where('status', 1)->count());
+            $coord->setAttribute(
+                'assigned_pending',
+                $assignments->filter(fn ($a) => (int) $a->status === 0 && $a->route_date != null)->count()
+            );
+            $coord->setAttribute(
+                'assigned_not_started',
+                $assignments->filter(fn ($a) => $a->route_date == null)->count()
+            );
+            $coord->setAttribute('trainers_count', $teamTrainers->count());
+            $coord->setAttribute(
+                'own_schools_count',
+                $assignments->where('user_id', $coord->id)->count()
+            );
+        }
+        $scope_coordinators = $scope_coordinators->map(function ($coord) {
+            return [
+                'id' => $coord->id,
+                'instructor_name' => $coord->instructor_name,
+                'email' => $coord->email,
+                'instructor_code' => $coord->instructor_code,
+                'instructor_number' => $coord->instructor_number,
+                'coordinator_level' => $coord->coordinator_level ?? CoordinatorScopeService::LEVEL_DISTRICT,
+                'district' => $coord->district,
+                'trainers_count' => (int) ($coord->trainers_count ?? 0),
+                'own_schools_count' => (int) ($coord->own_schools_count ?? 0),
+                'assigned_total' => (int) ($coord->assigned_total ?? 0),
+                'assigned_complete' => (int) ($coord->assigned_complete ?? 0),
+                'assigned_pending' => (int) ($coord->assigned_pending ?? 0),
+                'assigned_not_started' => (int) ($coord->assigned_not_started ?? 0),
+            ];
+        })->toArray();
+
         $totalScholls = 0;
         $completeSchools = 0;
         $pendingSchools = 0;
         $notstartedSchools = 0;
-        foreach($cordinator_trainers as $trainers){
-            foreach($trainers['asigned_schools'] as $tr){
-               $totalScholls++;
-               if($tr['status'] == 1){
-                  $completeSchools++;
-               }
-               if($tr['route_date'] != null && $tr['status'] == 0){
-                  $pendingSchools++;
-               }
-               if($tr['route_date'] == null){
-                  $notstartedSchools++;
-               }
+        foreach ($cordinator_trainers as $trainers) {
+            foreach ($trainers['asigned_schools'] as $tr) {
+                $totalScholls++;
+                if ($tr['status'] == 1) {
+                    $completeSchools++;
+                }
+                if ($tr['route_date'] != null && $tr['status'] == 0) {
+                    $pendingSchools++;
+                }
+                if ($tr['route_date'] == null) {
+                    $notstartedSchools++;
+                }
+            }
+        }
+        foreach ($ownAssignments as $tr) {
+            $totalScholls++;
+            if ((int) $tr->status === 1) {
+                $completeSchools++;
+            }
+            if ($tr->route_date != null && (int) $tr->status === 0) {
+                $pendingSchools++;
+            }
+            if ($tr->route_date == null) {
+                $notstartedSchools++;
             }
         }
         $schools = StateService::schoolsQuery()->get();
         $district = StateService::districtsQuery()->get()->toArray();
+        $isStateCoordinator = CoordinatorScopeService::isStateCoordinator($auth);
+
         return view('admin.cordinator-trainers')
-        ->with('cordinator_trainers', $cordinator_trainers)
-        ->with('totalScholls', $totalScholls)
-        ->with('completeSchools', $completeSchools)
-        ->with('pendingSchools', $pendingSchools)
-        ->with('notstartedSchools', $notstartedSchools)
-        ->with('schools', $schools)
-        ->with('district', $district)
-        ->with('canEditTrainer', (int) ($auth->school_assigned_status ?? 0) === 1)
-        ->with('canUploadData', (int) ($auth->data_upload_status ?? 0) === 1);
+            ->with('cordinator_trainers', $cordinator_trainers)
+            ->with('scope_coordinators', $isStateCoordinator ? $scope_coordinators : [])
+            ->with('totalScholls', $totalScholls)
+            ->with('completeSchools', $completeSchools)
+            ->with('pendingSchools', $pendingSchools)
+            ->with('notstartedSchools', $notstartedSchools)
+            ->with('schools', $schools)
+            ->with('district', $district)
+            ->with('isStateCoordinator', $isStateCoordinator)
+            ->with('ownSchoolRows', $ownSchoolRows)
+            ->with('canEditTrainer', (int) ($auth->school_assigned_status ?? 0) === 1)
+            ->with('canUploadData', (int) ($auth->data_upload_status ?? 0) === 1);
     }
 
     public function stoteInstructorData(Request $request)

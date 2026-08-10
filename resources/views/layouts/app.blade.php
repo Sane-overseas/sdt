@@ -189,12 +189,17 @@
                                 <li class="nav-item">
                                     <a class="nav-link trainer-nav-link {{ Request::path() == 't-dashboard' ? 'active' : '' }}" href="{{ route('t-dashboard') }}">Dashboard</a>
                                 </li>
+                                @php
+                                    $isStateCoordinatorNav = (Auth::user()->coordinator_level ?? 'district') === 'state';
+                                @endphp
+                                @if(!$isStateCoordinatorNav)
                                 <li class="nav-item">
                                     <a class="nav-link trainer-nav-link {{ Request::path() == 'dashboard' ? 'active' : '' }}" href="{{ route('dashboard') }}">Upload</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link trainer-nav-link {{ Request::path() == 'school-requests' ? 'active' : '' }}" href="{{ route('trainer.school-requests') }}">Request Schools</a>
                                 </li>
+                                @endif
                                 <li class="nav-item">
                                     <a class="nav-link trainer-nav-link {{ Request::is('my-id-card*') ? 'active' : '' }}" href="{{ route('my-id-card') }}">ID Card</a>
                                 </li>

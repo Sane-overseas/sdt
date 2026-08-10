@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ !empty($isEdit) ? 'Edit' : '' }} Trainer Registration - SOPL</title>
+    <title>{{ !empty($isEdit) ? 'Edit' : '' }} District Coordinator Registration - SOPL</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="icon" href="{{ asset('/images/logo.jpg') }}"/>
     <style>
@@ -311,8 +311,10 @@
     <div class="reg-card">
         <div class="reg-header">
             <img src="{{ asset('/images/logo1.png') }}" alt="SOPL">
-            <h4 class="mb-1">{{ !empty($isEdit) ? 'Correct / Update Registration' : 'Trainer Registration' }}</h4>
-            @if(!empty($isEdit))
+            <h4 class="mb-1">{{ !empty($isEdit) ? 'Correct / Update Registration' : 'District Coordinator Registration' }}</h4>
+            @if(empty($isEdit))
+                <p class="mb-0 small opacity-75">Public registration for <strong>District Coordinators</strong> only (not State Coordinators).</p>
+            @else
                 <p class="mb-0 small opacity-75">Update the wrong details or documents, then resubmit.</p>
             @endif
         </div>
@@ -330,7 +332,7 @@
             @endif
 
             <form method="POST" id="registrationForm"
-                  action="{{ !empty($isEdit) ? route('trainer.register.update', $r->edit_token) : route('trainer.register.store') }}"
+                  action="{{ !empty($isEdit) ? route('coordinator.register.update', $r->edit_token) : route('coordinator.register.store') }}"
                   enctype="multipart/form-data" novalidate>
                 @csrf
                 @if(!empty($isEdit))
@@ -441,13 +443,6 @@
                         </select>
                         @if($err('blood_group'))<div class="field-error">{{ $err('blood_group') }}</div>@endif
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Reference By <span class="req">*</span></label>
-                        <select name="reference_by" id="reference_by" class="form-select {{ $err('reference_by') ? 'is-invalid' : '' }}" required>
-                            <option value="">Select District first</option>
-                        </select>
-                        @if($err('reference_by'))<div class="field-error">{{ $err('reference_by') }}</div>@endif
-                    </div>
                     <div class="col-12">
                         <label class="form-label">Comment</label>
                         <textarea name="comment" class="form-control {{ $err('comment') ? 'is-invalid' : '' }}" rows="2">{{ $v('comment') }}</textarea>
@@ -549,9 +544,9 @@
         <div class="tc-modal-body" id="tc_modal_body">
             <h5 class="mb-3">UNDERTAKING / DECLARATION</h5>
             <p>I hereby declare that I am submitting this undertaking voluntarily and with full consciousness, without any pressure or coercion.</p>
-            <p>I undertake to deliver the highest quality of training to the best of my knowledge, skills, and experience. I shall perform my duties honestly and strictly in accordance with the guidelines, rules, and conditions prescribed by Samagra Shiksha, <span class="tc-state-en">—</span> and Sane Overseas Private Limited.</p>
+            <p>I undertake to perform my duties as <strong>District Coordinator</strong> honestly and strictly in accordance with the guidelines, rules, and conditions prescribed by Samagra Shiksha, <span class="tc-state-en">—</span> and Sane Overseas Private Limited, including coordination of trainers and school training programmes in my assigned district.</p>
             <p>I agree to follow all instructions, Standard Operating Procedures (SOPs), and directions issued by Sane Overseas Private Limited from time to time. I understand that any negligence, misconduct, violation of rules, or failure to perform my assigned responsibilities may result in disciplinary, contractual, or legal action by Sane Overseas Private Limited.</p>
-            <p>I undertake to successfully conduct the Rani Laxmi Bai Atam Raksha Prashikshan (Self-Defence Training) in every school allotted to me and ensure completion of the prescribed minimum <span class="tc-hours">—</span> hours of training in each school, unless otherwise directed by the competent authority.</p>
+            <p>I undertake to support successful conduct of the Rani Laxmi Bai Atam Raksha Prashikshan (Self-Defence Training) in schools under my district coordination and ensure trainers complete the prescribed minimum <span class="tc-hours">—</span> hours of training in each school, unless otherwise directed by the competent authority.</p>
             <p>I shall maintain professional conduct and respectful behaviour towards students, teachers, school authorities, Government officials, and all stakeholders. I shall not consume or be under the influence of alcohol, drugs, or any intoxicating substance while performing my duties.</p>
             <p>I further declare that I shall not indulge in any form of misbehaviour, harassment, discrimination, abuse, or inappropriate conduct with any student, teacher, or staff member during the training programme. I understand that such misconduct shall make me personally liable for disciplinary and legal action.</p>
             <p>I confirm that I possess adequate proficiency in at least one recognized martial art discipline required for self-defence training. I shall maintain good physical fitness and sound mental health throughout the training period.</p>
@@ -815,30 +810,6 @@
     const selectedDistrictId = @json(old('district_id', $r?->district_id ?? null));
     const selectedDistrictName = @json(old('district', $r?->district ?? null));
     const selectedBlock = @json(old('block', $r?->block ?? null));
-    const selectedReference = @json(old('reference_by', $r?->reference_cordinator_id ?? null));
-
-    function loadCoordinators(districtId, selected) {
-        const $ref = $('#reference_by');
-        $ref.html('<option value="">Select Coordinator</option>');
-        if (!districtId) {
-            $ref.html('<option value="">Select District first</option>');
-            return;
-        }
-
-        $.get('{{ url('/trainer-register/coordinators') }}/' + districtId, function (data) {
-            if (!data.length) {
-                $ref.html('<option value="">No coordinator found</option>');
-                return;
-            }
-            data.forEach(function (item) {
-                const id = item.cordinator_id;
-                const name = item.instructor_name;
-                if (!id) return;
-                const isSelected = selected && String(selected) === String(id) ? 'selected' : '';
-                $ref.append('<option value="' + id + '" ' + isSelected + '>' + name + '</option>');
-            });
-        });
-    }
 
     function loadBlocks(districtId, selected) {
         const $block = $('#block');
@@ -853,11 +824,10 @@
         });
     }
 
-    function loadDistricts(stateId, selectedId, selectedName, selectedBlockName, selectedRef) {
+    function loadDistricts(stateId, selectedId, selectedName, selectedBlockName) {
         const $district = $('#district_id');
         $district.html('<option value="">Select District</option>');
         $('#block').html('<option value="">Select Block</option>');
-        $('#reference_by').html('<option value="">Select District first</option>');
         if (!stateId) return;
 
         $.get('{{ url('/trainer-register/districts') }}/' + stateId, function (data) {
@@ -872,19 +842,17 @@
 
             if (matchedId) {
                 loadBlocks(matchedId, selectedBlockName);
-                loadCoordinators(matchedId, selectedRef);
             }
         });
     }
 
     $('#state_id').on('change', function () {
         updateTcForSelectedState();
-        // Changing state resets T&C acceptance so user re-reads correct state terms
         tcScrolledToEnd = false;
         $terms.prop('checked', false).prop('disabled', true);
         $tcAgreeBtn.prop('disabled', true);
         $('#tc_scroll_hint').text('Please scroll to the end to enable Agree.');
-        loadDistricts($(this).val(), null, null, null, null);
+        loadDistricts($(this).val(), null, null, null);
     });
 
     function updateTcForSelectedState() {
@@ -923,14 +891,12 @@
     updateTcForSelectedState();
 
     $('#district_id').on('change', function () {
-        const districtId = $(this).val();
-        loadBlocks(districtId, null);
-        loadCoordinators(districtId, null);
+        loadBlocks($(this).val(), null);
     });
 
     const initialState = $('#state_id').val();
     if (initialState) {
-        loadDistricts(initialState, selectedDistrictId, selectedDistrictName, selectedBlock, selectedReference);
+        loadDistricts(initialState, selectedDistrictId, selectedDistrictName, selectedBlock);
     }
 </script>
 </body>

@@ -50,4 +50,29 @@ class State extends Model
     {
         return $this->hasMany(Cordinator::class);
     }
+
+    /**
+     * Most common schools.training_hours for this state (from school master table).
+     * Null when no schools have hours set yet.
+     */
+    public function typicalTrainingHours(): ?float
+    {
+        $row = \Illuminate\Support\Facades\DB::table('schools')
+            ->join('districts', 'districts.id', '=', 'schools.district_id')
+            ->where('districts.state_id', $this->id)
+            ->whereNotNull('schools.training_hours')
+            ->select('schools.training_hours', \Illuminate\Support\Facades\DB::raw('COUNT(*) as cnt'))
+            ->groupBy('schools.training_hours')
+            ->orderByDesc('cnt')
+            ->orderByDesc('schools.training_hours')
+            ->first();
+
+        if (!$row) {
+            return null;
+        }
+
+        $hours = (float) $row->training_hours;
+
+        return floor($hours) == $hours ? (float) (int) $hours : $hours;
+    }
 }

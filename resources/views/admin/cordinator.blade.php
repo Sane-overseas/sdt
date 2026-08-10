@@ -2,12 +2,13 @@
 
 @section('content')
 <div class="container mt-2">
-     <div class="row margin-tb">
-        <div class="col-md-10">
-            <h2 class="heading ">Total Cordinators</h2>
+     <div class="row margin-tb align-items-center">
+        <div class="col-md-8">
+            <h2 class="heading mb-0">Total Cordinators</h2>
         </div>
-        <div class="col-md-2">
-        <a class="btn btn-info" onClick="add()" href="javascript:void(0)">Add Cordinator</a>
+        <div class="col-md-4 text-md-right" style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+            <a class="btn btn-outline-primary" href="{{ route('coordinator.registrations') }}">Coordinator Registrations</a>
+            <a class="btn btn-info" onClick="add()" href="javascript:void(0)">Add Cordinator</a>
         </div>
     </div>
     @if ($message = Session::get('success'))
@@ -29,6 +30,7 @@
                     <th>Email</th>
                     <th>Cordinator code</th>
                     <th>Cordinator Number</th>
+                    <th>Level</th>
                     <th>District</th>
                     <th>Total Trainers</th>
                     <th>Edit / Assign Schools</th>
@@ -43,14 +45,19 @@
                 <td class="get-data">{{$data['instructor_name']}}</td>
                 <td class="get-data">{{$data['email']}}</td>
                 <td class="get-data">
-                 @foreach($new_cordinator as $cordinator)
-                        @if($data['cordinator_id'] ==  $cordinator['id'])
-                            {{$cordinator['cordinator_code']}}
+                 @foreach($new_cordinator as $cordMaster)
+                        @if($data['cordinator_id'] ==  $cordMaster['id'])
+                            {{$cordMaster['cordinator_code']}}
                         @endif
                     @endforeach
                 </td>
                 <td class="get-data">{{$data['instructor_number']}}</td>
-                <td class="get-data">{{$data['district']}}</td>
+                <td class="get-data">
+                    {{ (($data['coordinator_level'] ?? 'district') === 'state') ? 'State' : 'District' }}
+                </td>
+                <td class="get-data">
+                    {{ (($data['coordinator_level'] ?? 'district') === 'state') ? 'All Districts' : ($data['district'] ?? '—') }}
+                </td>
                 <td class="get-data"><?php $tr = 0; ?> 
                     @foreach($trainers as $trainer)
                         @if($data['cordinator_id'] ==  $trainer['cordinator_id'])
@@ -60,10 +67,10 @@
                     {{$tr}}
                 </td>
                 <td style="text-align:center;">
-                    <input class="permission-status school_assigned" data-id="{{$data['id']}}"  type="checkbox" {{ $data['school_assigned_status'] == 1 ? 'checked' : '' }}>
+                    <input class="permission-status school_assigned" data-id="{{$data['id']}}" type="checkbox" {{ (int) ($data['school_assigned_status'] ?? 0) === 1 ? 'checked' : '' }}>
                 </td>
                 <td style="text-align:center;">
-                    <input class="permission-status data_upload" data-id="{{$data['id']}}"  type="checkbox" {{ $data['data_upload_status'] == 1 ? 'checked' : '' }}>
+                    <input class="permission-status data_upload" data-id="{{$data['id']}}" type="checkbox" {{ (int) ($data['data_upload_status'] ?? 0) === 1 ? 'checked' : '' }}>
                 </td>
                 <td style="text-align:center; white-space:nowrap;">
                     <button type="button" class="btn btn-sm btn-warning edit-cordinator" data-id="{{$data['id']}}">Edit</button>
@@ -106,7 +113,8 @@
                         </div>
                         <div class="form-group col-md-4">
                             <label>Coordinator Code <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="code" required>
+                            <input type="text" class="form-control" name="code" id="cordinator_code" readonly required>
+                            <small class="text-muted" id="code_hint">Auto: District SOPL_DC_### · State SOPL_SC_###</small>
                         </div>
                     </div>
 
@@ -136,7 +144,14 @@
                             <textarea class="form-control" name="address" rows="2" required></textarea>
                         </div>
                         <div class="form-group col-md-4">
-                            <label>District <span class="text-danger">*</span></label>
+                            <label>Coordinator Level <span class="text-danger">*</span></label>
+                            <select name="coordinator_level" class="form-control" id="coordinator_level" required>
+                                <option value="district">District</option>
+                                <option value="state">State</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-4" id="district_field_wrap">
+                            <label>District <span class="text-danger district-req">*</span></label>
                             <select name="district_name" class="form-control" id="check_distt" required>
                                 <option value="">Select District</option>
                                 @if(isset($district))
@@ -146,8 +161,8 @@
                                 @endif
                             </select>
                         </div>
-                        <div class="form-group col-md-4">
-                            <label>Block <span class="text-danger">*</span></label>
+                        <div class="form-group col-md-4" id="block_field_wrap">
+                            <label>Block <span class="text-danger district-req">*</span></label>
                             <select name="block" class="form-control" id="create_block" required>
                                 <option value="">Select Block</option>
                             </select>
@@ -204,6 +219,16 @@ cordinatorTable.on('click', 'tbody tr', function (evt) {
     }
 });
 
+function fetchNextCoordinatorCode() {
+    if ($('#cordinator_user_id').val()) {
+        return;
+    }
+    var level = $('#coordinator_level').val() || 'district';
+    $.get('{{ url('next-coordinator-code') }}', { level: level }, function (res) {
+        $('#cordinator_code').val(res.code || '');
+    });
+}
+
 function setCreateMode() {
     $('#CordinatorForm').trigger("reset");
     $('#cordinator_user_id').val('');
@@ -216,6 +241,21 @@ function setCreateMode() {
     $('.doc-req').removeClass('d-none');
     $('#existing_docs').addClass('d-none').empty();
     $('#create_block').html('<option value="">Select Block</option>');
+    $('#coordinator_level').val('district');
+    toggleCoordinatorLevelFields();
+    fetchNextCoordinatorCode();
+}
+
+function toggleCoordinatorLevelFields() {
+    var isState = $('#coordinator_level').val() === 'state';
+    if (isState) {
+        $('#district_field_wrap, #block_field_wrap').hide();
+        $('#check_distt, #create_block').prop('required', false).val('');
+        $('#create_block').html('<option value="">Select Block</option>');
+    } else {
+        $('#district_field_wrap, #block_field_wrap').show();
+        $('#check_distt, #create_block').prop('required', true);
+    }
 }
 
 function setEditMode() {
@@ -274,8 +314,12 @@ function editCoordinator(id) {
             $('[name="blood_group"]').val(data.blood_group || '');
             $('[name="address"]').val(data.address || '');
             $('[name="martial_art_type"]').val(data.martial_art_type || '');
-            $('[name="district_name"]').val(data.district_name || '');
-            loadBlocks(data.district_id, data.block || '');
+            $('[name="coordinator_level"]').val(data.coordinator_level || 'district');
+            toggleCoordinatorLevelFields();
+            if ((data.coordinator_level || 'district') === 'district') {
+                $('[name="district_name"]').val(data.district_name || '');
+                loadBlocks(data.district_id, data.block || '');
+            }
 
             var docs = [];
             if (data.aadhar_doc) docs.push('Aadhar uploaded');
@@ -302,6 +346,11 @@ function editCoordinator(id) {
 $('#check_distt').on('change', function () {
     var distId = $(this).find('option:selected').data('id');
     loadBlocks(distId);
+});
+
+$('#coordinator_level').on('change', function () {
+    toggleCoordinatorLevelFields();
+    fetchNextCoordinatorCode();
 });
 
 jQuery(document).ready(function($){
@@ -379,63 +428,60 @@ jQuery(document).ready(function($){
         });
     });
 });
-$('.school_assigned').change(function () {
-    let status = $(this).prop('checked') === true ? 1 : 0;
-    let cordinator_id = $(this).data('id');
-    $.ajax({
-        type: "GET",
-        dataType: "json",
-        url: '/school-assigned-status',
-        data: {'status': status, 'cordinator_id': cordinator_id},
-        success: function (data) {
-            const Toast = Swal.mixin({
-                 toast: true,
-                 position: 'top-end',
-                 showConfirmButton: false,
-                 // timer: 2000,
-                 // timerProgressBar: true,
-                 didOpen: (toast) => {
-                    toast.addEventListener('mouseenter', Swal.stopTimer)
-                    toast.addEventListener('mouseleave', Swal.resumeTimer)
-                 }
-            })
-
-            Toast.fire({
-              icon: 'success',
-              title: 'Permission status are changed !'
-            })
+function permissionToast(icon, title) {
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer);
+            toast.addEventListener('mouseleave', Swal.resumeTimer);
         }
     });
+    Toast.fire({ icon: icon, title: title });
+}
+
+function updateCoordinatorPermission(url, checkbox) {
+    const $cb = $(checkbox);
+    const status = $cb.prop('checked') === true ? 1 : 0;
+    const cordinator_id = $cb.data('id');
+
+    $.ajaxSetup({
+        headers: { 'X-CSRF-TOKEN': jQuery('meta[name="csrf-token"]').attr('content') }
+    });
+
+    $.ajax({
+        type: 'POST',
+        dataType: 'json',
+        cache: false,
+        url: url,
+        data: { status: status, cordinator_id: cordinator_id },
+        success: function () {
+            permissionToast('success', 'Permission status changed');
+        },
+        error: function (xhr) {
+            // Revert UI if save failed
+            $cb.prop('checked', !$cb.prop('checked'));
+            let msg = 'Could not update permission';
+            try {
+                const obj = JSON.parse(xhr.responseText);
+                if (obj.message) msg = obj.message;
+                else if (obj.errors) msg = Object.values(obj.errors)[0][0];
+            } catch (e) {}
+            permissionToast('error', msg);
+        }
+    });
+}
+
+// Delegated so DataTables paging/search rows still work
+$(document).on('change', '.school_assigned', function () {
+    updateCoordinatorPermission('/school-assigned-status', this);
 });
 
-$('.data_upload').change(function () {
-    let status = $(this).prop('checked') === true ? 1 : 0;
-    let cordinator_id = $(this).data('id');
-
-    $.ajax({
-        type: "GET",
-        dataType: "json",
-        url: '/data-upload-status',
-        data: {'status': status, 'cordinator_id': cordinator_id},
-        success: function (data) {
-            const Toast = Swal.mixin({
-                 toast: true,
-                 position: 'top-end',
-                 showConfirmButton: false,
-                 // timer: 2000,
-                 // timerProgressBar: true,
-                 didOpen: (toast) => {
-                    toast.addEventListener('mouseenter', Swal.stopTimer)
-                    toast.addEventListener('mouseleave', Swal.resumeTimer)
-                 }
-            })
-
-            Toast.fire({
-              icon: 'success',
-              title: 'Permission status are changed !'
-            })
-        }
-    });
+$(document).on('change', '.data_upload', function () {
+    updateCoordinatorPermission('/data-upload-status', this);
 });
 </script>
 @endsection

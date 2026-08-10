@@ -7,7 +7,6 @@ use App\Models\District;
 use App\Models\School;
 use App\Models\User;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class SchoolRequestService
@@ -49,11 +48,7 @@ class SchoolRequestService
             return collect();
         }
 
-        $districtQuery = District::query()->where('district', $trainer->district);
-        if ($trainer->state_id) {
-            $districtQuery->where('state_id', $trainer->state_id);
-        }
-        $district = $districtQuery->first();
+        $district = self::resolveDistrict($trainer);
         if (!$district) {
             return collect();
         }
@@ -65,11 +60,34 @@ class SchoolRequestService
             ->map(fn ($id) => (int) $id)
             ->all();
 
+        $blockKeys = BlockSyncService::matchKeys((string) $trainer->block);
+
         return School::where('district_id', $district->id)
-            ->where('block', $trainer->block)
-            ->when(!empty($takenIds), fn ($q) => $q->whereNotIn('id', $takenIds))
             ->orderBy('school_name')
-            ->get();
+            ->get()
+            ->filter(function (School $school) use ($blockKeys, $takenIds) {
+                if (in_array((int) $school->id, $takenIds, true)) {
+                    return false;
+                }
+
+                return in_array(BlockSyncService::normalizeKey((string) $school->block), $blockKeys, true);
+            })
+            ->values();
+    }
+
+    /** Resolve district for trainer (case-insensitive name match). */
+    public static function resolveDistrict(User $trainer): ?District
+    {
+        if (empty($trainer->district)) {
+            return null;
+        }
+
+        $name = trim((string) $trainer->district);
+
+        return District::query()
+            ->when($trainer->state_id, fn ($q) => $q->where('state_id', $trainer->state_id))
+            ->whereRaw('LOWER(TRIM(district)) = ?', [mb_strtolower($name)])
+            ->first();
     }
 
     /**
@@ -104,9 +122,7 @@ class SchoolRequestService
             }
         }
 
-        $district = District::where('district', $trainer->district)
-            ->when($trainer->state_id, fn ($q) => $q->where('state_id', $trainer->state_id))
-            ->first();
+        $district = self::resolveDistrict($trainer);
 
         $requested = 0;
         foreach ($schoolIds as $schoolId) {
@@ -158,14 +174,7 @@ class SchoolRequestService
 
         $letterOk = false;
         try {
-            $trainer = User::find($row->user_id);
-            $school = School::find($row->school_name);
-            if ($trainer && $school) {
-                $path = (new AuthorizationLetterGenerator())->generate($row, $trainer, $school);
-                $row->auth_letter_path = $path;
-                $row->save();
-                $letterOk = true;
-            }
+            $letterOk = (new AuthorizationLetterGenerator())->ensureForAssignment($row) !== null;
         } catch (\Throwable $e) {
             Log::warning('Authorization letter failed for assignment '.$row->id.': '.$e->getMessage());
         }

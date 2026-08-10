@@ -141,21 +141,21 @@
 
     <div class="subject">
         Subject: Conduct of Rani Laxmi Bai Atam Raksha Prashikshan (Self-Defence Training and Awareness Programme)
-        for Girl Students of GMSs/GHSs/GSSSs/PM SHRI Schools in Haryana
+        for Girl Students of GMSs/GHSs/GSSSs/PM SHRI Schools in {{ $stateName }}
     </div>
 
     <p>Sir/Madam,</p>
 
     <p class="indent">
         This is with reference to the Memorandum of Understanding (MoU) for the academic session 2026–27 executed
-        between the Haryana School Shiksha Pariyojna Parishad (HSSPP), Panchkula, and Sane Overseas Private Limited
+        between Samagra Shiksha, {{ $stateName }}, and Sane Overseas Private Limited
         for the implementation of the Rani Laxmi Bai Atam Raksha Prashikshan (Self-Defence Training and Awareness Programme)
         for girl students studying in Government Middle Schools (GMSs), Government High Schools (GHSs),
-        Government Senior Secondary Schools (GSSSs), and PM SHRI Schools across Haryana.
+        Government Senior Secondary Schools (GSSSs), and PM SHRI Schools across {{ $stateName }}.
     </p>
 
     <p class="indent">
-        Under this programme, Sane Overseas Private Limited, Mohali, the agency empaneled by Samagra Shiksha, Haryana,
+        Under this programme, Sane Overseas Private Limited, Mohali, the agency empaneled by Samagra Shiksha, {{ $stateName }},
         has been entrusted with conducting self-defence training and awareness sessions for girl students of Classes VI to XII.
     </p>
 

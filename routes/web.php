@@ -7,6 +7,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\SmsController;
 use App\Http\Controllers\SchoolController;
 use App\Http\Controllers\TrainerRegistrationController;
+use App\Http\Controllers\CoordinatorRegistrationController;
 use App\Http\Controllers\SchoolRequestController;
 
 
@@ -71,8 +72,15 @@ Route::post('/trainer-register', [TrainerRegistrationController::class, 'store']
 Route::get('/trainer-register/edit/{token}', [TrainerRegistrationController::class, 'editForm'])->name('trainer.register.edit');
 Route::put('/trainer-register/edit/{token}', [TrainerRegistrationController::class, 'update'])->name('trainer.register.update');
 Route::get('/trainer-register/districts/{stateId}', [TrainerRegistrationController::class, 'districtsByState'])->name('trainer.register.districts');
+Route::get('/trainer-register/state-tc/{stateId}', [TrainerRegistrationController::class, 'stateTcMeta'])->name('trainer.register.state-tc');
 Route::get('/trainer-register/blocks/{districtId}', [TrainerRegistrationController::class, 'blocksByDistrict'])->name('trainer.register.blocks');
 Route::get('/trainer-register/coordinators/{districtId}', [TrainerRegistrationController::class, 'coordinatorsByDistrict'])->name('trainer.register.coordinators');
+
+// Public district coordinator registration (not for state coordinators)
+Route::get('/coordinator-register', [CoordinatorRegistrationController::class, 'showForm'])->name('coordinator.register');
+Route::post('/coordinator-register', [CoordinatorRegistrationController::class, 'store'])->name('coordinator.register.store');
+Route::get('/coordinator-register/edit/{token}', [CoordinatorRegistrationController::class, 'editForm'])->name('coordinator.register.edit');
+Route::put('/coordinator-register/edit/{token}', [CoordinatorRegistrationController::class, 'update'])->name('coordinator.register.update');
 
 // Admin trainer registration approval
 Route::get('/trainer-registrations', [TrainerRegistrationController::class, 'index'])->name('trainer.registrations');
@@ -83,6 +91,14 @@ Route::get('/trainer-registrations/{id}', [TrainerRegistrationController::class,
 Route::post('/trainer-registrations/{id}/approve', [TrainerRegistrationController::class, 'approve'])->name('trainer.registrations.approve');
 Route::post('/trainer-registrations/{id}/reject', [TrainerRegistrationController::class, 'reject'])->name('trainer.registrations.reject');
 Route::post('/trainer-registrations/{id}/request-revision', [TrainerRegistrationController::class, 'requestRevision'])->name('trainer.registrations.revision');
+
+// Admin coordinator registration approval
+Route::get('/coordinator-registrations', [CoordinatorRegistrationController::class, 'index'])->name('coordinator.registrations');
+Route::get('/coordinator-registrations/{id}', [CoordinatorRegistrationController::class, 'show'])->name('coordinator.registrations.show');
+Route::post('/coordinator-registrations/{id}/approve', [CoordinatorRegistrationController::class, 'approve'])->name('coordinator.registrations.approve');
+Route::post('/coordinator-registrations/{id}/reject', [CoordinatorRegistrationController::class, 'reject'])->name('coordinator.registrations.reject');
+Route::post('/coordinator-registrations/{id}/request-revision', [CoordinatorRegistrationController::class, 'requestRevision'])->name('coordinator.registrations.revision');
+
 Route::get('districts_data/{id}',[AdminController::class, 'districtsData'])->name('districts_data');
 Route::post('paid_status', [AdminController::class, 'salaryStatus'])->name('paid_status');
 Route::get('/paid-schools',[AdminController::class, 'paidSchools'])->name('paid-schools');
@@ -98,11 +114,15 @@ Route::get('/not-workig-trainers',[AdminController::class, 'NotWorkingTrainers']
 Route::get('/trainers-schools-data',[AdminController::class, 'TrainersSchoolsData'])->name('trainers-schools-data');
 Route::get('/claim-trainers',[AdminController::class, 'ClaimTraniers'])->name('claim-trainers');
 Route::get('/cordinators',[AdminController::class, 'Cordinators'])->name('cordinators');
+Route::get('next-coordinator-code',[AdminController::class, 'nextCoordinatorCode'])->name('next-coordinator-code');
 Route::post('create-cordinator',[AdminController::class, 'cordinatorStore'])->name('create-cordinator');
 Route::get('edit-cordinator/{id}',[AdminController::class, 'editCordinator'])->name('edit-cordinator');
 Route::post('update-cordinator',[AdminController::class, 'cordinatorUpdate'])->name('update-cordinator');
 Route::get('cordinator_data/{id}',[AdminController::class, 'cordinatorData'])->name('cordinator_data');
 
+Route::post('/school-assigned-status', [AdminController::class, 'schoolAssignedStatus'])->name('school-assigned-status');
+Route::post('/data-upload-status', [AdminController::class, 'dataUploadStatus'])->name('data-upload-status');
+// Keep GET for older cached pages; prefer POST from UI
 Route::get('/school-assigned-status', [AdminController::class, 'schoolAssignedStatus']);
 Route::get('/data-upload-status', [AdminController::class, 'dataUploadStatus']);
 

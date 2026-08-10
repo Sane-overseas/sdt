@@ -37,10 +37,8 @@ class TrainerRegistrationController extends BaseController
 
     public function showForm()
     {
-        $states = State::where('is_active', true)->orderBy('name')->get();
-
         return view('trainer.register', [
-            'states' => $states,
+            'states' => $this->activeStatesForRegistration(),
             'registration' => null,
             'isEdit' => false,
             'draftDocs' => Session::get(self::DRAFT_DOCS_SESSION, []),
@@ -58,7 +56,7 @@ class TrainerRegistrationController extends BaseController
             ]);
         }
 
-        $states = State::where('is_active', true)->orderBy('name')->get();
+        $states = $this->activeStatesForRegistration();
 
         return view('trainer.register', [
             'states' => $states,
@@ -77,6 +75,18 @@ class TrainerRegistrationController extends BaseController
         return response()->json($districts);
     }
 
+    /** T&C meta for selected state: name + typical school training hours. */
+    public function stateTcMeta($stateId)
+    {
+        $state = State::where('is_active', true)->findOrFail($stateId);
+
+        return response()->json([
+            'id' => $state->id,
+            'name' => $state->name,
+            'training_hours' => $state->typicalTrainingHours(),
+        ]);
+    }
+
     public function blocksByDistrict($districtId)
     {
         $blocks = Block::where('district_id', $districtId)
@@ -92,9 +102,13 @@ class TrainerRegistrationController extends BaseController
         $districtName = trim((string) $district->district);
         $districtNameLower = mb_strtolower($districtName);
 
-        // Only coordinators assigned to this district (never fall back to whole state).
+        // Only district-level coordinators assigned to this district (never fall back to whole state).
         $users = User::where('role', 2)
             ->where('state_id', $district->state_id)
+            ->where(function ($q) {
+                $q->whereNull('coordinator_level')
+                    ->orWhere('coordinator_level', 'district');
+            })
             ->where(function ($q) use ($district, $districtName, $districtNameLower) {
                 $q->whereRaw('LOWER(TRIM(district)) = ?', [$districtNameLower])
                     ->orWhere('district', (string) $district->id)
@@ -225,8 +239,12 @@ class TrainerRegistrationController extends BaseController
     public function show($id)
     {
         $registration = TrainerRegistration::with('state')->findOrFail($id);
+        $data = $registration->toArray();
+        $data['edit_url'] = ($registration->isRevision() && $registration->edit_token)
+            ? route('trainer.register.edit', $registration->edit_token)
+            : null;
 
-        return response()->json($registration);
+        return response()->json($data);
     }
 
     public function adminEdit($id)
@@ -515,6 +533,7 @@ class TrainerRegistrationController extends BaseController
 
         return response()->json([
             'message' => 'Correction remarks emailed to trainer. They can now edit and resubmit.',
+            'edit_url' => $editUrl,
         ]);
     }
 
@@ -640,6 +659,10 @@ class TrainerRegistrationController extends BaseController
         $assignedToDistrict = User::where('role', 2)
             ->where('cordinator_id', $cordinator->id)
             ->where('state_id', $district->state_id)
+            ->where(function ($q) {
+                $q->whereNull('coordinator_level')
+                    ->orWhere('coordinator_level', 'district');
+            })
             ->where(function ($q) use ($district, $districtNameLower) {
                 $q->whereRaw('LOWER(TRIM(district)) = ?', [$districtNameLower])
                     ->orWhere('district', (string) $district->id)
@@ -854,5 +877,42 @@ class TrainerRegistrationController extends BaseController
     private function generatePassword(): string
     {
         return 'SOPL@1634';
+    }
+
+    /** Active states with typical school training_hours for T&C. */
+    private function activeStatesForRegistration()
+    {
+        $states = State::where('is_active', true)->orderBy('name')->get();
+        if ($states->isEmpty()) {
+            return $states;
+        }
+
+        $grouped = \Illuminate\Support\Facades\DB::table('schools')
+            ->join('districts', 'districts.id', '=', 'schools.district_id')
+            ->whereIn('districts.state_id', $states->pluck('id'))
+            ->whereNotNull('schools.training_hours')
+            ->select('districts.state_id', 'schools.training_hours', \Illuminate\Support\Facades\DB::raw('COUNT(*) as cnt'))
+            ->groupBy('districts.state_id', 'schools.training_hours')
+            ->get()
+            ->groupBy('state_id');
+
+        foreach ($states as $state) {
+            $rows = $grouped->get($state->id, collect());
+            $best = $rows->sort(function ($a, $b) {
+                if ((int) $a->cnt !== (int) $b->cnt) {
+                    return (int) $b->cnt <=> (int) $a->cnt;
+                }
+
+                return (float) $b->training_hours <=> (float) $a->training_hours;
+            })->first();
+
+            $hours = $best ? (float) $best->training_hours : null;
+            if ($hours !== null && floor($hours) == $hours) {
+                $hours = (int) $hours;
+            }
+            $state->setAttribute('tc_training_hours', $hours);
+        }
+
+        return $states;
     }
 }

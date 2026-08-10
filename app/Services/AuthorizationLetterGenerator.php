@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AsignedSchool;
 use App\Models\District;
 use App\Models\School;
+use App\Models\State;
 use App\Models\User;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -36,13 +37,15 @@ class AuthorizationLetterGenerator
      */
     public function generate(AsignedSchool $assignment, User $trainer, School $school): string
     {
-        $school->loadMissing('district');
+        $school->loadMissing('district.state');
+        $trainer->loadMissing('state');
 
         $trainerName = trim((string) ($trainer->instructor_name ?: 'Trainer'));
         $mobile = trim((string) ($trainer->instructor_number ?: '—'));
         $code = trim((string) ($trainer->instructor_code ?: '—'));
         $schoolName = trim((string) ($school->school_name ?: '—'));
         $district = $this->resolveDistrictName($assignment, $school);
+        $stateName = $this->resolveStateName($trainer, $school);
 
         $relative = 'auth_letters/'.$assignment->id.'_authorization.pdf';
         $absolute = Storage::disk('public')->path($relative);
@@ -53,7 +56,7 @@ class AuthorizationLetterGenerator
 
         // Prefer PDF from filled Word template when a converter is available;
         // otherwise render the matching HTML letter to PDF.
-        $docxAbsolute = $this->buildFilledDocx($assignment, $trainerName, $mobile, $code, $schoolName, $district);
+        $docxAbsolute = $this->buildFilledDocx($assignment, $trainerName, $mobile, $code, $schoolName, $district, $stateName);
         $converted = $this->convertDocxToPdf($docxAbsolute, $absolute);
         @unlink($docxAbsolute);
 
@@ -64,6 +67,7 @@ class AuthorizationLetterGenerator
                 'trainerCode' => $code,
                 'schoolName' => $schoolName,
                 'district' => $district,
+                'stateName' => $stateName,
                 'refNo' => 'SDTP/SOPL/01/8/2026',
                 'letterDate' => '01-08-2026',
                 'logoPath' => $this->mediaDataUri('image2.png'),
@@ -78,6 +82,36 @@ class AuthorizationLetterGenerator
         }
 
         return $relative;
+    }
+
+    /**
+     * Generate (or reuse) auth letter for an approved assignment and persist path.
+     * Returns relative path, or null if trainer/school missing or generation fails.
+     */
+    public function ensureForAssignment(AsignedSchool $assignment, bool $force = false): ?string
+    {
+        if (($assignment->approval_status ?? '') !== 'approved') {
+            return null;
+        }
+
+        if (!$force && !empty($assignment->auth_letter_path)) {
+            $absolute = Storage::disk('public')->path($assignment->auth_letter_path);
+            if (is_file($absolute)) {
+                return $assignment->auth_letter_path;
+            }
+        }
+
+        $trainer = User::find($assignment->user_id);
+        $school = School::find($assignment->school_name);
+        if (!$trainer || !$school) {
+            return null;
+        }
+
+        $path = $this->generate($assignment, $trainer, $school);
+        $assignment->auth_letter_path = $path;
+        $assignment->save();
+
+        return $path;
     }
 
     private function resolveDistrictName(AsignedSchool $assignment, School $school): string
@@ -96,13 +130,36 @@ class AuthorizationLetterGenerator
         return '—';
     }
 
+    /** Trainer's state from states table; fallback to school's district state. */
+    private function resolveStateName(User $trainer, School $school): string
+    {
+        if ($trainer->state && !empty($trainer->state->name)) {
+            return trim((string) $trainer->state->name);
+        }
+
+        if (!empty($trainer->state_id)) {
+            $state = State::find($trainer->state_id);
+            if ($state && !empty($state->name)) {
+                return trim((string) $state->name);
+            }
+        }
+
+        $school->loadMissing('district.state');
+        if ($school->district && $school->district->state && !empty($school->district->state->name)) {
+            return trim((string) $school->district->state->name);
+        }
+
+        return '—';
+    }
+
     private function buildFilledDocx(
         AsignedSchool $assignment,
         string $trainerName,
         string $mobile,
         string $code,
         string $schoolName,
-        string $district
+        string $district,
+        string $stateName
     ): string {
         $tempRelative = 'auth_letters/'.$assignment->id.'_authorization_tmp.docx';
         $absolute = Storage::disk('public')->path($tempRelative);
@@ -127,13 +184,23 @@ class AuthorizationLetterGenerator
         }
 
         $xml = str_replace(
-            ['__TRAINER_NAME__', '__MOBILE__', '__TRAINER_CODE__', '__SCHOOL_NAME__', '__DISTRICT__'],
+            [
+                '__TRAINER_NAME__',
+                '__MOBILE__',
+                '__TRAINER_CODE__',
+                '__SCHOOL_NAME__',
+                '__DISTRICT__',
+                '__STATE__',
+                'Haryana',
+            ],
             [
                 $this->xmlSafe($trainerName),
                 $this->xmlSafe($mobile),
                 $this->xmlSafe($code),
                 $this->xmlSafe($schoolName),
                 $this->xmlSafe($district),
+                $this->xmlSafe($stateName),
+                $this->xmlSafe($stateName),
             ],
             $xml
         );

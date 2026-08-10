@@ -12,6 +12,7 @@ use App\Imports\SchoolImport;
 use App\Services\StateService;
 use App\Services\AcademicSessionService;
 use App\Services\SchoolAssignmentService;
+use App\Services\BlockSyncService;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -95,24 +96,34 @@ class SchoolController extends Controller
         try {
             $request->validate([
                 'district_id' => 'required|exists:districts,id',
-                'block' => 'required|string|unique:blocks,block,NULL,id,district_id,' . $request->district_id
+                'block' => 'required|string|max:255',
             ]);
+
+            StateService::assertDistrictInScope((int) $request->district_id);
+
+            $existing = BlockSyncService::findMatchingBlock((int) $request->district_id, (string) $request->block);
+            if ($existing) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Block already exists: '.$existing->block,
+                    'block' => $existing,
+                ]);
+            }
 
             $block = Block::create([
                 'district_id' => $request->district_id,
-                'block' => $request->block
+                'block' => BlockSyncService::formatBlockName((string) $request->block),
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Block added successfully!',
-                'block' => $block
+                'block' => $block,
             ]);
         } catch (\Exception $e) {
-            // Log::error('Block store error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ]);
         }
     }
@@ -140,7 +151,7 @@ class SchoolController extends Controller
 
         $school = new School();
         $school->district_id = $request->district_id;
-        $school->block = $request->block;
+        $school->block = BlockSyncService::resolveOrCreate((int) $request->district_id, (string) $request->block);
         $school->school_name = $request->school_name;
         $school->school_code = $request->school_code;
         $school->total_students = $request->total_students;
@@ -195,9 +206,12 @@ class SchoolController extends Controller
                     ->with('error', 'No schools were imported. Check that your file has the correct headers (School Name, School Code, Block, Total Students, Total Training Hours, Daily Training Hours) and at least one data row.');
             }
 
+            $synced = BlockSyncService::syncDistrictSchools((int) $request->district_id);
+
             return redirect()->back()->with(
                 'success',
-                "Successfully imported {$count} school(s). Existing school codes in this district were updated; new codes were created."
+                "Successfully imported {$count} school(s). Blocks were synced with the blocks list".
+                ($synced > 0 ? " ({$synced} school block name(s) updated)" : '').'.'
             );
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             $errorMessages = [];
@@ -459,7 +473,7 @@ class SchoolController extends Controller
             return redirect('admin/manageschool')->with('error', 'School not found!');
         }
 
-        $school->block = $request->block;
+        $school->block = BlockSyncService::resolveOrCreate((int) $school->district_id, (string) $request->block);
         $school->school_name = $request->school_name;
         $school->school_code = $request->school_code;
         $school->total_students = $request->total_students;

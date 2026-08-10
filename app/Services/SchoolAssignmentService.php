@@ -7,6 +7,7 @@ use App\Models\District;
 use App\Models\School;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class SchoolAssignmentService
 {
@@ -96,7 +97,7 @@ class SchoolAssignmentService
             $requiredHours = TrainingHoursService::getForSchool((int) $schoolId);
             $dailyHours = TrainingHoursService::getDailyForSchool((int) $schoolId);
 
-            AsignedSchool::create([
+            $row = AsignedSchool::create([
                 'user_id' => $trainerId,
                 'district' => $district,
                 'block' => $block,
@@ -114,6 +115,15 @@ class SchoolAssignmentService
             ]);
 
             self::syncSchoolAssignedFlag((int) $schoolId);
+
+            try {
+                (new AuthorizationLetterGenerator())->ensureForAssignment($row);
+            } catch (\Throwable $e) {
+                Log::warning(
+                    'Authorization letter failed for admin assignment '.$row->id.': '.$e->getMessage()
+                );
+            }
+
             $assigned++;
         }
 

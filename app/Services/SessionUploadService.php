@@ -53,13 +53,18 @@ class SessionUploadService
                     abort(403, 'Unauthorized.');
                 }
             } elseif ($role === 2) {
+                // Coordinator can always manage their own training schools (like a trainer).
+                if ((int) $auth->id === (int) $assignment->user_id) {
+                    return $assignment;
+                }
+
                 if ((int) ($auth->data_upload_status ?? 0) !== 1) {
                     abort(403, 'You do not have data upload permission. Ask admin to enable it.');
                 }
 
-                $trainer = User::find($assignment->user_id);
-                if (!$trainer || (int) $trainer->cordinator_id !== (int) $auth->cordinator_id) {
-                    abort(403, 'You can only upload for your own trainers.');
+                $target = User::find($assignment->user_id);
+                if (!CoordinatorScopeService::canManageAssignmentTarget($auth, $target)) {
+                    abort(403, 'You can only upload for trainers in your scope.');
                 }
             }
         }

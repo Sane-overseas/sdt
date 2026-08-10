@@ -12,14 +12,22 @@
         <div class="row">
             <div class="col-lg-10 margin-tb">
                 <h2 class="heading">Assigned Schools</h2>
+                @if(!empty($showAll))
+                    <p class="text-muted mb-0">Showing all dates</p>
+                @elseif(!empty($customDate))
+                    <p class="text-muted mb-0">Date: {{ date('d-m-Y', strtotime($customDate)) }}</p>
+                @else
+                    <p class="text-muted mb-0">Today’s assignments</p>
+                @endif
             </div>
         </div>
         <form id="custom_form" action="{{ route('custom-date') }}" method="get">
-         <div style="margin: 20px 0px;" class="row">
-            <strong>Date Filter:</strong>
-            <input type="date" name="custom_date" class="form-control col-4"  />
-            <button type="submit" class="btn btn-success filter ml-4 col-2">Submit</button>
-            <a href="{{ route('today-assigned') }}" class=" ml-4 col-2 close-btn">Clear</a>  
+         <div style="margin: 20px 0px;" class="row align-items-center">
+            <strong class="mr-2">Date Filter:</strong>
+            <input type="date" name="custom_date" class="form-control col-3" value="{{ $customDate ?? '' }}" />
+            <button type="submit" class="btn btn-success filter ml-2 col-2">Submit</button>
+            <a href="{{ route('today-assigned', ['show_all' => 1]) }}" class="btn btn-primary ml-2 col-2">Show All</a>
+            <a href="{{ route('today-assigned') }}" class="btn btn-secondary ml-2 col-2">Today</a>
         </div>
         </form> 
         <div class="card-body">
@@ -59,11 +67,17 @@
                             @endforeach
                         </td> 
                         <td>
-                            @foreach($trainers as $d_data)
-                                @if($d_data['id'] == $school['asigned_by'])
-                                     {{$d_data['instructor_name']}}
-                                @endif
-                            @endforeach
+                            @if(!empty($school['asigned_by']) && !empty($assigners[$school['asigned_by']]))
+                                {{ $assigners[$school['asigned_by']]['instructor_name'] }}
+                            @elseif(!empty($school['asigned_by']))
+                                @foreach($trainers as $d_data)
+                                    @if($d_data['id'] == $school['asigned_by'])
+                                        {{ $d_data['instructor_name'] }}
+                                    @endif
+                                @endforeach
+                            @else
+                                —
+                            @endif
                         </td> 
                         <td><i class="bi bi-clock-fill"></i> {{date('d-m-Y : g:i A', strtotime($school['created_at']))}}</td>                      
                     </tr>

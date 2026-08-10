@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\School;
+use App\Services\BlockSyncService;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
@@ -70,11 +71,17 @@ class SchoolImport implements ToModel, WithHeadingRow, WithValidation, WithStart
             return null;
         }
 
+        $rawBlock = trim((string) ($row['block'] ?? ''));
+        // Sync with blocks table: reuse official name, or create the block.
+        $officialBlock = $rawBlock !== ''
+            ? BlockSyncService::resolveOrCreate((int) $this->district_id, $rawBlock)
+            : 'N/A';
+
         $payload = [
             'district_id' => $this->district_id,
             'school_name' => trim((string) ($row['school_name'] ?? 'Unknown School')),
             'school_code' => $schoolCode,
-            'block' => trim((string) ($row['block'] ?? 'N/A')),
+            'block' => $officialBlock,
             'total_students' => $this->toInt($row['total_students'] ?? 0),
             'training_hours' => $this->toFloat(
                 $row['total_training_hours'] ?? $row['training_hours'] ?? 60
@@ -86,7 +93,6 @@ class SchoolImport implements ToModel, WithHeadingRow, WithValidation, WithStart
 
         Log::info('Importing/updating school row', $payload);
 
-        // Same district + school_code => update; otherwise create
         School::updateOrCreate(
             [
                 'district_id' => $this->district_id,
@@ -97,7 +103,6 @@ class SchoolImport implements ToModel, WithHeadingRow, WithValidation, WithStart
 
         $this->importedCount++;
 
-        // Already persisted — avoid double insert by ToModel
         return null;
     }
 

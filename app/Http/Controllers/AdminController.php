@@ -29,6 +29,8 @@ use App\Models\State;
 use App\Models\Testimonial;
 use App\Services\AcademicSessionService;
 use App\Support\MediaPath;
+use App\Services\CoordinatorScopeService;
+use App\Services\CoordinatorCodeService;
 use App\Services\HolidayService;
 use App\Services\IdCardGenerator;
 use App\Services\SchoolAssignmentService;
@@ -251,17 +253,39 @@ class AdminController extends BaseController
         $trainers = User::where('state_id', StateService::scopeStateId())->get()->toArray();
         $district = StateService::districtsQuery()->get()->toArray();
 
-        if ($request->custom_date == null) {
-            $a_schools = AsignedSchool::whereIn('district', $districtIds ?: [0])->whereDate('created_at', date('Y-m-d'))->orderBy('created_at', 'DESC')->get()->toArray();
-        } else {
-            $a_schools = AsignedSchool::whereIn('district', $districtIds ?: [0])->whereDate('created_at', date('Y-m-d', strtotime($request->custom_date)))->orderBy('created_at', 'DESC')->get()->toArray();
+        $showAll = $request->boolean('show_all');
+        $customDate = $request->custom_date;
+
+        // Only truly assigned schools — not trainer pending requests awaiting admin approval.
+        $query = AsignedSchool::whereIn('district', $districtIds ?: [0])
+            ->where(function ($q) {
+                $q->whereNull('approval_status')
+                    ->orWhere('approval_status', AsignedSchool::APPROVAL_APPROVED);
+            });
+
+        if (! $showAll) {
+            $date = $customDate
+                ? date('Y-m-d', strtotime($customDate))
+                : date('Y-m-d');
+            $query->whereDate('created_at', $date);
         }
+
+        $a_schools = $query->orderBy('created_at', 'DESC')->get()->toArray();
+
+        // Admins often have null state_id — still need them for "Assigned by".
+        $assignerIds = collect($a_schools)->pluck('asigned_by')->filter()->unique()->values()->all();
+        $assigners = empty($assignerIds)
+            ? []
+            : User::whereIn('id', $assignerIds)->get()->keyBy('id')->toArray();
 
         return view('SchoolsReporting.assigned-schools')
             ->with('a_schools', $a_schools)
             ->with('schools', $schools)
             ->with('district', $district)
-            ->with('trainers', $trainers);
+            ->with('trainers', $trainers)
+            ->with('assigners', $assigners)
+            ->with('showAll', $showAll)
+            ->with('customDate', $customDate);
     }
 
     public function routePlanSchools(Request $request)
@@ -298,6 +322,14 @@ class AdminController extends BaseController
             'number' => preg_replace('/\D+/', '', (string) $request->input('number', '')),
         ]);
 
+        $level = $request->input('coordinator_level', CoordinatorScopeService::LEVEL_DISTRICT);
+        $code = CoordinatorCodeService::next(
+            $level === CoordinatorScopeService::LEVEL_STATE
+                ? CoordinatorScopeService::LEVEL_STATE
+                : CoordinatorScopeService::LEVEL_DISTRICT
+        );
+        $request->merge(['code' => $code]);
+
         $request->validate([
             'cordinator_name' => 'required|string|max:255',
             'father_name' => 'required|string|max:255',
@@ -320,24 +352,41 @@ class AdminController extends BaseController
             'address' => 'required|string|max:1000',
             'blood_group' => 'required|string|max:20',
             'martial_art_type' => 'required|string|max:255',
-            'district_name' => 'required|string|max:255',
-            'block' => 'required|string|max:255',
+            'coordinator_level' => 'required|in:district,state',
+            'district_name' => [
+                Rule::requiredIf(fn () => $level === CoordinatorScopeService::LEVEL_DISTRICT),
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'block' => [
+                Rule::requiredIf(fn () => $level === CoordinatorScopeService::LEVEL_DISTRICT),
+                'nullable',
+                'string',
+                'max:255',
+            ],
             'aadhar_doc' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'qualification_doc' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'martial_art_doc' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'photo' => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:3072'],
         ]);
 
-        $district = District::where('district', $request->district_name)->first();
-        if ($district) {
-            StateService::assertDistrictInScope((int) $district->id);
+        $isStateLevel = $level === CoordinatorScopeService::LEVEL_STATE;
+        $districtName = $isStateLevel ? null : $request->district_name;
+        $blockName = $isStateLevel ? null : $request->block;
+
+        if (!$isStateLevel) {
+            $district = District::where('district', $districtName)->first();
+            if ($district) {
+                StateService::assertDistrictInScope((int) $district->id);
+            }
         }
 
         $docPaths = $this->storeCoordinatorDocuments($request, $request->code);
 
         $cordinator = Cordinator::create([
             'cordinator_name' => $request->cordinator_name,
-            'cordinator_code' => $request->code,
+            'cordinator_code' => $code,
             'state_id' => $stateId,
         ]);
 
@@ -347,7 +396,7 @@ class AdminController extends BaseController
             'father_name' => $request->father_name,
             'email' => $request->email,
             'password' => $request->password,
-            'instructor_code' => $request->code,
+            'instructor_code' => $code,
             'instructor_number' => $request->number,
             'aadhar_number' => $request->aadhar_number,
             'address' => $request->address,
@@ -358,8 +407,11 @@ class AdminController extends BaseController
             'martial_art_doc' => $docPaths['martial_art_doc'] ?? null,
             'photo' => $docPaths['photo'] ?? null,
             'cordinator_id' => $cordinator->id,
-            'district' => $request->district_name,
-            'block' => $request->block,
+            'coordinator_level' => $isStateLevel
+                ? CoordinatorScopeService::LEVEL_STATE
+                : CoordinatorScopeService::LEVEL_DISTRICT,
+            'district' => $districtName,
+            'block' => $blockName,
             'state_id' => $stateId,
             'amount' => 0,
             'extra_amount' => 0,
@@ -377,7 +429,7 @@ class AdminController extends BaseController
                 'name' => $user->instructor_name,
                 'code' => $user->instructor_code,
                 'blood_group' => $user->blood_group,
-                'designation' => 'COORDINATOR',
+                'designation' => $isStateLevel ? 'STATE COORDINATOR' : 'DISTRICT COORDINATOR',
                 'photo_path' => $user->photo,
             ]);
         } catch (\Throwable $e) {
@@ -442,6 +494,24 @@ class AdminController extends BaseController
         return $paths;
     }
 
+    /** Next auto code preview: SOPL_DC_023 / SOPL_SC_005 */
+    public function nextCoordinatorCode(Request $request)
+    {
+        if (!Auth::check() || (int) Auth::user()->role !== 1) {
+            abort(403);
+        }
+
+        $level = $request->query('level', CoordinatorScopeService::LEVEL_DISTRICT);
+        if ($level !== CoordinatorScopeService::LEVEL_STATE) {
+            $level = CoordinatorScopeService::LEVEL_DISTRICT;
+        }
+
+        return response()->json([
+            'code' => CoordinatorCodeService::next($level),
+            'level' => $level,
+        ]);
+    }
+
     public function editCordinator($id)
     {
         $user = User::where('id', $id)->where('role', 2)->firstOrFail();
@@ -463,6 +533,7 @@ class AdminController extends BaseController
             'aadhar_number' => $user->aadhar_number,
             'blood_group' => $user->blood_group,
             'address' => $user->address,
+            'coordinator_level' => $user->coordinator_level ?? CoordinatorScopeService::LEVEL_DISTRICT,
             'district_name' => $user->district,
             'district_id' => $district?->id,
             'block' => $user->block,
@@ -492,6 +563,9 @@ class AdminController extends BaseController
         ]);
 
         $cordinatorId = (int) $user->cordinator_id;
+        $level = $request->input('coordinator_level', CoordinatorScopeService::LEVEL_DISTRICT);
+        // Keep existing code (auto SOPL_DC_### / SOPL_SC_###) — do not renumber on edit.
+        $request->merge(['code' => $user->instructor_code]);
 
         $request->validate([
             'cordinator_name' => 'required|string|max:255',
@@ -517,17 +591,34 @@ class AdminController extends BaseController
             'address' => 'required|string|max:1000',
             'blood_group' => 'required|string|max:20',
             'martial_art_type' => 'required|string|max:255',
-            'district_name' => 'required|string|max:255',
-            'block' => 'required|string|max:255',
+            'coordinator_level' => 'required|in:district,state',
+            'district_name' => [
+                Rule::requiredIf(fn () => $level === CoordinatorScopeService::LEVEL_DISTRICT),
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'block' => [
+                Rule::requiredIf(fn () => $level === CoordinatorScopeService::LEVEL_DISTRICT),
+                'nullable',
+                'string',
+                'max:255',
+            ],
             'aadhar_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'qualification_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'martial_art_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:3072'],
         ]);
 
-        $district = District::where('district', $request->district_name)->first();
-        if ($district) {
-            StateService::assertDistrictInScope((int) $district->id);
+        $isStateLevel = $level === CoordinatorScopeService::LEVEL_STATE;
+        $districtName = $isStateLevel ? null : $request->district_name;
+        $blockName = $isStateLevel ? null : $request->block;
+
+        if (!$isStateLevel) {
+            $district = District::where('district', $districtName)->first();
+            if ($district) {
+                StateService::assertDistrictInScope((int) $district->id);
+            }
         }
 
         $docPaths = $this->storeCoordinatorDocuments($request, $request->code, $user);
@@ -548,8 +639,11 @@ class AdminController extends BaseController
         $user->address = $request->address;
         $user->blood_group = $request->blood_group;
         $user->martial_art_type = $request->martial_art_type;
-        $user->district = $request->district_name;
-        $user->block = $request->block;
+        $user->coordinator_level = $isStateLevel
+            ? CoordinatorScopeService::LEVEL_STATE
+            : CoordinatorScopeService::LEVEL_DISTRICT;
+        $user->district = $districtName;
+        $user->block = $blockName;
 
         if ($request->filled('password')) {
             $user->password = $request->password;
@@ -571,8 +665,21 @@ class AdminController extends BaseController
 
     public function cordinatorData($id)
     {
-        $user = User::where('id', $id)->first();
-        $trainers = User::where('cordinator_id', $user['cordinator_id'])
+        $user = User::where('id', $id)->where('role', 2)->firstOrFail();
+        $auth = Auth::user();
+
+        if ($auth && (int) $auth->role === 2) {
+            CoordinatorScopeService::assertCoordinatorInScope($auth, $user);
+        } elseif ($auth && (int) $auth->role === 1) {
+            $stateId = StateService::scopeStateId();
+            if ($stateId && (int) $user->state_id !== (int) $stateId) {
+                abort(403, 'Coordinator belongs to another state.');
+            }
+        } else {
+            abort(403);
+        }
+
+        $trainers = User::where('cordinator_id', $user->cordinator_id)
             ->where('role', 0)
             ->when($user->state_id, fn ($query) => $query->where('state_id', $user->state_id))
             ->get();
@@ -584,8 +691,30 @@ class AdminController extends BaseController
             );
         }
 
+        $ownSchools = AsignedSchool::withoutGlobalScopes()
+            ->where('user_id', $user->id)
+            ->get();
+
+        $schoolNames = School::whereIn(
+            'id',
+            $ownSchools->pluck('school_name')->filter()->unique()->values()
+        )->pluck('school_name', 'id');
+
+        $ownSchoolRows = $ownSchools->map(function ($a) use ($schoolNames) {
+            return [
+                'id' => $a->id,
+                'school_id' => $a->school_name,
+                'school_name' => $schoolNames[$a->school_name] ?? ('#'.$a->school_name),
+                'status' => $a->status,
+                'route_date' => $a->route_date,
+            ];
+        })->values();
+
         return view('admin.cdr-trainers')
-            ->with('trainers', $trainers);
+            ->with('trainers', $trainers)
+            ->with('coordinator', $user)
+            ->with('ownSchoolRows', $ownSchoolRows)
+            ->with('canOpenTrainer', true);
     }
 
     public function trainersLogs(Request $request)
@@ -713,19 +842,12 @@ class AdminController extends BaseController
             return redirect()->route('login');
         }
 
-        // Coordinator: only own trainers, and only if admin gave edit or upload permission
+        // Coordinator: own profile, trainers in scope, or other coordinators in scope.
         if ((int) $auth->role === 2) {
-            $canEdit = (int) ($auth->school_assigned_status ?? 0) === 1;
-            $canUpload = (int) ($auth->data_upload_status ?? 0) === 1;
-            if (!$canEdit && !$canUpload) {
+            if (!CoordinatorScopeService::canManageAssignmentTarget($auth, $trainer)) {
                 return redirect()
                     ->route('trainer-reporting')
-                    ->with('error', 'You do not have permission to edit or upload for trainers. Ask admin to enable it.');
-            }
-            if ((int) $trainer->cordinator_id !== (int) $auth->cordinator_id) {
-                return redirect()
-                    ->route('trainer-reporting')
-                    ->with('error', 'You can only manage your own trainers.');
+                    ->with('error', 'You can only manage trainers in your scope.');
             }
         } else {
             $stateId = StateService::scopeStateId();
@@ -760,12 +882,15 @@ class AdminController extends BaseController
 
         $auth = Auth::user();
         if ($auth && (int) $auth->role === 2) {
-            if ((int) ($auth->school_assigned_status ?? 0) !== 1) {
+            if ((int) $auth->id === (int) ($assignment->user_id ?? 0)) {
+                // Own school — allowed
+            } elseif ((int) ($auth->school_assigned_status ?? 0) !== 1) {
                 return response()->json(['error' => 'You do not have permission to remove schools.'], 403);
-            }
-            $trainer = User::find($assignment->user_id);
-            if (!$trainer || (int) $trainer->cordinator_id !== (int) $auth->cordinator_id) {
-                return response()->json(['error' => 'You can only manage your own trainers.'], 403);
+            } else {
+                $trainer = User::find($assignment->user_id);
+                if (!CoordinatorScopeService::canManageAssignmentTarget($auth, $trainer)) {
+                    return response()->json(['error' => 'You can only manage trainers in your scope.'], 403);
+                }
             }
         }
 
@@ -1433,18 +1558,38 @@ class AdminController extends BaseController
 
     public function schoolAssignedStatus(Request $request)
     {
-        $completion = User::findOrFail($request->cordinator_id);
-        $completion->school_assigned_status = $request->status;
-        $completion->save();
-        return response()->json(['message' => 'User status updated successfully.']);
+        $request->validate([
+            'cordinator_id' => 'required|integer|exists:users,id',
+            'status' => 'required|in:0,1',
+        ]);
+
+        $user = User::where('id', $request->cordinator_id)->where('role', 2)->firstOrFail();
+        $user->school_assigned_status = (int) $request->status;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Permission updated successfully.',
+            'id' => $user->id,
+            'school_assigned_status' => (int) $user->school_assigned_status,
+        ]);
     }
 
     public function dataUploadStatus(Request $request)
     {
-        $completion = User::findOrFail($request->cordinator_id);
-        $completion->data_upload_status = $request->status;
-        $completion->save();
-        return response()->json(['message' => 'User status updated successfully.']);
+        $request->validate([
+            'cordinator_id' => 'required|integer|exists:users,id',
+            'status' => 'required|in:0,1',
+        ]);
+
+        $user = User::where('id', $request->cordinator_id)->where('role', 2)->firstOrFail();
+        $user->data_upload_status = (int) $request->status;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Permission updated successfully.',
+            'id' => $user->id,
+            'data_upload_status' => (int) $user->data_upload_status,
+        ]);
     }
 
     public function trainerStatusDetail(Request $request)
