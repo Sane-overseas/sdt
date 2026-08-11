@@ -850,11 +850,11 @@ class AdminController extends BaseController
                     ->with('error', 'You can only manage trainers in your scope.');
             }
         } else {
-            $stateId = StateService::scopeStateId();
-            if ($stateId && (int) $trainer->state_id !== (int) $stateId) {
-                return redirect()
-                    ->route('add_trainers')
-                    ->with('error', 'That trainer belongs to another state. Showing trainers for the selected state.');
+        $stateId = StateService::scopeStateId();
+        if ($stateId && (int) $trainer->state_id !== (int) $stateId) {
+            return redirect()
+                ->route('add_trainers')
+                ->with('error', 'That trainer belongs to another state. Showing trainers for the selected state.');
             }
         }
 

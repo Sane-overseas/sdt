@@ -36,14 +36,25 @@ class SchoolRequestController extends BaseController
             ->orderByDesc('created_at')
             ->get();
 
-        // Backfill auth letters for admin-assigned (or failed) approved schools.
+        // Backfill auth letters for approved schools (missing path or missing file).
         $letterGen = new AuthorizationLetterGenerator();
         foreach ($myRequests as $row) {
-            if (($row->approval_status ?? '') !== 'approved' || !empty($row->auth_letter_path)) {
+            $status = $row->approval_status ?? 'approved';
+            if ($status !== 'approved') {
+                continue;
+            }
+            $needsLetter = empty($row->auth_letter_path);
+            if (!$needsLetter) {
+                $abs = Storage::disk('public')->path($row->auth_letter_path);
+                // Missing file, or tiny text-fallback PDF from older broken generator
+                $needsLetter = !is_file($abs) || filesize($abs) < 12000;
+            }
+            if (!$needsLetter) {
                 continue;
             }
             try {
-                $letterGen->ensureForAssignment($row);
+                $letterGen->ensureForAssignment($row, true);
+                $row->refresh();
             } catch (\Throwable $e) {
                 Log::warning(
                     'Auth letter backfill failed for assignment '.$row->id.': '.$e->getMessage()

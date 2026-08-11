@@ -34,6 +34,18 @@
     .view-label { display:block; font-size:.72rem; color:#6b7c8c; }
     .view-val { font-weight:600; color:#1a3a52; }
     .view-photo { width:84px; height:84px; object-fit:cover; border-radius:8px; border:1px solid #ddd; background:#f5f5f5; }
+    .doc-chip {
+        display: inline-block;
+        margin: 0 8px 8px 0;
+        padding: 6px 12px;
+        border: 1px solid #c5d6e4;
+        border-radius: 6px;
+        background: #f7fbfe;
+        color: #1a3a52;
+        font-size: .82rem;
+        text-decoration: none;
+    }
+    .doc-chip:hover { background: #eef6fb; }
 </style>
 
 <div class="container-fluid mt-2">
@@ -216,7 +228,12 @@ function esc(v) {
 function mediaFileUrl(path) {
     if (!path) return '';
     const name = String(path).split('/').pop();
-    return '{{ url('/m/r') }}/' + encodeURIComponent(name);
+    return '{{ url('/m/o') }}/' + encodeURIComponent(name);
+}
+function docChip(label, path) {
+    const url = mediaFileUrl(path);
+    if (!url) return `<span class="text-muted small me-2">${label}: —</span>`;
+    return `<a class="doc-chip" href="${url}" target="_blank" rel="noopener">${label}</a>`;
 }
 function copyTextToClipboard(text) {
     if (navigator.clipboard && window.isSecureContext) {
@@ -308,6 +325,15 @@ $(document).on('click', '.btn-view', function () {
                 <div><span class="view-label">Block</span><span class="view-val">${esc(d.block)}</span></div>
                 <div><span class="view-label">Martial Art</span><span class="view-val">${esc(d.martial_art_type)}</span></div>
             </div></div>
+            <div class="view-section">
+                <h6>Documents</h6>
+                <div>
+                    ${docChip('Aadhar', d.aadhar_doc)}
+                    ${docChip('Qualification', d.qualification_doc)}
+                    ${docChip('Martial Art Cert', d.martial_art_doc)}
+                    ${docChip('Photo', d.photo)}
+                </div>
+            </div>
             ${d.admin_remarks ? `<div class="view-section"><h6>Admin Remarks</h6><div class="view-val">${esc(d.admin_remarks)}</div></div>` : ''}
             ${editLinkSection(d.edit_url)}
             ${d.rejection_note ? `<div class="view-section"><h6>Rejection Note</h6><div class="view-val">${esc(d.rejection_note)}</div></div>` : ''}

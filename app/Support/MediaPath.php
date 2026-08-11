@@ -13,6 +13,7 @@ class MediaPath
         'k' => 'certificates',
         'l' => 'logos',
         'r' => 'trainer_data',
+        'o' => 'coordinator_data',
     ];
 
     public static function folderForCode(string $code): ?string

@@ -462,7 +462,7 @@
                         @if(!empty($draftDocs['aadhar_doc']['name']))
                             <div class="current-file mt-1 text-success">Saved: {{ $draftDocs['aadhar_doc']['name'] }}</div>
                         @elseif($r && $r->aadhar_doc)
-                            <div class="current-file mt-1"><a href="{{ url('/m/r/'.basename($r->aadhar_doc)) }}" target="_blank">View current Aadhar</a></div>
+                            <div class="current-file mt-1"><a href="{{ url('/m/o/'.basename($r->aadhar_doc)) }}" target="_blank">View current Aadhar</a></div>
                         @endif
                     </div>
                     <div class="col-md-6">
@@ -473,7 +473,7 @@
                         @if(!empty($draftDocs['qualification_doc']['name']))
                             <div class="current-file mt-1 text-success">Saved: {{ $draftDocs['qualification_doc']['name'] }}</div>
                         @elseif($r && $r->qualification_doc)
-                            <div class="current-file mt-1"><a href="{{ url('/m/r/'.basename($r->qualification_doc)) }}" target="_blank">View current Qualification</a></div>
+                            <div class="current-file mt-1"><a href="{{ url('/m/o/'.basename($r->qualification_doc)) }}" target="_blank">View current Qualification</a></div>
                         @endif
                     </div>
                     <div class="col-md-6">
@@ -484,7 +484,7 @@
                         @if(!empty($draftDocs['martial_art_doc']['name']))
                             <div class="current-file mt-1 text-success">Saved: {{ $draftDocs['martial_art_doc']['name'] }}</div>
                         @elseif($r && $r->martial_art_doc)
-                            <div class="current-file mt-1"><a href="{{ url('/m/r/'.basename($r->martial_art_doc)) }}" target="_blank">View current Martial Art Doc</a></div>
+                            <div class="current-file mt-1"><a href="{{ url('/m/o/'.basename($r->martial_art_doc)) }}" target="_blank">View current Martial Art Doc</a></div>
                         @endif
                     </div>
                     <div class="col-md-6">
@@ -495,7 +495,7 @@
                         @if(!empty($draftDocs['photo']['name']))
                             <div class="current-file mt-1 text-success">Saved: {{ $draftDocs['photo']['name'] }}</div>
                         @elseif($r && $r->photo)
-                            <div class="current-file mt-1"><a href="{{ url('/m/r/'.basename($r->photo)) }}" target="_blank">View current Photo</a></div>
+                            <div class="current-file mt-1"><a href="{{ url('/m/o/'.basename($r->photo)) }}" target="_blank">View current Photo</a></div>
                         @endif
                     </div>
                 </div>

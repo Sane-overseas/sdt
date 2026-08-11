@@ -17,23 +17,19 @@
             top: -78px;
             left: 0;
             right: 0;
-            height: 72px;
+            height: 70px;
+            text-align: center;
         }
-        .letterhead table { width: 100%; border-collapse: collapse; }
-        .letterhead td { vertical-align: middle; }
-        .company-wrap { text-align: center; }
-        .company {
-            font-size: 15px;
-            font-weight: bold;
-            letter-spacing: 0.35px;
-            line-height: 1.15;
+        .letterhead-banner {
+            width: 100%;
+            max-height: 68px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
         }
-        .cin { font-size: 9.5px; margin-top: 2px; color: #222; }
-        .logo-right { text-align: right; }
-        .logo-right img { height: 46px; }
         .line {
             border-bottom: 1.2px solid #222;
-            margin-top: 6px;
+            margin-top: 0;
         }
         .footer-fixed {
             position: fixed;
@@ -98,22 +94,11 @@
 </head>
 <body>
     <div class="letterhead">
-        <table>
-            <tr>
-                <td style="width: 18%;"></td>
-                <td style="width: 54%;">
-                    <div class="company-wrap">
-                        <div class="company">SANE OVERSEAS PRIVATE LIMITED</div>
-                        <div class="cin">CIN: U51909PB2007PTC031036</div>
-                    </div>
-                </td>
-                <td style="width: 28%;" class="logo-right">
-                    @if(!empty($logoPath))
-                        <img src="{{ $logoPath }}" alt="SOPL">
-                    @endif
-                </td>
-            </tr>
-        </table>
+        @if(!empty($letterheadPath))
+            <img class="letterhead-banner" src="{{ $letterheadPath }}" alt="SOPL Letterhead">
+        @elseif(!empty($logoPath))
+            <img class="letterhead-banner" src="{{ $logoPath }}" alt="SOPL">
+        @endif
         <div class="line"></div>
     </div>
 
