@@ -38,6 +38,11 @@ use App\Services\SessionUploadService;
 use App\Services\StateService;
 use App\Mail\CoordinatorCredentialsMail;
 use Illuminate\Support\Facades\Mail;
+use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use View;
 use Session;
 use Config;
@@ -1505,6 +1510,359 @@ class AdminController extends BaseController
         ];
 
         return view('districtReporting.trainer-needs-graph', compact('rows', 'summary', 'chart'));
+    }
+
+    /**
+     * Reporting page: District → District Coordinator → Block → Trainer → School.
+     */
+    public function assignmentExcelReport(Request $request)
+    {
+        $districts = StateService::districtsQuery()->orderBy('district')->get();
+        $districtFilter = $request->filled('district_id') ? (int) $request->district_id : null;
+        if ($districtFilter) {
+            StateService::assertDistrictInScope($districtFilter);
+        }
+
+        $perPage = (int) $request->input('per_page', 25);
+        if (!in_array($perPage, [25, 50, 100], true)) {
+            $perPage = 25;
+        }
+
+        $statusFilter = $this->normalizeAssignmentStatusFilter($request->input('status'));
+
+        $coordByDistrict = $this->districtCoordinatorMap();
+        $rows = $this->assignmentExcelQuery($districtFilter, $statusFilter)
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn ($row) => $this->mapAssignmentExcelRow($row, $coordByDistrict));
+
+        return view('SchoolsReporting.assignment-excel-report', [
+            'rows' => $rows,
+            'districts' => $districts,
+            'districtFilter' => $districtFilter,
+            'statusFilter' => $statusFilter,
+            'perPage' => $perPage,
+        ]);
+    }
+
+    public function assignmentExcelExport(Request $request)
+    {
+        $districtFilter = $request->filled('district_id') ? (int) $request->district_id : null;
+        if ($districtFilter) {
+            StateService::assertDistrictInScope($districtFilter);
+        }
+
+        $statusFilter = $this->normalizeAssignmentStatusFilter($request->input('status'));
+
+        $rows = $this->buildAssignmentExcelRows($districtFilter, $statusFilter);
+        $exportRows = [];
+        foreach ($rows as $i => $row) {
+            $trainerCell = $row['trainer'];
+            if ($row['trainer_phone'] !== '') {
+                $trainerCell .= "\n" . $row['trainer_phone'];
+            }
+
+            $exportRows[] = [
+                $i + 1,
+                $row['district'],
+                $row['district_coordinator'],
+                $row['block'],
+                $trainerCell,
+                $row['route_plan'],
+                $row['school_name'],
+                $row['school_code'],
+                $row['total_students'],
+                $row['status'],
+            ];
+        }
+
+        $filename = 'assignment_report_' . date('Y-m-d_His') . '.xlsx';
+
+        return Excel::download(new class($exportRows) implements FromArray, WithHeadings, WithStyles {
+            private array $data;
+
+            public function __construct(array $data)
+            {
+                $this->data = $data;
+            }
+
+            public function array(): array
+            {
+                return $this->data;
+            }
+
+            public function headings(): array
+            {
+                return [
+                    'S. No',
+                    'District',
+                    'District Coordinator',
+                    'Block',
+                    'Trainer',
+                    'Route Plan',
+                    'School Name',
+                    'School Code',
+                    'Total Students',
+                    'Status',
+                ];
+            }
+
+            public function styles(Worksheet $sheet)
+            {
+                $lastRow = count($this->data) + 1;
+
+                $sheet->getColumnDimension('A')->setWidth(8);
+                $sheet->getColumnDimension('B')->setWidth(18);
+                $sheet->getColumnDimension('C')->setWidth(24);
+                $sheet->getColumnDimension('D')->setWidth(18);
+                $sheet->getColumnDimension('E')->setWidth(22);
+                $sheet->getColumnDimension('F')->setWidth(16);
+                $sheet->getColumnDimension('G')->setWidth(35);
+                $sheet->getColumnDimension('H')->setWidth(16);
+                $sheet->getColumnDimension('I')->setWidth(14);
+                $sheet->getColumnDimension('J')->setWidth(14);
+
+                if ($lastRow > 1) {
+                    $sheet->getStyle('E2:E' . $lastRow)->getAlignment()->setWrapText(true);
+                    $sheet->getStyle('E2:E' . $lastRow)->getAlignment()->setVertical('top');
+                }
+
+                return [
+                    1 => [
+                        'font' => [
+                            'bold' => true,
+                            'color' => ['rgb' => 'FFFFFF'],
+                        ],
+                        'fill' => [
+                            'fillType' => 'solid',
+                            'startColor' => ['rgb' => '1A3A5C'],
+                        ],
+                        'alignment' => [
+                            'horizontal' => 'center',
+                            'vertical' => 'center',
+                        ],
+                    ],
+                ];
+            }
+        }, $filename);
+    }
+
+    /**
+     * @return array<int, array{district:string,district_coordinator:string,block:string,trainer:string,school_name:string,school_code:string,total_students:int|string}>
+     */
+    private function buildAssignmentExcelRows(?int $districtFilter = null, ?string $statusFilter = null): array
+    {
+        $coordByDistrict = $this->districtCoordinatorMap();
+
+        return $this->assignmentExcelQuery($districtFilter, $statusFilter)
+            ->get()
+            ->map(fn ($row) => $this->mapAssignmentExcelRow($row, $coordByDistrict))
+            ->all();
+    }
+
+    private function districtCoordinatorMap(): array
+    {
+        $stateId = StateService::scopeStateId();
+        $coordByDistrict = [];
+
+        $coordinators = User::query()
+            ->where('role', 2)
+            ->when($stateId, fn ($q) => $q->where('state_id', $stateId))
+            ->where(function ($q) {
+                $q->whereNull('coordinator_level')
+                    ->orWhere('coordinator_level', CoordinatorScopeService::LEVEL_DISTRICT);
+            })
+            ->get(['instructor_name', 'district']);
+
+        foreach ($coordinators as $coord) {
+            $key = mb_strtolower(trim((string) ($coord->district ?? '')));
+            if ($key === '') {
+                continue;
+            }
+            $coordByDistrict[$key][] = $coord->instructor_name;
+        }
+
+        return $coordByDistrict;
+    }
+
+    private function assignmentExcelQuery(?int $districtFilter = null, ?string $statusFilter = null)
+    {
+        $sessionId = $this->reportSessionId();
+        $districtIds = $this->reportDistrictIds();
+
+        if ($districtFilter) {
+            $districtIds = in_array($districtFilter, $districtIds, true)
+                ? [$districtFilter]
+                : [];
+        }
+
+        $query = DB::table('asigned_schools')
+            ->join('schools', 'schools.id', '=', 'asigned_schools.school_name')
+            ->leftJoin('users as trainers', 'trainers.id', '=', 'asigned_schools.user_id')
+            ->leftJoin('districts as school_districts', 'school_districts.id', '=', 'schools.district_id')
+            ->leftJoin('districts as assignment_districts', 'assignment_districts.id', '=', 'asigned_schools.district')
+            ->where(function ($q) use ($districtIds) {
+                $ids = $districtIds ?: [0];
+                $q->whereIn('schools.district_id', $ids)
+                    ->orWhereIn('asigned_schools.district', $ids);
+            })
+            ->when($sessionId, fn ($q) => $q->where('asigned_schools.session_id', $sessionId))
+            ->where(function ($q) {
+                $q->whereNull('asigned_schools.approval_status')
+                    ->orWhere('asigned_schools.approval_status', AsignedSchool::APPROVAL_APPROVED);
+            });
+
+        $this->applyAssignmentStatusFilter($query, $statusFilter);
+
+        return $query->select(
+                'school_districts.district as school_district_name',
+                'assignment_districts.district as assignment_district_name',
+                'asigned_schools.block as assignment_block',
+                'schools.block as school_block',
+                'trainers.instructor_name as trainer_name',
+                'trainers.instructor_number as trainer_phone',
+                'trainers.role as trainer_role',
+                'schools.school_name as school_title',
+                'schools.school_code as school_code_value',
+                'schools.total_students as students_count',
+                'asigned_schools.status as assignment_status',
+                'asigned_schools.end_date as assignment_end_date',
+                'asigned_schools.route_date as assignment_route_date',
+                'asigned_schools.start_route_plan as assignment_start_route_plan',
+                'asigned_schools.end_route_plan as assignment_end_route_plan'
+            )
+            ->orderByRaw('COALESCE(school_districts.district, assignment_districts.district)')
+            ->orderByRaw('COALESCE(NULLIF(asigned_schools.block, ""), schools.block)')
+            ->orderBy('schools.school_name');
+    }
+
+    private function normalizeAssignmentStatusFilter(?string $status): ?string
+    {
+        $status = strtolower(trim((string) $status));
+
+        return in_array($status, ['completed', 'ongoing', 'not_started'], true) ? $status : null;
+    }
+
+    private function applyAssignmentStatusFilter($query, ?string $statusFilter): void
+    {
+        if ($statusFilter === null) {
+            return;
+        }
+
+        if ($statusFilter === 'completed') {
+            $query->where('asigned_schools.status', 1);
+
+            return;
+        }
+
+        if ($statusFilter === 'ongoing') {
+            $query->where(function ($q) {
+                $q->whereNull('asigned_schools.status')
+                    ->orWhere('asigned_schools.status', 0);
+            })->whereNotNull('asigned_schools.end_date')
+                ->where('asigned_schools.end_date', '!=', '');
+
+            return;
+        }
+
+        $query->where(function ($q) {
+            $q->whereNull('asigned_schools.status')
+                ->orWhere('asigned_schools.status', 0);
+        })->where(function ($q) {
+            $q->whereNull('asigned_schools.end_date')
+                ->orWhere('asigned_schools.end_date', '');
+        });
+    }
+
+    /**
+     * @param  array<string, list<string>>  $coordByDistrict
+     * @return array{district:string,district_coordinator:string,block:string,trainer:string,trainer_phone:string,route_plan:string,school_name:string,school_code:string,total_students:int,status:string}
+     */
+    private function mapAssignmentExcelRow(object $row, array $coordByDistrict): array
+    {
+        $districtName = trim((string) ($row->school_district_name ?: $row->assignment_district_name ?: ''));
+        $coordKey = mb_strtolower($districtName);
+        $coordNames = $coordByDistrict[$coordKey] ?? [];
+        $trainerName = trim((string) ($row->trainer_name ?? ''));
+        $trainerPhone = trim((string) ($row->trainer_phone ?? ''));
+
+        return [
+            'district' => $districtName,
+            'district_coordinator' => $coordNames !== [] ? implode(', ', array_unique($coordNames)) : '—',
+            'block' => (string) ($row->assignment_block ?: $row->school_block ?: ''),
+            'trainer' => $trainerName !== '' ? $trainerName : '—',
+            'trainer_phone' => $trainerPhone,
+            'route_plan' => $this->formatAssignmentRoutePlan($row->assignment_route_date ?? null),
+            'school_name' => (string) ($row->school_title ?? ''),
+            'school_code' => (string) ($row->school_code_value ?? ''),
+            'total_students' => (int) ($row->students_count ?? 0),
+            'status' => $this->resolveAssignmentStatus(
+                $row->assignment_status ?? null,
+                $row->assignment_end_date ?? null
+            ),
+        ];
+    }
+
+    private function formatAssignmentRoutePlan($routeDate): string
+    {
+        if ($routeDate === null || trim((string) $routeDate) === '') {
+            return 'Not Added';
+        }
+
+        return $this->parseRoutePlanStartDate((string) $routeDate) ?? 'Not Added';
+    }
+
+    private function parseRoutePlanStartDate(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_contains($value, ' - ')) {
+            [$start] = array_map('trim', explode(' - ', $value, 2));
+
+            return $this->formatRoutePlanDate($start);
+        }
+
+        return $this->formatRoutePlanDate($value);
+    }
+
+    private function formatRoutePlanDate(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $value, $matches)) {
+            return sprintf('%02d-%02d-%s', (int) $matches[1], (int) $matches[2], $matches[3]);
+        }
+
+        if (preg_match('/^(\d{1,2})-(\d{1,2})-(\d{4})$/', $value, $matches)) {
+            return sprintf('%02d-%02d-%s', (int) $matches[1], (int) $matches[2], $matches[3]);
+        }
+
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $value, $matches)) {
+            return sprintf('%02d-%02d-%s', (int) $matches[3], (int) $matches[2], $matches[1]);
+        }
+
+        $timestamp = strtotime($value);
+
+        return $timestamp !== false ? date('d-m-Y', $timestamp) : null;
+    }
+
+    private function resolveAssignmentStatus($status, $endDate): string
+    {
+        if ((int) $status === 1) {
+            return 'Completed';
+        }
+
+        if ($endDate !== null && $endDate !== '') {
+            return 'Ongoing';
+        }
+
+        return 'Not Started';
     }
 
     public function districtsData($id)

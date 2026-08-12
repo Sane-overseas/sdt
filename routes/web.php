@@ -181,6 +181,8 @@ Route::delete('a-school/{id}/{sid}', [AdminController::class, 'asignedSchoolDele
 Route::get('trainer_schools_data/{id}',[AdminController::class, 'trainerSchoolsData'])->name('trainer_schools_data');
 Route::get('schools-reporting',[AdminController::class, 'schoolsReportingByDistricts'])->name('schools-reporting');
 Route::get('schools-reporting/trainer-needs',[AdminController::class, 'trainerNeedsGraph'])->name('schools-reporting.trainer-needs');
+Route::get('schools-reporting/assignment-excel',[AdminController::class, 'assignmentExcelReport'])->name('schools-reporting.assignment-excel');
+Route::get('schools-reporting/assignment-excel/export',[AdminController::class, 'assignmentExcelExport'])->name('schools-reporting.assignment-excel.export');
 Route::get('trainers-reporting',[AdminController::class, 'trainersReporting'])->name('trainers-reporting');
 
 Route::get('/image-status', [AdminController::class, 'imageStatus']);

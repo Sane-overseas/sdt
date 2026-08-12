@@ -641,7 +641,7 @@ class AuthorizationLetterGenerator
         imagefilledrectangle($tmp, 0, 0, $dw, $dh, $transparent);
         imagealphablending($tmp, true);
         imagecopyresampled($tmp, $src, 0, 0, 0, 0, $dw, $dh, imagesx($src), imagesy($src));
-        imagecopymerge($dst, $tmp, $dx, $dy, 0, 0, $dw, $dh, max(0, min(100, $pct)));
+        imagecopymerge($dst, $tmp, $dx, $dy, 0, 0, $dw, $dh, max(0, min (100, $pct)));
         imagedestroy($tmp);
     }
 

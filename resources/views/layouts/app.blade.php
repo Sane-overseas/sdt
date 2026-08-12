@@ -58,7 +58,7 @@
                                 </div>
                                 <div class="dropdown">
                                     <li class="nav-item">
-                                    <a class="nav-link {{ in_array(Request::path(), ['schools-reporting', 'schools-reporting/trainer-needs']) ? 'active' : '' }}" href="{{ route('schools-reporting') }}">Schools Reporting</a>
+                                    <a class="nav-link {{ in_array(Request::path(), ['schools-reporting', 'schools-reporting/trainer-needs', 'schools-reporting/assignment-excel']) ? 'active' : '' }}" href="{{ route('schools-reporting') }}">Schools Reporting</a>
                                         <div class="dropdown-content">
                                             <a href="{{ route('paid-schools') }}">Paid Schools</a>
                                             <a href="{{ route('unpaid-schools') }}">Unpaid Schools</a>
@@ -66,6 +66,7 @@
                                             <a href="{{ route('admin.school-requests') }}">School Requests</a>
                                             <a href="{{ route('route-plan-schools') }}">Route Plane Schools</a>
                                             <a href="{{ route('schools-reporting.trainer-needs') }}">Trainer Needs (Graph)</a>
+                                            <a href="{{ route('schools-reporting.assignment-excel') }}">District-wise Excel Report</a>
                                         </div>
                                     </li>
                                 </div>
