@@ -46,9 +46,27 @@
 			</thead>
 			<tbody>
 			@foreach($trainers as $data)
-				<tr class="data{{$data['id']}}">
-				    <td>{{$data['id']}}</td>
-				    <td>{{$data['instructor_name']}}</td>
+				@php
+					$claimedPendingCount = 0;
+					foreach (($data['asigned_schools'] ?? []) as $chkSchool) {
+						if (($chkSchool['claim_status'] ?? 0) == 1 && ($chkSchool['paid_status'] ?? 0) == 0) {
+							$claimedPendingCount++;
+						}
+					}
+				@endphp
+				<tr class="data{{$data['id']}}" id="trainer-{{$data['id']}}" style="{{ $claimedPendingCount > 0 ? 'background-color: #fff9e6;' : '' }}">
+				    <td>
+				    	{{$data['id']}}
+				    	@if($claimedPendingCount > 0)
+				    		<span class="badge badge-warning ml-1" style="background:#ffc107; color:#000; font-size:10px;" title="{{ $claimedPendingCount }} school(s) claimed">Claim</span>
+				    	@endif
+				    </td>
+				    <td>
+				    	<strong>{{$data['instructor_name']}}</strong>
+				    	@if($claimedPendingCount > 0)
+				    		<span class="badge badge-danger ml-1" style="font-size:10px;">{{ $claimedPendingCount }} Claimed</span>
+				    	@endif
+				    </td>
 				    <td>{{$data['instructor_code']}}</td>
 				    <td>{{$data['instructor_number']}}</td>
 				    <td>{{$data['district']}}</td>
@@ -95,6 +113,9 @@
                         	<div class="mt-2 mb-2">
                         		<span class="remark">Paid Schools: {{ $paidSchoolsInSession }}</span></br>
                         		<span class="remark">Advance: {{ number_format($advanceAmount, 2) }}</span></br>
+                        		@if(!empty($data['claim_note']))
+                        			<span class="remark"><strong>Trainer Claim Note:</strong> {{ $data['claim_note'] }}</span></br>
+                        		@endif
                         	</div>
 											<div class="form-row">
 												 <div class="form-group col">
@@ -133,37 +154,67 @@
 											    </div>
 											    <input type="hidden" class="form-control" name="id" value="{{$data['id']}}">
 											</div>
+
+                                    	<div class="mt-3">
+                                    		<table class="table table-bordered table-sm mb-0">
+                                    			<thead>
+                                    				<tr class="table-light">
+														<th>School Name</th>
+														<th style="text-align: center;">Claim Status</th>
+														<th style="text-align: center; width: 100px;">Status</th>
+													</tr>
+                                    			</thead>
+                                    			<tbody>
+                                    				@php $hasCompletedSchools = false; @endphp
+                                    				@foreach($data['asigned_schools'] as  $a_schools)
+	                                    				@if($a_schools['status'] == 1)
+	                                    					@php $hasCompletedSchools = true; @endphp
+														<tr>
+															<td style="vertical-align: middle;">
+																@foreach($schools as $school)
+											                        @if($a_schools['school_name'] == $school['id'])
+											                        	<strong>{{$school['school_name']}}</strong>
+											                        @endif
+											                    @endforeach 
+															</td>
+															<td style="text-align: center; vertical-align: middle;">
+																@if(($a_schools['claim_status'] ?? 0) == 1)
+																	<span class="badge badge-warning" style="background:#ffc107; color:#000; padding: 4px 8px; font-size: 11px;">Claim Requested</span>
+																	@if(!empty($a_schools['claimed_at']))
+																		<small class="d-block text-muted mt-1 font-weight-bold">
+																			<i class="bi bi-clock"></i> {{ date('d-m-Y : g:i A', strtotime($a_schools['claimed_at'])) }}
+																		</small>
+																	@endif
+																@else
+																	<span class="badge badge-secondary" style="padding: 4px 8px; font-size: 11px;">Not Claimed</span>
+																@endif
+															</td>
+															<td style="text-align: center; vertical-align: middle;">
+															 	@foreach($schools as $school)
+											                        @if($a_schools['school_name'] == $school['id'])
+											                        	@if($a_schools['paid_status'] == 1)
+											                        		<span class="badge badge-success" style="background:#28a745; color:#fff; font-size: 11px; padding: 4px 8px;">Paid</span>
+											                        	@else
+											                        		<div class="d-flex flex-column align-items-center justify-content-center">
+											                        			<span class="badge badge-warning mb-1" style="background:#ffc107; color:#000; font-size: 10px; padding: 2px 6px;">Unpaid</span>
+											                        			<input type="checkbox" data-id="{{$school['id']}}" name="paid_status[]" class="paid-status" value="{{$school['id']}}" {{ (isset($isReadOnlySessionView) && $isReadOnlySessionView) ? 'disabled' : '' }}>
+											                        		</div>
+											                        	@endif
+											                        @endif
+											                    @endforeach 
+											                </td>    
+														</tr>  
+														@endif 	
+								                    @endforeach
+								                    @if(!$hasCompletedSchools)
+								                    	<tr>
+								                    		<td colspan="3" class="text-center text-muted">No completed schools found.</td>
+								                    	</tr>
+								                    @endif
+                                    			</tbody>
+                                    		</table>
                                     	</div>
-                                    	<table>
-                                    		<tbody>
-                                    			<tr>
-													<th>School Name</th>
-													<th>Status</th>
-												</tr>
-                                    		</tbody>
-                                    		<tbody>
-                                    			@foreach($data['asigned_schools'] as  $a_schools)
-	                                    				@if($a_schools['status'] == 1 && $a_schools['paid_status'] == 0)
-													<tr>
-														<td>
-															@foreach($schools as $school)
-										                        @if($a_schools['school_name'] == $school['id'])
-										                        	{{$school['school_name']}}
-										                        @endif
-										                    @endforeach 
-														</td>
-														<td style="text-align: center;">
-														 	@foreach($schools as $school)
-										                        @if($a_schools['school_name'] == $school['id'])
-										                        	<input type="checkbox" data-id="{{$school['id']}}" name="paid_status[]" class="paid-status" value="{{$school['id']}}" {{$a_schools['paid_status'] == 1 ? 'checked' : '' }} {{ (isset($isReadOnlySessionView) && $isReadOnlySessionView) ? 'disabled' : '' }}>
-										                        @endif
-										                    @endforeach 
-										                </td>    
-													</tr>  
-													@endif 	
-							                    @endforeach
-                                    		</tbody>
-                                    	</table>
+                                    	</div>
                                         <div class="modal-footer">
                                             <button type="button" class="close-btn"
                                                 data-dismiss="modal">Close</button>

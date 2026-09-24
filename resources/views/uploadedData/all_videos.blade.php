@@ -225,7 +225,7 @@
                         </td>
                         <td class="date-cell">
                             <div class="dt-stack">
-                                @php $shownAt = $video['updated_at'] ?? $video['created_at']; @endphp
+                                @php $shownAt = $video['created_at'] ?? $video['created_date'] ?? $video['updated_at']; @endphp
                                 {{ date('d/m/y', strtotime($shownAt)) }}
                                 <small>{{ date('g:i A', strtotime($shownAt)) }}</small>
                             </div>
@@ -267,17 +267,20 @@
                             @endif
                         </td>
                         <td>
-                            <label class="container-ck12">
+                            <div class="approval-cell-wrap text-center">
                                 @if($video['status'] == 1)
-                                    <span class="approve">Approved</span>
+                                    <span class="badge badge-success py-1 px-2" style="background:#28a745; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-check-circle-fill"></i> Approved</span>
                                 @elseif($video['video_note'] != null)
-                                    <span class="not-started">Rejected</span>
+                                    <span class="badge badge-danger py-1 px-2" style="background:#dc3545; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-x-circle-fill"></i> Rejected</span>
                                 @else
-                                    <span class="disapproved">Pending</span>
-                                    <input class="video-status approve-button" data-id="{{ $video['id'] }}" type="checkbox">
-                                    <div class="checkmark"></div>
+                                    <div class="d-flex flex-column align-items-center justify-content-center" style="gap: 2px;">
+                                        <span class="badge badge-warning py-1 px-2" style="background:#ffc107; color:#000; font-size: 10px; font-weight: 600; border-radius: 3px; white-space: nowrap;">Pending</span>
+                                        <button type="button" class="btn btn-sm btn-success btn-approve-video" data-id="{{ $video['id'] }}" style="padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 4px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; line-height: 1.2;">
+                                            <i class="bi bi-check-lg" style="font-size: 12px;"></i> <span>Approve</span>
+                                        </button>
+                                    </div>
                                 @endif
-                            </label>
+                            </div>
                         </td>
                     </tr>
                 @endforeach
@@ -341,50 +344,41 @@
         });
     });
 
-$('.video-status').change(function () {
-    let status = $(this).prop('checked') === true ? 1 : 0;
-    let video_id = $(this).data('id');
+$(document).on('click', '.btn-approve-video', function () {
+    let $btn = $(this);
+    let video_id = $btn.data('id');
+    let $cellWrap = $btn.closest('.approval-cell-wrap');
+
+    $btn.prop('disabled', true).text('Approving...');
+
     $.ajax({
         type: "GET",
         dataType: "json",
         url: '/video-status',
-        data: {'video_status': status, 'video_id': video_id},
+        data: {'video_status': 1, 'video_id': video_id},
         success: function (data) {
+            $cellWrap.html('<span class="badge badge-success py-1 px-2" style="background:#28a745; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-check-circle-fill"></i> Approved</span>');
             const Toast = Swal.mixin({
                  toast: true,
                  position: 'top-end',
                  showConfirmButton: false,
                  timer: 2000,
-                 timerProgressBar: true,
-                 didOpen: (toast) => {
-                    toast.addEventListener('mouseenter', Swal.stopTimer)
-                    toast.addEventListener('mouseleave', Swal.resumeTimer)
-                 }
-            })
-
+                 timerProgressBar: true
+            });
             Toast.fire({
               icon: 'success',
-              title: 'Approve video status are changed !'
-            })
+              title: 'Video approved successfully!'
+            });
         },
-        error: function (data){
-            const Toast = Swal.mixin({
-                 toast: true,
-                 position: 'top-end',
-                 showConfirmButton: false,
-                 timer: 4000,
-                 timerProgressBar: true,
-                 didOpen: (toast) => {
-                    toast.addEventListener('mouseenter', Swal.stopTimer)
-                    toast.addEventListener('mouseleave', Swal.resumeTimer)
-                 }
-            })
-
-            Toast.fire({
+        error: function (xhr){
+            $btn.prop('disabled', false).html('<i class="bi bi-check-lg" style="font-size: 12px;"></i> <span>Approve</span>');
+            let errMsg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Something went wrong. Please check!';
+            Swal.fire({
               icon: 'error',
-              title: 'Somethig Wrong Please Check!'
-            })
-        },
+              title: 'Error',
+              text: errMsg
+            });
+        }
     });
 });
 

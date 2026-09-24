@@ -50,7 +50,14 @@ class User extends Authenticatable
         'school_name',
         'amount',
         'extra_amount',
-        'total_amount'
+        'total_amount',
+        'pan_number',
+        'pan_doc',
+        'bank_name',
+        'account_holder_name',
+        'account_number',
+        'ifsc_code',
+        'passbook_doc'
     ];
 
     /**
@@ -92,6 +99,11 @@ class User extends Authenticatable
     public function distributions()
     {
         return $this->hasMany(Distribution::class);
+    }
+
+    public function attendances()
+    {
+        return $this->hasMany(Attendance::class);
     }
 
     public function asigned_schools()

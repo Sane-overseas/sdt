@@ -1,39 +1,42 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="csrf-token" content="{{ csrf_token() }}">
-        <title>SOPL - @yield('title')</title>
-        <title>{{ config('app.name', 'Laravel') }}</title>
-        <link rel="icon" href="{{  asset('/images/logo.jpg') }}"/>
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net" >
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-        <!-- Scripts -->
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/css/bootstrap.min.css" />
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" />
-        <link href="{{ asset('css/style.css') }}" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
-        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" >
 
-        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
-        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>SOPL - @yield('title')</title>
+    <title>{{ config('app.name', 'Laravel') }}</title>
+    <link rel="icon" href="{{ asset('/images/logo.jpg') }}" />
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <!-- Scripts -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/css/bootstrap.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" />
+    <link href="{{ asset('css/style.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-        <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
-        <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-dark@4/dark.css" rel="stylesheet">
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
-        @vite(['resources/sass/app.scss', 'resources/js/app.js'])
-    </head>
+    <link rel="stylesheet" type="text/css"
+        href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
 
-    <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
-            @include('layouts.navigation')
-            @if(Auth::user() == null)
-               <a id="clicked" href="{{ route('login') }}"></a>
-            @elseif(Auth::user()->role == 1)
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-dark@4/dark.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+    @vite(['resources/sass/app.scss', 'resources/js/app.js'])
+</head>
+
+<body class="font-sans antialiased">
+    <div class="min-h-screen bg-gray-100">
+        @include('layouts.navigation')
+        @if (Auth::user() == null)
+            <a id="clicked" href="{{ route('login') }}"></a>
+        @elseif(Auth::user()->role == 1)
             <div id="app">
                 <nav class="navbar navbar-expand-md navbar-light menu-bar shadow-sm">
                     <div class="container">
@@ -41,14 +44,17 @@
                             <!-- Right Side Of Navbar -->
                             <ul class="navbar-nav ml-auto snip1198">
                                 <li class="nav-item">
-                                    <a class="nav-link {{ Request::path() == 'dashboard' ? 'active' : '' }}" id="autoload" href="{{ route('dashboard') }}">Dashboard</a>
+                                    <a class="nav-link {{ Request::path() == 'dashboard' ? 'active' : '' }}"
+                                        id="autoload" href="{{ route('dashboard') }}">Dashboard</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {{ Request::path() == 'logs' ? 'active' : '' }}" href="{{ route('logs') }}">Logs</a>
+                                    <a class="nav-link {{ Request::path() == 'logs' ? 'active' : '' }}"
+                                        href="{{ route('logs') }}">Logs</a>
                                 </li>
                                 <div class="dropdown">
                                     <li class="nav-item">
-                                        <a class="nav-link {{ Request::path() == 'uploaded-data' ? 'active' : '' }}" href="{{ route('uploaded-data') }}">Uploaded Data</a>
+                                        <a class="nav-link {{ Request::path() == 'uploaded-data' ? 'active' : '' }}"
+                                            href="{{ route('uploaded-data') }}">Uploaded Data</a>
                                         <div class="dropdown-content">
                                             <a href="{{ route('rejected-uc') }}">Rejected UC</a>
                                             <a href="{{ route('approval-pending-uc') }}">Approval Pending UC</a>
@@ -58,255 +64,366 @@
                                 </div>
                                 <div class="dropdown">
                                     <li class="nav-item">
-                                    <a class="nav-link {{ in_array(Request::path(), ['schools-reporting', 'schools-reporting/trainer-needs', 'schools-reporting/assignment-excel']) ? 'active' : '' }}" href="{{ route('schools-reporting') }}">Schools Reporting</a>
+                                        <a class="nav-link {{ in_array(Request::path(), ['schools-reporting', 'schools-reporting/trainer-needs', 'schools-reporting/assignment-excel']) ? 'active' : '' }}"
+                                            href="{{ route('schools-reporting') }}">Schools Reporting</a>
                                         <div class="dropdown-content">
                                             <a href="{{ route('paid-schools') }}">Paid Schools</a>
                                             <a href="{{ route('unpaid-schools') }}">Unpaid Schools</a>
                                             <a href="{{ route('today-assigned') }}">Assigned Schools</a>
                                             <a href="{{ route('admin.school-requests') }}">School Requests</a>
                                             <a href="{{ route('route-plan-schools') }}">Route Plane Schools</a>
-                                            <a href="{{ route('schools-reporting.trainer-needs') }}">Trainer Needs (Graph)</a>
-                                            <a href="{{ route('schools-reporting.assignment-excel') }}">District-wise Excel Report</a>
+                                            <a href="{{ route('schools-reporting.trainer-needs') }}">Trainer Needs
+                                                (Graph)</a>
+                                            <a href="{{ route('schools-reporting.assignment-excel') }}">District-wise
+                                                Excel Report</a>
                                         </div>
                                     </li>
                                 </div>
                                 <div class="dropdown">
                                     <li class="nav-item">
-                                        <a class="nav-link dropbtn {{ in_array(Request::path(), ['add_trainers', 'trainer-registrations']) ? 'active' : '' }}" href="{{ route('add_trainers') }}">Trainers Reporting</a>
+                                        <a class="nav-link dropbtn {{ in_array(Request::path(), ['add_trainers', 'trainer-registrations']) ? 'active' : '' }}"
+                                            href="{{ route('add_trainers') }}">
+                                            Trainers Reporting
+                                            @if (!empty($pendingClaimsCount) && $pendingClaimsCount > 0)
+                                                <span class="nav-claim-badge"
+                                                    title="{{ $pendingClaimsCount }} Claim(s) Pending">{{ $pendingClaimsCount }}</span>
+                                            @endif
+                                        </a>
                                         <div class="dropdown-content">
                                             <a href="{{ route('trainer.registrations') }}">Trainer Registrations</a>
                                             <a href="{{ route('ongoing-schools') }}">OnGoing Trainers</a>
                                             <a href="{{ route('not-workig-trainers') }}">Not Working Trainers</a>
                                             <a href="{{ route('trainers-schools-data') }}">Trainers Schools Data</a>
-                                            <a href="{{ route('claim-trainers') }}">Claim Traniers</a>
-                                             <a href="{{ route('advance-payment') }}">Advance Payment</a>
+                                            <a href="{{ route('claim-trainers') }}">
+                                                Claim Traniers
+                                                @if (!empty($pendingClaimsCount) && $pendingClaimsCount > 0)
+                                                    <span
+                                                        class="badge badge-danger ml-1">{{ $pendingClaimsCount }}</span>
+                                                @endif
+                                            </a>
+                                            <a href="{{ route('advance-payment') }}">Advance Payment</a>
                                         </div>
                                     </li>
                                 </div>
                                 <li class="nav-item">
-                                    <a class="nav-link {{ Request::path() == 'cordinators' ? 'active' : '' }}" href="{{ route('cordinators') }}">Cordinators</a>
+                                    <a class="nav-link {{ Request::path() == 'cordinators' ? 'active' : '' }}"
+                                        href="{{ route('cordinators') }}">Cordinators</a>
                                 </li>
 
                                 <li class="nav-item">
-                                    <a class="nav-link {{ Request::path() == 'settings' ? 'active' : '' }}" href="{{ route('settings') }}">Settings</a>
+                                    <a class="nav-link {{ Request::path() == 'settings' ? 'active' : '' }}"
+                                        href="{{ route('settings') }}">Settings</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link {{ Request::path() == 'schools/add' ? 'active' : '' }}" href="{{ route('schools.create') }}">Add Schools</a>
+                                    <a class="nav-link {{ Request::path() == 'schools/add' ? 'active' : '' }}"
+                                        href="{{ route('schools.create') }}">Add Schools</a>
                                 </li>
+                                <!-- Notification Bell Start -->
+                                <li class="nav-item dropdown notification-bell-wrapper mx-2">
+                                    <a class="notification-bell-btn dropdown-toggle no-arrow" href="#"
+                                        id="claimNotificationDropdown" role="button" data-toggle="dropdown"
+                                        aria-haspopup="true" aria-expanded="false" title="Claim Notifications">
+                                        <i class="bi bi-bell-fill"></i>
+                                        @if (!empty($pendingClaimsCount) && $pendingClaimsCount > 0)
+                                            <span
+                                                class="notification-bell-badge">{{ $pendingClaimsCount > 99 ? '99+' : $pendingClaimsCount }}</span>
+                                        @endif
+                                    </a>
+                                    <div class="dropdown-menu dropdown-menu-right notification-dropdown-menu"
+                                        aria-labelledby="claimNotificationDropdown">
+                                        <div class="notification-header">
+                                            <span><i class="bi bi-bell mr-1"></i> School Claim Notifications</span>
+                                            @if (!empty($pendingClaimsCount) && $pendingClaimsCount > 0)
+                                                <span class="badge badge-light"
+                                                    style="color: #004857; font-weight: 700;">{{ $pendingClaimsCount }}
+                                                    Pending</span>
+                                            @endif
+                                        </div>
+                                        <div class="notification-list">
+                                            @if (!empty($pendingClaimNotifications) && $pendingClaimNotifications->count() > 0)
+                                                @foreach ($pendingClaimNotifications as $notif)
+                                                    <a href="{{ route('claim-trainers') }}#trainer-{{ $notif['trainer_id'] }}"
+                                                        class="notification-item">
+                                                        <div class="notif-title">
+                                                            <i class="bi bi-person-badge text-primary mr-1"></i>
+                                                            <strong>{{ $notif['trainer_name'] }}</strong>
+                                                            ({{ $notif['trainer_code'] }})
+                                                        </div>
+                                                        <div class="notif-school">
+                                                            <i class="bi bi-building mr-1"></i>
+                                                            Claimed: <strong>{{ $notif['school_name'] }}</strong>
+                                                        </div>
+                                                        <div class="notif-meta d-flex justify-content-between">
+                                                            <span><i class="bi bi-geo-alt"></i>
+                                                                {{ $notif['district'] }}
+                                                                {{ !empty($notif['block']) ? '- ' . $notif['block'] : '' }}</span>
+                                                            <span class="text-muted"><i class="bi bi-clock"></i>
+                                                                {{ $notif['time_ago'] }}</span>
+                                                        </div>
+                                                    </a>
+                                                @endforeach
+                                            @else
+                                                <div class="p-4 text-center text-muted" style="font-size: 13px;">
+                                                    <i class="bi bi-check-circle"
+                                                        style="font-size: 24px; color: #28a745; display: block; margin-bottom: 5px;"></i>
+                                                    No pending school claims.
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="notification-footer">
+                                            <a href="{{ route('claim-trainers') }}"><i
+                                                    class="bi bi-arrow-right-circle"></i> View All Claim Trainers</a>
+                                        </div>
+                                    </div>
+                                </li>
+                                <!-- Notification Bell End -->
                                 <li class="nav-item">
                                     <form method="POST" action="{{ route('logout') }}">
                                         @csrf
-                                       <button class="logout-btn" type="submit">Log Out</button>
+                                        <button class="logout-btn" type="submit">Log Out</button>
                                     </form>
                                 </li>
                             </ul>
                         </div>
                     </div>
                 </nav>
-                @if((isset($currentState) && $currentState) || (isset($currentAcademicSession) && $currentAcademicSession && Auth::user()->role == 1))
-                <div class="container-fluid py-1" style="background:#1a3a5c;color:#fff;font-size:14px;">
-                    <div class="container d-flex justify-content-between align-items-center flex-wrap">
-                        <span class="d-flex flex-wrap align-items-center">
-                            @if(isset($currentState) && $currentState)
-                            <span class="mr-3 mb-1">
-                                State: <strong>{{ $currentState->name }}</strong>
-                                <span class="badge badge-light ml-1">{{ $currentState->code }}</span>
-                            </span>
-                            @endif
-                            @if(isset($currentAcademicSession) && $currentAcademicSession && Auth::user()->role == 1)
-                            <span class="mb-1">
-                                Session: <strong>{{ $currentAcademicSession->name }}</strong>
-                                @if(isset($activeAcademicSession) && $currentAcademicSession->id === $activeAcademicSession->id)
-                                    <span class="badge badge-success ml-1">Active</span>
-                                @else
-                                    <span class="badge badge-warning ml-1">Archive</span>
-                                    <span class="badge badge-secondary ml-1">Read only</span>
+                @if (
+                    (isset($currentState) && $currentState) ||
+                        (isset($currentAcademicSession) && $currentAcademicSession && Auth::user()->role == 1))
+                    <div class="container-fluid py-1" style="background:#1a3a5c;color:#fff;font-size:14px;">
+                        <div class="container d-flex justify-content-between align-items-center flex-wrap">
+                            <span class="d-flex flex-wrap align-items-center">
+                                @if (isset($currentState) && $currentState)
+                                    <span class="mr-3 mb-1">
+                                        State: <strong>{{ $currentState->name }}</strong>
+                                        <span class="badge badge-light ml-1">{{ $currentState->code }}</span>
+                                    </span>
+                                @endif
+                                @if (isset($currentAcademicSession) && $currentAcademicSession && Auth::user()->role == 1)
+                                    <span class="mb-1">
+                                        Session: <strong>{{ $currentAcademicSession->name }}</strong>
+                                        @if (isset($activeAcademicSession) && $currentAcademicSession->id === $activeAcademicSession->id)
+                                            <span class="badge badge-success ml-1">Active</span>
+                                        @else
+                                            <span class="badge badge-warning ml-1">Archive</span>
+                                            <span class="badge badge-secondary ml-1">Read only</span>
+                                        @endif
+                                    </span>
                                 @endif
                             </span>
-                            @endif
-                        </span>
-                        <span class="d-flex flex-wrap align-items-center">
-                            @if(isset($allStates) && $allStates->count() && Auth::user()->role == 1)
-                            <form action="{{ route('states.switch') }}" method="POST" class="form-inline m-0 mr-2 mb-1">
-                                @csrf
-                                <select name="state_id" class="form-control form-control-sm" onchange="this.form.submit()">
-                                    @foreach($allStates as $st)
-                                        <option value="{{ $st->id }}" {{ isset($currentState) && $currentState && $currentState->id == $st->id ? 'selected' : '' }}>{{ $st->name }}</option>
-                                    @endforeach
-                                </select>
-                            </form>
-                            @endif
-                            @if(isset($allAcademicSessions) && $allAcademicSessions->count() && Auth::user()->role == 1)
-                            <form action="{{ route('academic-sessions.switch') }}" method="POST" class="form-inline m-0 mb-1">
-                                @csrf
-                                <select name="session_id" class="form-control form-control-sm" onchange="this.form.submit()">
-                                    @foreach($allAcademicSessions as $s)
-                                        <option value="{{ $s->id }}" {{ isset($currentAcademicSession) && $currentAcademicSession && $currentAcademicSession->id == $s->id ? 'selected' : '' }}>{{ $s->name }}{{ $s->is_active ? ' (Active)' : '' }}</option>
-                                    @endforeach
-                                </select>
-                            </form>
-                            @endif
-                        </span>
+                            <span class="d-flex flex-wrap align-items-center">
+                                @if (isset($allStates) && $allStates->count() && Auth::user()->role == 1)
+                                    <form action="{{ route('states.switch') }}" method="POST"
+                                        class="form-inline m-0 mr-2 mb-1">
+                                        @csrf
+                                        <select name="state_id" class="form-control form-control-sm"
+                                            onchange="this.form.submit()">
+                                            @foreach ($allStates as $st)
+                                                <option value="{{ $st->id }}"
+                                                    {{ isset($currentState) && $currentState && $currentState->id == $st->id ? 'selected' : '' }}>
+                                                    {{ $st->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </form>
+                                @endif
+                                @if (isset($allAcademicSessions) && $allAcademicSessions->count() && Auth::user()->role == 1)
+                                    <form action="{{ route('academic-sessions.switch') }}" method="POST"
+                                        class="form-inline m-0 mb-1">
+                                        @csrf
+                                        <select name="session_id" class="form-control form-control-sm"
+                                            onchange="this.form.submit()">
+                                            @foreach ($allAcademicSessions as $s)
+                                                <option value="{{ $s->id }}"
+                                                    {{ isset($currentAcademicSession) && $currentAcademicSession && $currentAcademicSession->id == $s->id ? 'selected' : '' }}>
+                                                    {{ $s->name }}{{ $s->is_active ? ' (Active)' : '' }}</option>
+                                            @endforeach
+                                        </select>
+                                    </form>
+                                @endif
+                            </span>
+                        </div>
                     </div>
-                </div>
                 @endif
                 <main class="py-4">
                     @yield('content')
                 </main>
             </div>
-            @elseif(Auth::user()->role == 2)
+        @elseif(Auth::user()->role == 2)
+            @if (Auth::user()->active_status == 1)
             <div class="header-div row">
                 <h2 class="header-text col-7">
-                   Daily Attendance System
+                    Daily Attendance System
                 </h2>
                 <div class="col-5">
                     <div class="dropdown trainer-pl">
-                      <button class=" dropdown-toggle auth-btn" type="button" id="dropdownMenuButton1" data-toggle="dropdown" aria-expanded="false">{{ Auth::user()->instructor_name }}  </button>
-                      <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
-                        @if(Auth::user()->role == 0)
-                        <li> <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profile') }}
-                        </x-dropdown-link></li>
-                        @endif
-                        <li><form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <x-dropdown-link :href="route('logout')"
-                                    onclick="event.preventDefault();
+                        <button class=" dropdown-toggle auth-btn" type="button" id="dropdownMenuButton1"
+                            data-toggle="dropdown" aria-expanded="false">{{ Auth::user()->instructor_name }}
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+                            @if (in_array((int) Auth::user()->role, [0, 2], true))
+                                <li> <x-dropdown-link :href="route('profile.edit')">
+                                        {{ __('Profile') }}
+                                    </x-dropdown-link></li>
+                            @endif
+                            <li>
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
+                                    <x-dropdown-link :href="route('logout')"
+                                        onclick="event.preventDefault();
                                                 this.closest('form').submit();">
-                                {{ __('Log Out') }}
-                            </x-dropdown-link>
-                        </form></li>
-                      </ul>
+                                        {{ __('Log Out') }}
+                                    </x-dropdown-link>
+                                </form>
+                            </li>
+                        </ul>
                     </div>
                 </div>
             </div>
             <div class="min-h-screen bg-gray-100">
-            <!-- Page Content -->
+                <!-- Page Content -->
                 <nav class="navbar navbar-expand-md navbar-light trainer-menu-bar shadow-sm">
                     <div class="container">
-                        <div class="" >
+                        <div class="">
                             <!-- Right Side Of Navbar -->
                             <ul class="snip1198">
                                 <li class="nav-item">
-                                    <a class="nav-link trainer-nav-link {{ Request::path() == 't-dashboard' ? 'active' : '' }}" href="{{ route('t-dashboard') }}">Dashboard</a>
+                                    <a class="nav-link trainer-nav-link {{ Request::path() == 't-dashboard' ? 'active' : '' }}"
+                                        href="{{ route('t-dashboard') }}">Dashboard</a>
                                 </li>
                                 @php
-                                    $isStateCoordinatorNav = (Auth::user()->coordinator_level ?? 'district') === 'state';
+                                    $isStateCoordinatorNav =
+                                        (Auth::user()->coordinator_level ?? 'district') === 'state';
                                 @endphp
-                                @if(!$isStateCoordinatorNav)
-                                <li class="nav-item">
-                                    <a class="nav-link trainer-nav-link {{ Request::path() == 'dashboard' ? 'active' : '' }}" href="{{ route('dashboard') }}">Upload</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link trainer-nav-link {{ Request::path() == 'school-requests' ? 'active' : '' }}" href="{{ route('trainer.school-requests') }}">Request Schools</a>
-                                </li>
+                                @if (!$isStateCoordinatorNav)
+                                    <li class="nav-item">
+                                        <a class="nav-link trainer-nav-link {{ Request::path() == 'dashboard' ? 'active' : '' }}"
+                                            href="{{ route('dashboard') }}">Upload</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link trainer-nav-link {{ Request::path() == 'school-requests' ? 'active' : '' }}"
+                                            href="{{ route('trainer.school-requests') }}">Request Schools</a>
+                                    </li>
                                 @endif
                                 <li class="nav-item">
-                                    <a class="nav-link trainer-nav-link {{ Request::is('my-id-card*') ? 'active' : '' }}" href="{{ route('my-id-card') }}">ID Card</a>
+                                    <a class="nav-link trainer-nav-link {{ Request::is('my-id-card*') ? 'active' : '' }}"
+                                        href="{{ route('my-id-card') }}">ID Card</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link trainer-nav-link {{ Request::path() == 'trainer-reporting' ? 'active' : '' }}" href="{{ route('trainer-reporting') }}">Cordinator Panel</a>
+                                    <a class="nav-link trainer-nav-link {{ Request::path() == 'trainer-reporting' ? 'active' : '' }}"
+                                        href="{{ route('trainer-reporting') }}">Cordinator Panel</a>
                                 </li>
                             </ul>
                         </div>
                     </div>
                 </nav>
-                @if(isset($currentState) && $currentState)
-                <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
-                    <div class="container">
-                        State: <strong>{{ $currentState->name }}</strong>
-                        @if(isset($activeAcademicSession) && $activeAcademicSession)
-                        | Active Session: <strong>{{ $activeAcademicSession->name }}</strong>
-                        @endif
+                @if (isset($currentState) && $currentState)
+                    <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
+                        <div class="container">
+                            State: <strong>{{ $currentState->name }}</strong>
+                            @if (isset($activeAcademicSession) && $activeAcademicSession)
+                                | Active Session: <strong>{{ $activeAcademicSession->name }}</strong>
+                            @endif
+                        </div>
                     </div>
-                </div>
                 @elseif(isset($activeAcademicSession) && $activeAcademicSession)
-                <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
-                    <div class="container">
-                        Active Session: <strong>{{ $activeAcademicSession->name }}</strong>
+                    <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
+                        <div class="container">
+                            Active Session: <strong>{{ $activeAcademicSession->name }}</strong>
+                        </div>
                     </div>
-                </div>
                 @endif
                 <main>
-                     @yield('content')
+                    @yield('content')
                 </main>
             </div>
             @else
-                @if(Auth::user()->active_status == 1)
+                @include('deactive')
+            @endif
+        @else
+            @if (Auth::user()->active_status == 1)
                 <div class="header-div row">
                     <h2 class="header-text col-7">
-                       Daily Attendance System
+                        Daily Attendance System
                     </h2>
                     <div class="col-5">
                         <div class="dropdown trainer-pl">
-                          <button class=" dropdown-toggle auth-btn" type="button" id="dropdownMenuButton1" data-toggle="dropdown" aria-expanded="false">{{ Auth::user()->instructor_name }}  </button>
-                          <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
-                            @if(Auth::user()->role == 0)
-                            <li> <x-dropdown-link :href="route('profile.edit')">
-                                {{ __('Profile') }}
-                            </x-dropdown-link></li>
-                            @endif
-                            <li><form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <x-dropdown-link :href="route('logout')"
-                                        onclick="event.preventDefault();
+                            <button class=" dropdown-toggle auth-btn" type="button" id="dropdownMenuButton1"
+                                data-toggle="dropdown" aria-expanded="false">{{ Auth::user()->instructor_name }}
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+                                @if (in_array((int) Auth::user()->role, [0, 2], true))
+                                    <li> <x-dropdown-link :href="route('profile.edit')">
+                                            {{ __('Profile') }}
+                                        </x-dropdown-link></li>
+                                @endif
+                                <li>
+                                    <form method="POST" action="{{ route('logout') }}">
+                                        @csrf
+                                        <x-dropdown-link :href="route('logout')"
+                                            onclick="event.preventDefault();
                                                     this.closest('form').submit();">
-                                    {{ __('Log Out') }}
-                                </x-dropdown-link>
-                            </form></li>
-                          </ul>
+                                            {{ __('Log Out') }}
+                                        </x-dropdown-link>
+                                    </form>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                 </div>
                 <div class="min-h-screen bg-gray-100">
-                <!-- Page Content -->
+                    <!-- Page Content -->
                     <nav class="navbar navbar-expand-md navbar-light trainer-menu-bar shadow-sm">
                         <div class="container">
-                            <div class="" >
+                            <div class="">
                                 <!-- Right Side Of Navbar -->
                                 <ul class="snip1198">
                                     <li class="nav-item">
-                                        <a class="nav-link trainer-nav-link {{ Request::path() == 't-dashboard' ? 'active' : '' }}" href="{{ route('t-dashboard') }}">Dashboard</a>
+                                        <a class="nav-link trainer-nav-link {{ Request::path() == 't-dashboard' ? 'active' : '' }}"
+                                            href="{{ route('t-dashboard') }}">Dashboard</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link trainer-nav-link {{ Request::path() == 'dashboard' ? 'active' : '' }}" href="{{ route('dashboard') }}">Upload</a>
+                                        <a class="nav-link trainer-nav-link {{ Request::path() == 'dashboard' ? 'active' : '' }}"
+                                            href="{{ route('dashboard') }}">Upload</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link trainer-nav-link {{ Request::path() == 'school-requests' ? 'active' : '' }}" href="{{ route('trainer.school-requests') }}">Request Schools</a>
+                                        <a class="nav-link trainer-nav-link {{ Request::path() == 'school-requests' ? 'active' : '' }}"
+                                            href="{{ route('trainer.school-requests') }}">Request Schools</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link trainer-nav-link {{ Request::is('my-id-card*') ? 'active' : '' }}" href="{{ route('my-id-card') }}">ID Card</a>
+                                        <a class="nav-link trainer-nav-link {{ Request::is('my-id-card*') ? 'active' : '' }}"
+                                            href="{{ route('my-id-card') }}">ID Card</a>
                                     </li>
                                 </ul>
                             </div>
                         </div>
                     </nav>
-                    @if(isset($currentState) && $currentState)
-                    <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
-                        <div class="container">
-                            State: <strong>{{ $currentState->name }}</strong>
-                            @if(isset($activeAcademicSession) && $activeAcademicSession)
-                            | Session: <strong>{{ $activeAcademicSession->name }}</strong>
-                            @endif
+                    @if (isset($currentState) && $currentState)
+                        <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
+                            <div class="container">
+                                State: <strong>{{ $currentState->name }}</strong>
+                                @if (isset($activeAcademicSession) && $activeAcademicSession)
+                                    | Session: <strong>{{ $activeAcademicSession->name }}</strong>
+                                @endif
+                            </div>
                         </div>
-                    </div>
                     @elseif(isset($activeAcademicSession) && $activeAcademicSession)
-                    <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
-                        <div class="container">
-                            Session: <strong>{{ $activeAcademicSession->name }}</strong>
+                        <div class="container-fluid py-1" style="background:#004857;color:#fff;font-size:14px;">
+                            <div class="container">
+                                Session: <strong>{{ $activeAcademicSession->name }}</strong>
+                            </div>
                         </div>
-                    </div>
                     @endif
                     <main>
-                         @yield('content')
+                        @yield('content')
                     </main>
                 </div>
-                @else
-                  @include('deactive')
-                @endif
+            @else
+                @include('deactive')
             @endif
-        </div>
-    </body>
+        @endif
+    </div>
+</body>
+
 </html>
 <script type="text/javascript">
     document.getElementById("clicked").click();

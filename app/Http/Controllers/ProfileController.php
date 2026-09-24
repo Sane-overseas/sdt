@@ -27,6 +27,8 @@ class ProfileController extends Controller
         'qualification_doc' => 'qualification',
         'martial_art_doc' => 'martial_art',
         'photo' => 'photo',
+        'pan_doc' => 'pan_doc',
+        'passbook_doc' => 'passbook_doc',
     ];
 
     /**
@@ -200,10 +202,17 @@ class ProfileController extends Controller
             'block' => 'nullable|string|max:255',
             'amount' => 'nullable|numeric',
             'extra_amount' => 'nullable|numeric',
+            'bank_name' => 'nullable|string|max:255',
+            'account_holder_name' => 'nullable|string|max:255',
+            'account_number' => 'nullable|string|max:50',
+            'ifsc_code' => 'nullable|string|max:20',
+            'pan_number' => 'nullable|string|max:20',
             'aadhar_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'qualification_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'martial_art_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:3072'],
+            'pan_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'passbook_doc' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
 
         StateService::assertCordinatorInScope((int) $request->cordinator);
@@ -228,6 +237,22 @@ class ProfileController extends Controller
         $trainer->amount = $request->amount;
         $trainer->district = $request->district_name;
         $trainer->extra_amount = $request->extra_amount;
+
+        if ($request->has('bank_name')) {
+            $trainer->bank_name = $request->input('bank_name');
+        }
+        if ($request->has('account_holder_name')) {
+            $trainer->account_holder_name = $request->input('account_holder_name');
+        }
+        if ($request->has('account_number')) {
+            $trainer->account_number = $request->input('account_number');
+        }
+        if ($request->has('ifsc_code')) {
+            $trainer->ifsc_code = strtoupper((string) $request->input('ifsc_code'));
+        }
+        if ($request->has('pan_number')) {
+            $trainer->pan_number = strtoupper((string) $request->input('pan_number'));
+        }
 
         if ($request->filled('block')) {
             $trainer->block = $request->input('block');

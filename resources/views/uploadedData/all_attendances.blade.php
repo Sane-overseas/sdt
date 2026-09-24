@@ -4,57 +4,57 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}" />
-    @section('title', 'Uploaded Data')
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="{{ asset('css/style.css') }}" rel="stylesheet">
 </head>
 <style type="text/css">
-    .testimonials-table-wrap { width: 100%; overflow-x: auto; }
-    div#trainerTestimonials_wrapper .row:first-child { padding: 10px 10px 0; align-items: center; }
-    div#trainerTestimonials_wrapper .dt-buttons { margin-bottom: 0; }
-    div#trainerTestimonials_info { padding: 0; white-space: nowrap; }
-    a.btn.deleteTestimonial {
+    .attendance-table-wrap { width: 100%; overflow-x: auto; }
+    div#trainerAttendances_wrapper .row:first-child { padding: 10px 10px 0; align-items: center; }
+    div#trainerAttendances_wrapper .dt-buttons { margin-bottom: 0; }
+    div#trainerAttendances_info { padding: 0; white-space: nowrap; }
+    a.btn.deleteAttendance {
         padding: 1px 5px; background: #ff0707; color: #fff;
-        width: 90px; margin-top: 8px; display: inline-block;
+        width: 85px; margin-top: 6px; display: inline-block;
     }
-    #trainerTestimonials { width: 100% !important; font-size: 13px; }
-    #trainerTestimonials th.col-id, #trainerTestimonials td.col-id {
+    #trainerAttendances { width: 100% !important; font-size: 13px; }
+    #trainerAttendances th.col-id, #trainerAttendances td.col-id {
         width: 42px; max-width: 48px; min-width: 36px;
         text-align: center; padding: 8px 4px !important; white-space: nowrap;
     }
-    #trainerTestimonials thead tr.filter-row th { padding: 4px 6px; background: #f8f9fa; }
-    #trainerTestimonials thead tr.filter-row input { width: 100%; min-width: 70px; font-size: 12px; padding: 4px 6px; height: auto; }
-    #trainerTestimonials thead tr.filter-row th:first-child input { min-width: 36px; padding: 4px 2px; }
-    #trainerTestimonials th, #trainerTestimonials td { vertical-align: middle; padding: 8px 10px; }
-    #trainerTestimonials .trainer-line { font-weight: 600; line-height: 1.3; }
-    #trainerTestimonials .trainer-line small { color: #666; font-weight: 400; display: block; }
-    #trainerTestimonials .school-cell { white-space: normal; min-width: 140px; }
-    #trainerTestimonials .loc-line { line-height: 1.35; white-space: normal; min-width: 100px; }
-    #trainerTestimonials .loc-line small { color: #666; display: block; }
-    #trainerTestimonials .upload-cell { text-align: left; white-space: normal; min-width: 140px; }
-    #trainerTestimonials .file-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
-    #trainerTestimonials .file-row .file-side { display: inline-flex; align-items: center; gap: 4px; flex: 1; }
-    #trainerTestimonials .file-row .file-label { color: #444; white-space: nowrap; min-width: 72px; }
-    #trainerTestimonials .file-row a.file-link { color: #0b5cab; text-decoration: none; font-weight: 600; }
-    #trainerTestimonials .file-row a.file-link:hover { text-decoration: underline; }
-    #trainerTestimonials .file-row .file-status { flex-shrink: 0; font-size: 14px; }
-    #trainerTestimonials .date-cell { text-align: center; font-size: 12px; white-space: normal; min-width: 68px; }
-    #trainerTestimonials .dt-stack { line-height: 1.35; }
-    #trainerTestimonials .dt-stack small { display: block; color: #666; font-size: 11px; }
-    #trainerTestimonials .actions-cell { text-align: center; min-width: 90px; }
+    #trainerAttendances thead tr.filter-row th { padding: 4px 6px; background: #f8f9fa; }
+    #trainerAttendances thead tr.filter-row input { width: 100%; min-width: 70px; font-size: 12px; padding: 4px 6px; height: auto; }
+    #trainerAttendances thead tr.filter-row th:first-child input { min-width: 36px; padding: 4px 2px; }
+    #trainerAttendances th, #trainerAttendances td { vertical-align: middle; padding: 8px 10px; }
+    #trainerAttendances .trainer-line { font-weight: 600; line-height: 1.3; }
+    #trainerAttendances .trainer-line small { color: #666; font-weight: 400; display: block; }
+    #trainerAttendances .school-cell { white-space: normal; min-width: 140px; }
+    #trainerAttendances .loc-line { line-height: 1.35; white-space: normal; min-width: 100px; }
+    #trainerAttendances .loc-line small { color: #666; display: block; }
+    #trainerAttendances .upload-cell { text-align: left; white-space: normal; min-width: 150px; }
+    #trainerAttendances .file-stack { display: flex; flex-direction: column; gap: 5px; }
+    #trainerAttendances .file-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+    #trainerAttendances .file-side { display: inline-flex; align-items: center; gap: 6px; flex: 1; }
+    #trainerAttendances .file-label { color: #444; white-space: nowrap; font-weight: 500; }
+    #trainerAttendances a.file-link { color: #0b5cab; text-decoration: none; font-weight: 600; }
+    #trainerAttendances a.file-link:hover { text-decoration: underline; }
+    #trainerAttendances .file-status { flex-shrink: 0; font-size: 14px; }
+    #trainerAttendances .date-cell { text-align: center; font-size: 12px; white-space: normal; min-width: 68px; }
+    #trainerAttendances .dt-stack { line-height: 1.35; }
+    #trainerAttendances .dt-stack small { display: block; color: #666; font-size: 11px; }
+    #trainerAttendances .actions-cell { text-align: center; min-width: 90px; }
 </style>
 <body>
 <div class="v-container mt-2">
     <div class="row margin-tb">
         <div class="col-md-10">
-            <h2 class="heading ">Trainer's Testimonials</h2>
+            <h2 class="heading">Trainer's Attendance Sheets</h2>
         </div>
     </div>
     @if ($message = Session::get('success'))
     <div class="alert alert-success"><p>{{ $message }}</p></div>
     @endif
-    <div class="card-body testimonials-table-wrap">
-        <table class="table table-bordered" id="trainerTestimonials">
+    <div class="card-body attendance-table-wrap">
+        <table class="table table-bordered" id="trainerAttendances">
             <thead>
                 <tr>
                     <th class="col-id">#</th>
@@ -62,15 +62,15 @@
                     <th>Uploaded By</th>
                     <th>School Name</th>
                     <th>Location</th>
-                    <th>Testimonial</th>
+                    <th>Attendance Sheet</th>
                     <th>Date & Time</th>
                     <th>Route Date</th>
                     <th>Rejection Note</th>
-                    <th>Approve</th>
+                    <th>Approve Attendance</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach(($testimonials ?? []) as $item)
+                @foreach(($attendances ?? []) as $item)
                     @php
                         $trainerName = '';
                         $trainerCode = '';
@@ -85,6 +85,13 @@
                             }
                         }
                         $blockName = $item['block'] ?? $item['bloack'] ?? '—';
+                        $files = [];
+                        if (!empty($item['attendance_files'])) {
+                            $files = is_array($item['attendance_files']) ? $item['attendance_files'] : json_decode($item['attendance_files'], true);
+                        }
+                        if (empty($files) && !empty($item['attendance_file'])) {
+                            $files = [$item['attendance_file']];
+                        }
                     @endphp
                     <tr>
                         <td class="col-id">{{ $item['id'] }}</td>
@@ -102,20 +109,29 @@
                             </div>
                         </td>
                         <td class="upload-cell">
-                            <div class="file-row">
-                                <span class="file-side">
-                                    <span class="file-label">Video</span>
-                                    @if(!empty($item['testimonial_video']))
-                                        <a href="{{ media_url('testimonials', $item['testimonial_video']) }}" target="_blank" class="file-link complete-data">View</a>
+                            <div class="file-stack">
+                                @if(!empty($files))
+                                    @foreach($files as $idx => $attFile)
+                                        <div class="file-row">
+                                            <span class="file-side">
+                                                <span class="file-label">Page/File {{ $idx + 1 }}:</span>
+                                                <a href="{{ media_url('attendances', $attFile) }}" target="_blank" class="file-link complete-data">View</a>
+                                            </span>
+                                            <span class="file-status">
+                                                <i class="bi-check-circle-fill nav-icn success-icon"></i>
+                                            </span>
+                                        </div>
+                                    @endforeach
+                                    @if($item['status'] != 1)
+                                        <div>
+                                            <a href="javascript:void(0)" data-url="{{ route('delete-attendance', $item['id']) }}" class="btn deleteAttendance">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </a>
+                                        </div>
                                     @endif
-                                </span>
-                                <span class="file-status">
-                                    @if(!empty($item['testimonial_video']))
-                                        <i class="bi-check-circle-fill nav-icn success-icon"></i>
-                                    @else
-                                        <i class="bi bi-x-circle-fill remove"></i>
-                                    @endif
-                                </span>
+                                @else
+                                    <span class="text-muted"><i class="bi bi-x-circle-fill remove"></i> No File</span>
+                                @endif
                             </div>
                         </td>
                         <td class="date-cell">
@@ -127,19 +143,19 @@
                         </td>
                         <td class="date-cell">{{ $item['route_date'] ?: '—' }}</td>
                         <td class="actions-cell">
-                            <form action="{{ route('testimonial-note') }}" method="post">
+                            <form action="{{ route('attendance-note') }}" method="post">
                                 @csrf
-                                <a href="" data-toggle="modal" data-target="#testimonialNoteModal{{ $item['id'] }}" class="send_btn">Add</a>
-                                <div class="modal fade note-model" id="testimonialNoteModal{{ $item['id'] }}" tabindex="-1" role="dialog" aria-hidden="true">
+                                <a href="" data-toggle="modal" data-target="#demoModalAttendance{{ $item['id'] }}" class="send_btn">Add</a>
+                                <div class="modal fade note-model" id="demoModalAttendance{{ $item['id'] }}" tabindex="-1" role="dialog" aria-hidden="true">
                                     <div class="modal-dialog" role="document">
                                         <div class="modal-content">
                                             <div class="modal-header">
-                                                <h5 class="modal-title" style="color: #fff;">Reason to Reject this Testimonial</h5>
+                                                <h5 class="modal-title" style="color: #fff;">Reason to Reject this Attendance</h5>
                                                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                                             </div>
                                             <div class="modal-body">
                                                 <div class="col-md-10">
-                                                    <textarea rows="5" class="form-control" placeholder="Write here" name="testimonial_note" required>{{ $item['testimonial_note'] }}</textarea>
+                                                    <textarea rows="5" class="form-control" placeholder="Write here" name="attendance_note" required>{{ $item['attendance_note'] }}</textarea>
                                                     <input type="hidden" name="id" value="{{ $item['id'] }}">
                                                 </div>
                                             </div>
@@ -151,23 +167,20 @@
                                     </div>
                                 </div>
                             </form>
-                            @if(!empty($item['testimonial_note']))
+                            @if($item['attendance_note'] != null)
                                 <br><span class="not-started">Rejected</span>
-                            @endif
-                            @if($item['status'] != 1)
-                            <a href="javascript:void(0)" data-url="{{ route('delete-testimonial', $item['id']) }}" class="btn deleteTestimonial">Delete</a>
                             @endif
                         </td>
                         <td>
                             <div class="approval-cell-wrap text-center">
                                 @if($item['status'] == 1)
                                     <span class="badge badge-success py-1 px-2" style="background:#28a745; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-check-circle-fill"></i> Approved</span>
-                                @elseif(!empty($item['testimonial_note']))
+                                @elseif($item['attendance_note'] != null)
                                     <span class="badge badge-danger py-1 px-2" style="background:#dc3545; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-x-circle-fill"></i> Rejected</span>
                                 @else
                                     <div class="d-flex flex-column align-items-center justify-content-center" style="gap: 2px;">
                                         <span class="badge badge-warning py-1 px-2" style="background:#ffc107; color:#000; font-size: 10px; font-weight: 600; border-radius: 3px; white-space: nowrap;">Pending</span>
-                                        <button type="button" class="btn btn-sm btn-success btn-approve-testimonial" data-id="{{ $item['id'] }}" style="padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 4px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; line-height: 1.2;">
+                                        <button type="button" class="btn btn-sm btn-success btn-approve-attendance" data-id="{{ $item['id'] }}" style="padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 4px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; line-height: 1.2;">
                                             <i class="bi bi-check-lg" style="font-size: 12px;"></i> <span>Approve</span>
                                         </button>
                                     </div>
@@ -184,11 +197,11 @@
                     <th>Uploaded By</th>
                     <th>School Name</th>
                     <th>Location</th>
-                    <th>Testimonial</th>
+                    <th>Attendance Sheet</th>
                     <th>Date & Time</th>
                     <th>Route Date</th>
                     <th>Rejection Note</th>
-                    <th>Approve</th>
+                    <th>Approve Attendance</th>
                 </tr>
             </tfoot>
         </table>
@@ -204,7 +217,7 @@
 <script src="{{ asset('js/datatables-excel-export.js') }}"></script>
 <script type="text/javascript">
 (function () {
-    var $table = $('#trainerTestimonials');
+    var $table = $('#trainerAttendances');
     var $filterRow = $table.find('tfoot tr').clone().addClass('filter-row');
     $filterRow.find('th').each(function () {
         $(this).html('<input type="text" class="form-control" placeholder="' + $(this).text() + '" />');
@@ -212,7 +225,7 @@
     $table.find('thead').append($filterRow);
     $table.find('tfoot').remove();
 
-    var trainerTestimonials = $table.DataTable({
+    var trainerAttendances = $table.DataTable({
         ordering: false,
         orderCellsTop: true,
         dom: "<'row'<'col-sm-3'B><'col-sm-4'i><'col-sm-5'f>>" +
@@ -221,19 +234,19 @@
         pageLength: 100,
         stateSave: true,
         autoWidth: false,
-        buttons: [uploadedDataExcelButton($table, 'trainer-testimonials')]
+        buttons: [uploadedDataExcelButton($table, 'trainer-attendances')]
     });
 
-    trainerTestimonials.columns().every(function () {
+    trainerAttendances.columns().every(function () {
         var that = this;
         $('input', $table.find('thead tr.filter-row th').eq(this.index())).on('keyup change clear', function () {
             if (that.search() !== this.value) that.search(this.value).draw();
         });
     });
 
-    $(document).on('click', '.btn-approve-testimonial', function () {
+    $(document).on('click', '.btn-approve-attendance', function () {
         let $btn = $(this);
-        let testimonial_id = $btn.data('id');
+        let attendance_id = $btn.data('id');
         let $cellWrap = $btn.closest('.approval-cell-wrap');
 
         $btn.prop('disabled', true).text('Approving...');
@@ -241,8 +254,8 @@
         $.ajax({
             type: 'GET',
             dataType: 'json',
-            url: '/testimonial-status',
-            data: { testimonial_status: 1, testimonial_id: testimonial_id },
+            url: '/attendance-status',
+            data: { attendance_status: 1, attendance_id: attendance_id },
             success: function () {
                 $cellWrap.html('<span class="badge badge-success py-1 px-2" style="background:#28a745; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-check-circle-fill"></i> Approved</span>');
                 const Toast = Swal.mixin({
@@ -254,7 +267,7 @@
                 });
                 Toast.fire({
                     icon: 'success',
-                    title: 'Testimonial approved successfully!'
+                    title: 'Attendance approved successfully!'
                 });
             },
             error: function (xhr) {
@@ -269,18 +282,42 @@
         });
     });
 
-    $('body').on('click', '.deleteTestimonial', function () {
+    $('body').on('click', '.deleteAttendance', function () {
         var userURL = $(this).data('url');
         var trObj = $(this);
-        Swal.fire({ title: 'Are you sure?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, delete it!' })
-            .then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({ url: userURL, type: 'GET', dataType: 'json', success: function () {
-                        trObj.parents('tr').remove();
-                        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Testimonial has been deleted.', showConfirmButton: false, timer: 2000 });
-                    }});
-                }
-            });
+        Swal.fire({
+            title: 'Are you sure?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: userURL,
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function () {
+                        trObj.closest('tr').remove();
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'success',
+                            title: 'Attendance was successfully deleted!',
+                            showConfirmButton: false,
+                            timer: 2000
+                        });
+                    },
+                    error: function(xhr) {
+                        let errMsg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Could not delete attendance.';
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: errMsg
+                        });
+                    }
+                });
+            }
+        });
     });
 
     $('.complete-data').click(function () { $(this).addClass('visited'); });

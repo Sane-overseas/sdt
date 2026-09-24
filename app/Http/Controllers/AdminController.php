@@ -27,6 +27,7 @@ use App\Models\Holiday;
 use App\Models\AcademicSession;
 use App\Models\State;
 use App\Models\Testimonial;
+use App\Models\Attendance;
 use App\Services\AcademicSessionService;
 use App\Support\MediaPath;
 use App\Services\CoordinatorScopeService;
@@ -70,7 +71,7 @@ class AdminController extends BaseController
     {
         $stateId = StateService::scopeStateId();
         $trainers = User::where('role', '!=', 1)
-            ->when($stateId, fn ($query) => $query->where('state_id', $stateId))
+            ->when($stateId, fn($query) => $query->where('state_id', $stateId))
             ->get();
 
         foreach ($trainers as $trainer) {
@@ -300,19 +301,27 @@ class AdminController extends BaseController
         $trainers = User::where('state_id', StateService::scopeStateId())->get()->toArray();
         $district = StateService::districtsQuery()->get()->toArray();
 
-        if ($request->custom_date == null) {
-            $addRoutePlan = AsignedSchool::whereIn('district', $districtIds ?: [0])->whereDate('add_route_plan_date', date('Y-m-d'))
-                ->orderBy('add_route_plan_date', 'DESC')->get()->toArray();
-        } else {
-            $addRoutePlan = AsignedSchool::whereIn('district', $districtIds ?: [0])->whereDate('add_route_plan_date', date('Y-m-d', strtotime($request->custom_date)))
-                ->orderBy('add_route_plan_date', 'DESC')->get()->toArray();
+        $showAll = $request->boolean('show_all');
+        $customDate = $request->custom_date;
+
+        $query = AsignedSchool::whereIn('district', $districtIds ?: [0]);
+
+        if (! $showAll) {
+            $date = $customDate
+                ? date('Y-m-d', strtotime($customDate))
+                : date('Y-m-d');
+            $query->whereDate('add_route_plan_date', $date);
         }
+
+        $addRoutePlan = $query->orderBy('add_route_plan_date', 'DESC')->get()->toArray();
 
         return view('SchoolsReporting.route-plan-schools')
             ->with('addRoutePlan', $addRoutePlan)
             ->with('schools', $schools)
             ->with('district', $district)
-            ->with('trainers', $trainers);
+            ->with('trainers', $trainers)
+            ->with('showAll', $showAll)
+            ->with('customDate', $customDate);
     }
 
     public function cordinatorStore(Request $request)
@@ -342,7 +351,7 @@ class AdminController extends BaseController
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('cordinators', 'cordinator_code')->where(fn ($query) => $query->where('state_id', $stateId)),
+                Rule::unique('cordinators', 'cordinator_code')->where(fn($query) => $query->where('state_id', $stateId)),
                 Rule::unique('users', 'instructor_code'),
             ],
             'email' => 'required|email|max:255|unique:users,email',
@@ -359,13 +368,13 @@ class AdminController extends BaseController
             'martial_art_type' => 'required|string|max:255',
             'coordinator_level' => 'required|in:district,state',
             'district_name' => [
-                Rule::requiredIf(fn () => $level === CoordinatorScopeService::LEVEL_DISTRICT),
+                Rule::requiredIf(fn() => $level === CoordinatorScopeService::LEVEL_DISTRICT),
                 'nullable',
                 'string',
                 'max:255',
             ],
             'block' => [
-                Rule::requiredIf(fn () => $level === CoordinatorScopeService::LEVEL_DISTRICT),
+                Rule::requiredIf(fn() => $level === CoordinatorScopeService::LEVEL_DISTRICT),
                 'nullable',
                 'string',
                 'max:255',
@@ -487,7 +496,7 @@ class AdminController extends BaseController
             }
             $file = $request->file($field);
             $ext = strtolower($file->getClientOriginalExtension());
-            $name = $safeCode.'_'.$suffix.'.'.$ext;
+            $name = $safeCode . '_' . $suffix . '.' . $ext;
 
             if ($existing && $existing->{$field}) {
                 Storage::disk('public')->delete($existing->{$field});
@@ -581,7 +590,7 @@ class AdminController extends BaseController
                 'max:100',
                 Rule::unique('cordinators', 'cordinator_code')
                     ->ignore($cordinatorId)
-                    ->where(fn ($query) => $query->where('state_id', $stateId)),
+                    ->where(fn($query) => $query->where('state_id', $stateId)),
                 Rule::unique('users', 'instructor_code')->ignore($user->id),
             ],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
@@ -598,13 +607,13 @@ class AdminController extends BaseController
             'martial_art_type' => 'required|string|max:255',
             'coordinator_level' => 'required|in:district,state',
             'district_name' => [
-                Rule::requiredIf(fn () => $level === CoordinatorScopeService::LEVEL_DISTRICT),
+                Rule::requiredIf(fn() => $level === CoordinatorScopeService::LEVEL_DISTRICT),
                 'nullable',
                 'string',
                 'max:255',
             ],
             'block' => [
-                Rule::requiredIf(fn () => $level === CoordinatorScopeService::LEVEL_DISTRICT),
+                Rule::requiredIf(fn() => $level === CoordinatorScopeService::LEVEL_DISTRICT),
                 'nullable',
                 'string',
                 'max:255',
@@ -686,7 +695,7 @@ class AdminController extends BaseController
 
         $trainers = User::where('cordinator_id', $user->cordinator_id)
             ->where('role', 0)
-            ->when($user->state_id, fn ($query) => $query->where('state_id', $user->state_id))
+            ->when($user->state_id, fn($query) => $query->where('state_id', $user->state_id))
             ->get();
 
         foreach ($trainers as $trainer) {
@@ -709,7 +718,7 @@ class AdminController extends BaseController
             return [
                 'id' => $a->id,
                 'school_id' => $a->school_name,
-                'school_name' => $schoolNames[$a->school_name] ?? ('#'.$a->school_name),
+                'school_name' => $schoolNames[$a->school_name] ?? ('#' . $a->school_name),
                 'status' => $a->status,
                 'route_date' => $a->route_date,
             ];
@@ -788,6 +797,8 @@ class AdminController extends BaseController
 
         $sessionId = $this->reportSessionId();
 
+        $paidDateFormatted = $request->paid_date ? date('d-m-Y', strtotime($request->paid_date)) : date('d-m-Y');
+
         if ($request->paid_status != null) {
             $salary_status = User::findOrFail($request->id);
             $total_salary = $salary_status->amount * count($request->paid_status);
@@ -797,7 +808,7 @@ class AdminController extends BaseController
                 $paid_schools->user_id = $request->id;
                 $paid_schools->school_id = $school;
                 $paid_schools->paid_by = Auth::user()->id;
-                $paid_schools->paid_date = date('d-m-Y', strtotime($request->paid_date));
+                $paid_schools->paid_date = $paidDateFormatted;
                 $paid_schools->session_id = $sessionId;
                 $paid_schools->save();
 
@@ -813,7 +824,7 @@ class AdminController extends BaseController
                 $advancePayment->user_id = $request->id;
                 $advancePayment->role = 'Trainer';
                 $advancePayment->payment = $request->extra_amount;
-                $advancePayment->payment_date = date('d-m-Y', strtotime($request->paid_date));
+                $advancePayment->payment_date = $paidDateFormatted;
                 $advancePayment->session_id = $sessionId;
                 $advancePayment->save();
             }
@@ -823,13 +834,13 @@ class AdminController extends BaseController
                 $advancePayment->user_id = $request->id;
                 $advancePayment->role = 'Trainer';
                 $advancePayment->payment = $request->extra_amount;
-                $advancePayment->payment_date = date('d-m-Y', strtotime($request->paid_date));
+                $advancePayment->payment_date = $paidDateFormatted;
                 $advancePayment->session_id = $sessionId;
                 $advancePayment->save();
             }
         }
 
-        return redirect()->back();
+        return redirect()->back()->with('success', 'Payment status updated successfully.');
     }
 
     public function trainerDetail($id)
@@ -855,19 +866,21 @@ class AdminController extends BaseController
                     ->with('error', 'You can only manage trainers in your scope.');
             }
         } else {
-        $stateId = StateService::scopeStateId();
-        if ($stateId && (int) $trainer->state_id !== (int) $stateId) {
-            return redirect()
-                ->route('add_trainers')
-                ->with('error', 'That trainer belongs to another state. Showing trainers for the selected state.');
+            $stateId = StateService::scopeStateId();
+            if ($stateId && (int) $trainer->state_id !== (int) $stateId) {
+                return redirect()
+                    ->route('add_trainers')
+                    ->with('error', 'That trainer belongs to another state. Showing trainers for the selected state.');
             }
         }
 
         $trainer_data = $trainer->toArray();
-        $user = User::get()->toArray();
         $district = StateService::districtsQuery()->orderBy('district')->get();
         $school = StateService::schoolsQuery()->orderBy('school_name')->get();
         $cordinator = StateService::cordinatorsQuery()->orderBy('cordinator_name')->get();
+
+        $assignedByIds = collect($trainer_data['asigned_schools'] ?? [])->pluck('asigned_by')->filter()->unique()->values();
+        $user = User::whereIn('id', $assignedByIds)->select('id', 'instructor_name')->get()->toArray();
 
         return view('admin.trainer-data')
             ->with('user', $user)
@@ -1039,7 +1052,7 @@ class AdminController extends BaseController
         $fields = [
             1 => 'ifsb_image',
             2 => 'group_image',
-            3 => 'fst_aimage',  
+            3 => 'fst_aimage',
             4 => 'snd_aimage',
             5 => 'trd_aimage',
         ];
@@ -1233,6 +1246,55 @@ class AdminController extends BaseController
         return response()->json(['success' => true]);
     }
 
+    public function attendanceStatus(Request $request)
+    {
+        $row = Attendance::where('id', $request->attendance_id)->first();
+        if (!$row) {
+            return response()->json(['error' => 'Something Wrong Please Check!'], 404);
+        }
+
+        if ((int) $request->attendance_status === 1) {
+            if ($blocked = $this->approveBlockedIfRejected($row, 'attendance_note', 'attendance')) {
+                return $blocked;
+            }
+        }
+
+        $row->status = (int) $request->attendance_status;
+        $row->save();
+
+        return response()->json(['success' => 'Attendance status updated successfully.']);
+    }
+
+    public function attendanceNote(Request $request)
+    {
+        $request->validate([
+            'attendance_note' => 'required',
+            'id' => 'required|exists:attendances,id',
+        ]);
+
+        $attendance = Attendance::findOrFail($request->id);
+        $attendance->attendance_note = $request->attendance_note;
+        $attendance->status = 0;
+        $attendance->save();
+
+        return redirect()->back();
+    }
+
+    public function deleteAttendance($id)
+    {
+        $attendance = Attendance::findOrFail($id);
+        if ($blocked = $this->approvedDeleteBlocked($attendance, 'attendance')) {
+            return $blocked;
+        }
+        $files = $attendance->getAllFiles();
+        foreach ($files as $file) {
+            Storage::disk('public')->delete(MediaPath::diskPath('attendances', $file));
+        }
+        $attendance->delete();
+
+        return response()->json(['success' => true]);
+    }
+
     public function imageNote(Request $request)
     {
         $request->validate([
@@ -1321,43 +1383,48 @@ class AdminController extends BaseController
         if ($request->custom_date_data != null) {
             $date = $request->custom_date_data;
             $dateFilter = function ($query) use ($date) {
-                $query->whereDate('updated_at', $date)->orWhereDate('created_at', $date);
+                $query->whereDate('created_at', $date)->orWhereDate('updated_at', $date);
             };
-            $videos = Video::orderBy('updated_at', 'DESC')
+            $videos = Video::orderBy('created_at', 'DESC')
                 ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
-            $images = Image::orderBy('updated_at', 'DESC')
+            $images = Image::orderBy('created_at', 'DESC')
                 ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
-            $completion = Completion::orderBy('updated_at', 'DESC')
+            $completion = Completion::orderBy('created_at', 'DESC')
                 ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
-            $distributions = Distribution::orderBy('updated_at', 'DESC')
+            $distributions = Distribution::orderBy('created_at', 'DESC')
                 ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
-            $testimonials = Testimonial::orderBy('updated_at', 'DESC')
+            $testimonials = Testimonial::orderBy('created_at', 'DESC')
+                ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
+            $attendances = Attendance::orderBy('created_at', 'DESC')
                 ->whereIn('school_id', $schoolFilter)->where($dateFilter)->get()->toArray();
         } elseif ($request->route_date != null) {
             $custom_date = (explode("/", $request->route_date));
             $startDate = trim($custom_date[0] ?? '');
             $endDate = trim($custom_date[1] ?? '');
             $rangeFilter = function ($query) use ($startDate, $endDate) {
-                $query->whereBetween(DB::raw('DATE(updated_at)'), [$startDate, $endDate])
-                    ->orWhereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate]);
+                $query->whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])
+                    ->orWhereBetween(DB::raw('DATE(updated_at)'), [$startDate, $endDate]);
             };
-            $videos = Video::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)
+            $videos = Video::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)
                 ->where($rangeFilter)->get()->toArray();
-            $images = Image::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)
+            $images = Image::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)
                 ->where($rangeFilter)->get()->toArray();
-            $completion = Completion::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)
+            $completion = Completion::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)
                 ->where($rangeFilter)->get()->toArray();
-            $distributions = Distribution::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)
+            $distributions = Distribution::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)
                 ->where($rangeFilter)->get()->toArray();
-            $testimonials = Testimonial::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)
+            $testimonials = Testimonial::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)
+                ->where($rangeFilter)->get()->toArray();
+            $attendances = Attendance::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)
                 ->where($rangeFilter)->get()->toArray();
         } else {
             // Default: all records for the current session.
-            $videos = Video::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
-            $images = Image::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
-            $completion = Completion::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
-            $distributions = Distribution::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
-            $testimonials = Testimonial::orderBy('updated_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
+            $videos = Video::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
+            $images = Image::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
+            $completion = Completion::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
+            $distributions = Distribution::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
+            $testimonials = Testimonial::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
+            $attendances = Attendance::orderBy('created_at', 'DESC')->whereIn('school_id', $schoolFilter)->get()->toArray();
         }
         $user = $this->usersForUploadedDataViews();
         $schools = StateService::schoolsQuery()->get()->toArray();
@@ -1367,13 +1434,14 @@ class AdminController extends BaseController
             ->with('completion', $completion)
             ->with('distributions', $distributions)
             ->with('testimonials', $testimonials)
+            ->with('attendances', $attendances)
             ->with('schools', $schools)
             ->with('user', $user);
     }
 
     public function trainerSchoolsData($id)
     {
-        $trainer_data = User::where('id', $id)->with('videos', 'images', 'completions', 'distributions', 'asigned_schools')->first()->toArray();
+        $trainer_data = User::where('id', $id)->with('videos', 'images', 'completions', 'distributions', 'attendances', 'asigned_schools')->first()->toArray();
         $district = StateService::districtsQuery()->get();
         $schools = StateService::schoolsQuery()->get();
         $cordinator = StateService::cordinatorsQuery()->get();
@@ -1455,7 +1523,7 @@ class AdminController extends BaseController
 
         $workingQuery = AsignedSchool::withoutGlobalScopes()
             ->whereIn('district', $districtIds ?: [0])
-            ->when($sessionId, fn ($q) => $q->where('session_id', $sessionId))
+            ->when($sessionId, fn($q) => $q->where('session_id', $sessionId))
             ->where(function ($q) {
                 $q->whereNull('approval_status')
                     ->orWhereIn('approval_status', ['pending', 'approved']);
@@ -1529,18 +1597,20 @@ class AdminController extends BaseController
         }
 
         $statusFilter = $this->normalizeAssignmentStatusFilter($request->input('status'));
+        $paymentStatusFilter = $this->normalizePaymentStatusFilter($request->input('payment_status'));
 
         $coordByDistrict = $this->districtCoordinatorMap();
-        $rows = $this->assignmentExcelQuery($districtFilter, $statusFilter)
+        $rows = $this->assignmentExcelQuery($districtFilter, $statusFilter, $paymentStatusFilter)
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn ($row) => $this->mapAssignmentExcelRow($row, $coordByDistrict));
+            ->through(fn($row) => $this->mapAssignmentExcelRow($row, $coordByDistrict));
 
         return view('SchoolsReporting.assignment-excel-report', [
             'rows' => $rows,
             'districts' => $districts,
             'districtFilter' => $districtFilter,
             'statusFilter' => $statusFilter,
+            'paymentStatusFilter' => $paymentStatusFilter,
             'perPage' => $perPage,
         ]);
     }
@@ -1553,8 +1623,9 @@ class AdminController extends BaseController
         }
 
         $statusFilter = $this->normalizeAssignmentStatusFilter($request->input('status'));
+        $paymentStatusFilter = $this->normalizePaymentStatusFilter($request->input('payment_status'));
 
-        $rows = $this->buildAssignmentExcelRows($districtFilter, $statusFilter);
+        $rows = $this->buildAssignmentExcelRows($districtFilter, $statusFilter, $paymentStatusFilter);
         $exportRows = [];
         foreach ($rows as $i => $row) {
             $trainerCell = $row['trainer'];
@@ -1573,6 +1644,7 @@ class AdminController extends BaseController
                 $row['school_code'],
                 $row['total_students'],
                 $row['status'],
+                $row['payment_status'],
             ];
         }
 
@@ -1604,6 +1676,7 @@ class AdminController extends BaseController
                     'School Code',
                     'Total Students',
                     'Status',
+                    'Payment Status',
                 ];
             }
 
@@ -1621,6 +1694,7 @@ class AdminController extends BaseController
                 $sheet->getColumnDimension('H')->setWidth(16);
                 $sheet->getColumnDimension('I')->setWidth(14);
                 $sheet->getColumnDimension('J')->setWidth(14);
+                $sheet->getColumnDimension('K')->setWidth(16);
 
                 if ($lastRow > 1) {
                     $sheet->getStyle('E2:E' . $lastRow)->getAlignment()->setWrapText(true);
@@ -1648,15 +1722,15 @@ class AdminController extends BaseController
     }
 
     /**
-     * @return array<int, array{district:string,district_coordinator:string,block:string,trainer:string,school_name:string,school_code:string,total_students:int|string}>
+     * @return array<int, array{district:string,district_coordinator:string,block:string,trainer:string,school_name:string,school_code:string,total_students:int|string,payment_status:string}>
      */
-    private function buildAssignmentExcelRows(?int $districtFilter = null, ?string $statusFilter = null): array
+    private function buildAssignmentExcelRows(?int $districtFilter = null, ?string $statusFilter = null, ?string $paymentStatusFilter = null): array
     {
         $coordByDistrict = $this->districtCoordinatorMap();
 
-        return $this->assignmentExcelQuery($districtFilter, $statusFilter)
+        return $this->assignmentExcelQuery($districtFilter, $statusFilter, $paymentStatusFilter)
             ->get()
-            ->map(fn ($row) => $this->mapAssignmentExcelRow($row, $coordByDistrict))
+            ->map(fn($row) => $this->mapAssignmentExcelRow($row, $coordByDistrict))
             ->all();
     }
 
@@ -1667,7 +1741,7 @@ class AdminController extends BaseController
 
         $coordinators = User::query()
             ->where('role', 2)
-            ->when($stateId, fn ($q) => $q->where('state_id', $stateId))
+            ->when($stateId, fn($q) => $q->where('state_id', $stateId))
             ->where(function ($q) {
                 $q->whereNull('coordinator_level')
                     ->orWhere('coordinator_level', CoordinatorScopeService::LEVEL_DISTRICT);
@@ -1685,7 +1759,7 @@ class AdminController extends BaseController
         return $coordByDistrict;
     }
 
-    private function assignmentExcelQuery(?int $districtFilter = null, ?string $statusFilter = null)
+    private function assignmentExcelQuery(?int $districtFilter = null, ?string $statusFilter = null, ?string $paymentStatusFilter = null)
     {
         $sessionId = $this->reportSessionId();
         $districtIds = $this->reportDistrictIds();
@@ -1706,7 +1780,7 @@ class AdminController extends BaseController
                 $q->whereIn('schools.district_id', $ids)
                     ->orWhereIn('asigned_schools.district', $ids);
             })
-            ->when($sessionId, fn ($q) => $q->where('asigned_schools.session_id', $sessionId))
+            ->when($sessionId, fn($q) => $q->where('asigned_schools.session_id', $sessionId))
             ->where(function ($q) {
                 $q->whereNull('asigned_schools.approval_status')
                     ->orWhere('asigned_schools.approval_status', AsignedSchool::APPROVAL_APPROVED);
@@ -1714,23 +1788,33 @@ class AdminController extends BaseController
 
         $this->applyAssignmentStatusFilter($query, $statusFilter);
 
+        if ($paymentStatusFilter === 'paid') {
+            $query->where('asigned_schools.paid_status', 1);
+        } elseif ($paymentStatusFilter === 'unpaid') {
+            $query->where(function ($q) {
+                $q->whereNull('asigned_schools.paid_status')
+                    ->orWhere('asigned_schools.paid_status', 0);
+            });
+        }
+
         return $query->select(
-                'school_districts.district as school_district_name',
-                'assignment_districts.district as assignment_district_name',
-                'asigned_schools.block as assignment_block',
-                'schools.block as school_block',
-                'trainers.instructor_name as trainer_name',
-                'trainers.instructor_number as trainer_phone',
-                'trainers.role as trainer_role',
-                'schools.school_name as school_title',
-                'schools.school_code as school_code_value',
-                'schools.total_students as students_count',
-                'asigned_schools.status as assignment_status',
-                'asigned_schools.end_date as assignment_end_date',
-                'asigned_schools.route_date as assignment_route_date',
-                'asigned_schools.start_route_plan as assignment_start_route_plan',
-                'asigned_schools.end_route_plan as assignment_end_route_plan'
-            )
+            'school_districts.district as school_district_name',
+            'assignment_districts.district as assignment_district_name',
+            'asigned_schools.block as assignment_block',
+            'schools.block as school_block',
+            'trainers.instructor_name as trainer_name',
+            'trainers.instructor_number as trainer_phone',
+            'trainers.role as trainer_role',
+            'schools.school_name as school_title',
+            'schools.school_code as school_code_value',
+            'schools.total_students as students_count',
+            'asigned_schools.status as assignment_status',
+            'asigned_schools.paid_status as assignment_paid_status',
+            'asigned_schools.end_date as assignment_end_date',
+            'asigned_schools.route_date as assignment_route_date',
+            'asigned_schools.start_route_plan as assignment_start_route_plan',
+            'asigned_schools.end_route_plan as assignment_end_route_plan'
+        )
             ->orderByRaw('COALESCE(school_districts.district, assignment_districts.district)')
             ->orderByRaw('COALESCE(NULLIF(asigned_schools.block, ""), schools.block)')
             ->orderBy('schools.school_name');
@@ -1741,6 +1825,13 @@ class AdminController extends BaseController
         $status = strtolower(trim((string) $status));
 
         return in_array($status, ['completed', 'ongoing', 'not_started'], true) ? $status : null;
+    }
+
+    private function normalizePaymentStatusFilter(?string $status): ?string
+    {
+        $status = strtolower(trim((string) $status));
+
+        return in_array($status, ['paid', 'unpaid'], true) ? $status : null;
     }
 
     private function applyAssignmentStatusFilter($query, ?string $statusFilter): void
@@ -1776,7 +1867,7 @@ class AdminController extends BaseController
 
     /**
      * @param  array<string, list<string>>  $coordByDistrict
-     * @return array{district:string,district_coordinator:string,block:string,trainer:string,trainer_phone:string,route_plan:string,school_name:string,school_code:string,total_students:int,status:string}
+     * @return array{district:string,district_coordinator:string,block:string,trainer:string,trainer_phone:string,route_plan:string,school_name:string,school_code:string,total_students:int,status:string,payment_status:string}
      */
     private function mapAssignmentExcelRow(object $row, array $coordByDistrict): array
     {
@@ -1800,6 +1891,7 @@ class AdminController extends BaseController
                 $row->assignment_status ?? null,
                 $row->assignment_end_date ?? null
             ),
+            'payment_status' => ((int) ($row->assignment_paid_status ?? 0) === 1) ? 'Paid' : 'Unpaid',
         ];
     }
 
@@ -2090,9 +2182,9 @@ class AdminController extends BaseController
 
         $holidays = $holidayStateId
             ? Holiday::with('district')
-                ->where('state_id', $holidayStateId)
-                ->orderBy('holiday_date', 'desc')
-                ->get()
+            ->where('state_id', $holidayStateId)
+            ->orderBy('holiday_date', 'desc')
+            ->get()
             : collect();
 
         $holidayMap = [];
@@ -2101,20 +2193,20 @@ class AdminController extends BaseController
             $key = $h->holiday_date->format('Y-m-d');
             $label = $h->title ?: ($h->entry_type === Holiday::TYPE_WORKING ? 'Working' : 'Holiday');
             if ($h->district_id && $h->district) {
-                $label .= ' ('.$h->district->district.')';
+                $label .= ' (' . $h->district->district . ')';
             }
 
             if ($h->entry_type === Holiday::TYPE_WORKING) {
-                $workingMap[$key] = isset($workingMap[$key]) ? $workingMap[$key].' / '.$label : $label;
+                $workingMap[$key] = isset($workingMap[$key]) ? $workingMap[$key] . ' / ' . $label : $label;
             } else {
-                $holidayMap[$key] = isset($holidayMap[$key]) ? $holidayMap[$key].' / '.$label : $label;
+                $holidayMap[$key] = isset($holidayMap[$key]) ? $holidayMap[$key] . ' / ' . $label : $label;
             }
         }
 
         $districtsByState = District::orderBy('district')
             ->get(['id', 'district', 'state_id'])
             ->groupBy('state_id')
-            ->map(fn ($items) => $items->values());
+            ->map(fn($items) => $items->values());
 
         return view('admin.settings', compact(
             'states',
@@ -2161,8 +2253,8 @@ class AdminController extends BaseController
             ->whereDate('holiday_date', $request->holiday_date)
             ->when(
                 $districtId,
-                fn ($q) => $q->where('district_id', $districtId),
-                fn ($q) => $q->whereNull('district_id')
+                fn($q) => $q->where('district_id', $districtId),
+                fn($q) => $q->whereNull('district_id')
             )
             ->where(function ($q) {
                 $q->where('entry_type', Holiday::TYPE_OFF)->orWhereNull('entry_type');
@@ -2181,8 +2273,8 @@ class AdminController extends BaseController
             ->where('entry_type', Holiday::TYPE_WORKING)
             ->when(
                 $districtId,
-                fn ($q) => $q->where('district_id', $districtId),
-                fn ($q) => $q->whereNull('district_id')
+                fn($q) => $q->where('district_id', $districtId),
+                fn($q) => $q->whereNull('district_id')
             )
             ->delete();
 
@@ -2288,8 +2380,8 @@ class AdminController extends BaseController
             ->whereDate('holiday_date', $request->holiday_date)
             ->when(
                 $districtId,
-                fn ($q) => $q->where('district_id', $districtId),
-                fn ($q) => $q->whereNull('district_id')
+                fn($q) => $q->where('district_id', $districtId),
+                fn($q) => $q->whereNull('district_id')
             )
             ->exists();
 
@@ -2334,7 +2426,7 @@ class AdminController extends BaseController
         $workingDates = HolidayService::workingQuery($districtId, $stateId)
             ->orderBy('holiday_date')
             ->get(['holiday_date'])
-            ->map(fn ($h) => $h->holiday_date->format('Y-m-d'))
+            ->map(fn($h) => $h->holiday_date->format('Y-m-d'))
             ->unique()
             ->values();
 
@@ -2363,21 +2455,21 @@ class AdminController extends BaseController
             $request->end_date
         );
 
-        return redirect()->route('settings')->with('success', 'Session '.$request->name.' created and activated. Previous session has been closed.');
+        return redirect()->route('settings')->with('success', 'Session ' . $request->name . ' created and activated. Previous session has been closed.');
     }
 
     public function activateAcademicSession($id)
     {
         $session = AcademicSessionService::activate((int) $id);
 
-        return redirect()->route('settings')->with('success', 'Session '.$session->name.' is now active.');
+        return redirect()->route('settings')->with('success', 'Session ' . $session->name . ' is now active.');
     }
 
     public function closeAcademicSession($id)
     {
         $session = AcademicSessionService::close((int) $id);
 
-        return redirect()->route('settings')->with('success', 'Session '.$session->name.' has been closed.');
+        return redirect()->route('settings')->with('success', 'Session ' . $session->name . ' has been closed.');
     }
 
     public function switchAcademicSession(Request $request)
@@ -2390,7 +2482,7 @@ class AdminController extends BaseController
 
         $session = AcademicSession::findOrFail($request->session_id);
 
-        return redirect()->back()->with('success', 'Now viewing session: '.$session->name);
+        return redirect()->back()->with('success', 'Now viewing session: ' . $session->name);
     }
 
     public function resetAcademicSessionView()
@@ -2423,7 +2515,7 @@ class AdminController extends BaseController
 
         StateService::setViewingStateId($state->id);
 
-        return redirect()->route('settings')->with('success', 'State '.$state->name.' created. Assign districts, trainers, and coordinators to this state.');
+        return redirect()->route('settings')->with('success', 'State ' . $state->name . ' created. Assign districts, trainers, and coordinators to this state.');
     }
 
     public function switchState(Request $request)
@@ -2442,28 +2534,28 @@ class AdminController extends BaseController
         if (preg_match('#/getData/\d+#', $previousPath)) {
             return redirect()
                 ->route('add_trainers')
-                ->with('success', 'Now viewing state: '.$state->name.'. Opened trainers list for this state.');
+                ->with('success', 'Now viewing state: ' . $state->name . '. Opened trainers list for this state.');
         }
 
         if (preg_match('#/districts_data/\d+#', $previousPath)) {
             return redirect()
                 ->route('schools-reporting')
-                ->with('success', 'Now viewing state: '.$state->name);
+                ->with('success', 'Now viewing state: ' . $state->name);
         }
 
         if (preg_match('#/trainer_data/\d+#', $previousPath)) {
             return redirect()
                 ->route('logs')
-                ->with('success', 'Now viewing state: '.$state->name);
+                ->with('success', 'Now viewing state: ' . $state->name);
         }
 
         if (preg_match('#/trainer_schools_data/\d+#', $previousPath)) {
             return redirect()
                 ->route('trainers-schools-data')
-                ->with('success', 'Now viewing state: '.$state->name);
+                ->with('success', 'Now viewing state: ' . $state->name);
         }
 
-        return redirect()->back()->with('success', 'Now viewing state: '.$state->name);
+        return redirect()->back()->with('success', 'Now viewing state: ' . $state->name);
     }
 
     public function resetStateView()
@@ -2478,8 +2570,8 @@ class AdminController extends BaseController
         $state = State::findOrFail($id);
 
         $request->validate([
-            'name' => 'required|string|max:100|unique:states,name,'.$state->id,
-            'code' => 'required|string|max:10|unique:states,code,'.$state->id,
+            'name' => 'required|string|max:100|unique:states,name,' . $state->id,
+            'code' => 'required|string|max:10|unique:states,code,' . $state->id,
             'logo' => 'nullable|image|mimes:png,jpg,jpeg,webp,svg|max:2048',
         ]);
 
@@ -2497,13 +2589,13 @@ class AdminController extends BaseController
 
         $state->update($data);
 
-        return redirect()->route('settings')->with('success', 'State updated to '.$state->name.'.');
+        return redirect()->route('settings')->with('success', 'State updated to ' . $state->name . '.');
     }
 
     private function approvedDeleteBlocked($record, string $label)
     {
         if ((int) ($record->status ?? 0) === 1) {
-            return response()->json(['error' => 'Approved '.$label.' cannot be deleted.'], 403);
+            return response()->json(['error' => 'Approved ' . $label . ' cannot be deleted.'], 403);
         }
 
         return null;
@@ -2512,7 +2604,7 @@ class AdminController extends BaseController
     private function approveBlockedIfRejected($record, string $noteField, string $label)
     {
         if (!empty($record->{$noteField})) {
-            return response()->json(['error' => 'Rejected '.$label.' must be re-uploaded before approval.'], 422);
+            return response()->json(['error' => 'Rejected ' . $label . ' must be re-uploaded before approval.'], 422);
         }
 
         return null;

@@ -23,6 +23,7 @@
             <li class="col col card1"><a href="#2a" class="dash-text" data-toggle="tab">Images</a></li>
             <li class="col col card1"><a href="#3a" class="dash-text" data-toggle="tab">UC</a></li>
             <li class="col col card1"><a href="#4a" class="dash-text" data-toggle="tab">DC</a></li>
+            <li class="col col card1"><a href="#6a" class="dash-text" data-toggle="tab">Attendance</a></li>
             <li class="col col card1"><a href="#5a" class="dash-text" data-toggle="tab">Testimonials</a></li>
         </ul>
         <div class="container">
@@ -65,6 +66,9 @@
             <div class="tab-pane" id="4a">
                 @include('uploadedData.all_distributions')
              </div>
+            <div class="tab-pane" id="6a">
+                @include('uploadedData.all_attendances')
+            </div>
             <div class="tab-pane" id="5a">
                 @include('uploadedData.all_testimonials')
             </div>

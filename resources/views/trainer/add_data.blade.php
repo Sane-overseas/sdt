@@ -1,428 +1,777 @@
 @extends('layouts.app')
 @section('title', 'Upload Data')
 @section('content')
-<link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-dark@4/dark.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-<style type="text/css">
-    .back-button {
-        font-weight: 600;
-        border-radius: 5px;
-        border: 2px solid #fff;
-        margin: 0 !important;
-        background: #fff;
-        color: #004857 !important;
-        padding: 6px 12px;
-    }
-    .back-button:hover {
-        background: #e9f2f4;
-        color: #003640 !important;
-    }
-    .uploaded-view-link {
-        display: inline-block;
-        margin-left: 8px;
-        font-size: 13px;
-        font-weight: 600;
-        color: #198754;
-        text-decoration: none;
-    }
-    .uploaded-view-link:hover {
-        color: #0f5132;
-        text-decoration: underline;
-    }
-    .uploaded-preview {
-        margin-top: 10px;
-        padding: 10px 12px;
-        background: #f4f8f9;
-        border: 1px solid #d5e4e8;
-        border-radius: 6px;
-    }
-    .uploaded-preview a {
-        font-weight: 600;
-        color: #006170;
-    }
-</style>
-<div class="container">
-    <div class="row mb-5 main-div">
-        <div class="col-12 mt-5">
-            <div class="card">
-                <div class="card-header bg-primary row align-items-center">
-                    <h3 class="text-white col-8 mb-0">Upload Data</h3>
-                    <button type="button" class="float-right back-button col-4" onclick="history.back()">BACK</button>
-                </div>
-                <div class="card-body">
-                   @if(session()->has('message'))
-                        <div class="alert alert-success">
-                            {{ session()->get('message') }}
-                        </div>
-                    @endif
-                    @if(session()->has('error'))
-                        <div class="alert alert-danger">
-                            {{ session()->get('error') }}
-                        </div>
-                    @endif
-                    @if(isset($activeAcademicSession) && $activeAcademicSession)
-                    <p class="text-muted small mb-3">Uploading for session: <strong>{{ $activeAcademicSession->name }}</strong></p>
-                    @endif
-                <form id="documentsForm"  enctype="multipart/form-data">
-                        {{ csrf_field() }}
-                        <input type="hidden" name="id" class="form-control" value="{{$school_data['id']}}"> 
-                        <input type="hidden" name="user_id" value="{{$school_data['user_id']}}">
-                        <div class="">
-                            <div class="form-group ">
-                                <strong>Cordinator Name</strong>
-                                <input type="text" name="cordinator" class="form-control" value="{{$cordinators['cordinator_name']}} - {{$cordinators['cordinator_code']}}" readonly>   
-                            </div> 
-                            <div class="form-group ">
-                                <strong>District Name</strong>
-                                @foreach($district as $data)
-                                    @if($data['id'] == $school_data['district'])    
-                                        <input type="text" name="district" class="form-control" value="{{$data['district']}}" readonly>
-                                    @endif
-                                @endforeach
+    <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-dark@4/dark.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <style type="text/css">
+        .back-button {
+            font-weight: 600;
+            border-radius: 5px;
+            border: 2px solid #fff;
+            margin: 0 !important;
+            background: #fff;
+            color: #004857 !important;
+            padding: 6px 12px;
+        }
+
+        .back-button:hover {
+            background: #e9f2f4;
+            color: #003640 !important;
+        }
+
+        .uploaded-view-link {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #198754;
+            text-decoration: none;
+        }
+
+        .uploaded-view-link:hover {
+            color: #0f5132;
+            text-decoration: underline;
+        }
+
+        .uploaded-preview {
+            margin-top: 10px;
+            padding: 10px 12px;
+            background: #f4f8f9;
+            border: 1px solid #d5e4e8;
+            border-radius: 6px;
+        }
+
+        .uploaded-preview a {
+            font-weight: 600;
+            color: #006170;
+        }
+
+        /* Single line tabs on desktop with small white gap */
+        #mynewTab {
+            margin-top: 15px;
+        }
+
+        #newTab {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 4px;
+            padding: 0;
+            margin: 0 0 15px 0;
+            list-style: none;
+            width: 100%;
+        }
+
+        #newTab > li.data-tab {
+            flex: 1 1 0;
+            min-width: 0;
+            margin: 0 !important;
+            padding: 0 !important;
+            text-align: center;
+            background-color: #004857;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease;
+        }
+
+        #newTab > li.data-tab.active {
+            background: #b32b2b !important;
+        }
+
+        #newTab > li.data-tab > a.data-tab-a {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            min-height: 42px;
+            padding: 6px 4px !important;
+            color: #ffffff !important;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.2;
+            text-decoration: none;
+            background: transparent !important;
+            border-radius: 4px;
+        }
+
+        #newTab > li.data-tab:hover {
+            background-color: #003640;
+        }
+
+        #newTab > li.data-tab.active:hover {
+            background-color: #962222;
+        }
+
+        @media (max-width: 1100px) {
+            #newTab > li.data-tab > a.data-tab-a {
+                font-size: 11.5px;
+                padding: 6px 2px !important;
+            }
+        }
+
+        /* Mobile View: keep stacked/responsive */
+        @media (max-width: 767px) {
+            #newTab {
+                flex-direction: column !important;
+                flex-wrap: wrap !important;
+                gap: 6px;
+            }
+
+            #newTab > li.data-tab {
+                width: 100% !important;
+                flex: auto;
+            }
+
+            #newTab > li.data-tab > a.data-tab-a {
+                font-size: 14px;
+                min-height: 38px;
+                padding: 10px !important;
+            }
+        }
+    </style>
+    <div class="container">
+        <div class="row mb-5 main-div">
+            <div class="col-12 mt-5">
+                <div class="card">
+                    <div class="card-header bg-primary row align-items-center">
+                        <h3 class="text-white col-8 mb-0">Upload Data</h3>
+                        <button type="button" class="float-right back-button col-4" onclick="history.back()">BACK</button>
+                    </div>
+                    <div class="card-body">
+                        @if (session()->has('message'))
+                            <div class="alert alert-success">
+                                {{ session()->get('message') }}
                             </div>
-                            <div class="form-group ">
-                                <strong>Block Name</strong> 
-                                <input type="text" name="block" class="form-control" value="{{$school_data['block']}}" readonly>
+                        @endif
+                        @if (session()->has('error'))
+                            <div class="alert alert-danger">
+                                {{ session()->get('error') }}
                             </div>
-                            <div class="form-group ">
-                                <strong>School Name</strong>
-                                @foreach($schools as $data)
-                                    @if($data['id'] == $school_data['school_name'])    
-                                        <input type="text" name="school_name" class="form-control" value="{{$data['school_name']}}" readonly>
-                                        <input type="hidden" name="school_id" class="form-control" value="{{$data['id']}}" readonly>
-                                    @endif
-                                @endforeach
-                            </div>
-                            <div class="row ">
-                                <strong>Route Plan</strong>
+                        @endif
+                        @if (isset($activeAcademicSession) && $activeAcademicSession)
+                            <p class="text-muted small mb-3">Uploading for session:
+                                <strong>{{ $activeAcademicSession->name }}</strong>
+                            </p>
+                        @endif
+                        <form id="documentsForm" enctype="multipart/form-data">
+                            {{ csrf_field() }}
+                            <input type="hidden" name="id" class="form-control" value="{{ $school_data['id'] }}">
+                            <input type="hidden" name="user_id" value="{{ $school_data['user_id'] }}">
+                            <div class="">
+                                <div class="form-group ">
+                                    <strong>Cordinator Name</strong>
+                                    <input type="text" name="cordinator" class="form-control"
+                                        value="{{ $cordinators['cordinator_name'] }} - {{ $cordinators['cordinator_code'] }}"
+                                        readonly>
+                                </div>
+                                <div class="form-group ">
+                                    <strong>District Name</strong>
+                                    @foreach ($district as $data)
+                                        @if ($data['id'] == $school_data['district'])
+                                            <input type="text" name="district" class="form-control"
+                                                value="{{ $data['district'] }}" readonly>
+                                        @endif
+                                    @endforeach
+                                </div>
+                                <div class="form-group ">
+                                    <strong>Block Name</strong>
+                                    <input type="text" name="block" class="form-control"
+                                        value="{{ $school_data['block'] }}" readonly>
+                                </div>
+                                <div class="form-group ">
+                                    <strong>School Name</strong>
+                                    @foreach ($schools as $data)
+                                        @if ($data['id'] == $school_data['school_name'])
+                                            <input type="text" name="school_name" class="form-control"
+                                                value="{{ $data['school_name'] }}" readonly>
+                                            <input type="hidden" name="school_id" class="form-control"
+                                                value="{{ $data['id'] }}" readonly>
+                                        @endif
+                                    @endforeach
+                                </div>
+                                <div class="row ">
+                                    <strong>Route Plan</strong>
                                     <div class="form-group">
                                         <span>Date:</span>
-                                        <input type="text" name="route_date" class="form-control input-picker" value="{{$school_data['route_date']}}" readonly>
-                                    </div> 
+                                        <input type="text" name="route_date" class="form-control input-picker"
+                                            value="{{ $school_data['route_date'] }}" readonly>
+                                    </div>
                                     <div class="form-group">
                                         <span>Intime:</span>
-                                        <input type="time" name="intime" class="form-control" value="{{$school_data['start_route_plan']}}" readonly>
+                                        <input type="time" name="intime" class="form-control"
+                                            value="{{ $school_data['start_route_plan'] }}" readonly>
                                     </div>
                                     <div class="form-group">
                                         <span>Outtime:</span>
-                                        <input type="time" name="outtime" class="form-control" value="{{$school_data['end_route_plan']}}" readonly>
-                                    </div> 
-                            </div>
-                        </div>   
-                        <div id="mynewTab"> 
-                            <ul  class="nav nav-pills" id="newTab">
-                                <li class="active data-tab"><a  href="#video" class="data-tab-a mytab" data-toggle="tab">Upload Videos</a> </li>
-                                <li class="data-tab"><a href="#image" class="data-tab-a mytab" data-toggle="tab">Upload Images</a></li>      
-                                <li class="data-tab"><a href="#completion" class="data-tab-a mytab" data-toggle="tab">Upload Completion Certificate</a></li>
-                                <li class="data-tab"><a href="#distribution" class="data-tab-a mytab" data-toggle="tab">Upload Distribution Certificate</a></li>
-                                <li class="data-tab"><a href="#testimonial" class="data-tab-a mytab" data-toggle="tab">Upload Testimonials</a></li>
-                            </ul>
-                             <div class="progress mt-2">
-                                <div class="progress-bar"></div>
-                            </div>
-                            <div class="tab-content clearfix">
-                                <div class="tab-pane active" id="video">
-                                    @if(isset($user_videos->video_note) != null)
-                                    <div class="note_div mt-3 mb-3">
-                                        <span class="note-text">Note: {{ $user_videos->video_note }}</span>
+                                        <input type="time" name="outtime" class="form-control"
+                                            value="{{ $school_data['end_route_plan'] }}" readonly>
                                     </div>
-                                    @endif
-                                    <ul class="main-data-div" >
-                                        <li class="main-data-tab"><a  href="#1st-v" class="main-data-a" data-toggle="tab">1st Activity Video</a>@if(isset($user_videos->fst_video))<i class="bi-check-circle-fill nav-icn success-icon"></i><a href="{{ media_url('videos', $user_videos->fst_video) }}" target="_blank" class="uploaded-view-link">View</a> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li>
-                                        <li class="main-data-tab"><a href="#2nd-v" class="main-data-a" data-toggle="tab">2nd Activity Video</a>@if(isset($user_videos->snd_video))<i class="bi-check-circle-fill nav-icn success-icon"></i><a href="{{ media_url('videos', $user_videos->snd_video) }}" target="_blank" class="uploaded-view-link">View</a> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li>      
-                                    </ul>
-                                    <div class="tab-content clearfix">
-                                        <div class="tab-pane" id="1st-v">
-                                            <span class="d-hed">Upload 1st Activity Video</span>
-                                            <div class="flex items-center justify-center w-full">
-                                                <div class="file-div ">
-                                                    <input id="dropzone-file-fst" name="fst_videos" type="file" class="file-input video-upload" accept=".mp4,video/mp4" data-label="1st Activity Video">
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only · Max {{ round(config('uploads.video_max_kb', 20480) / 1024) }} MB</p>
-                                                    @if(!empty($user_videos?->fst_video))
-                                                        <div class="uploaded-preview">
-                                                            Uploaded: <a href="{{ media_url('videos', $user_videos->fst_video) }}" target="_blank">View 1st Activity Video</a>
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </div> 
-
-                                        </div>
-                                        <div class="tab-pane" id="2nd-v">
-                                            <span class="d-hed">Upload 2nd Activity Video </span>
-                                            <div class="flex items-center justify-center w-full">
-                                                <div class="file-div ">
-                                                    <input id="dropzone-file-snd" name="snd_videos" type="file" class="file-input video-upload" accept=".mp4,video/mp4" data-label="2nd Activity Video">
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only · Max {{ round(config('uploads.video_max_kb', 20480) / 1024) }} MB</p>
-                                                    @if(!empty($user_videos?->snd_video))
-                                                        <div class="uploaded-preview">
-                                                            Uploaded: <a href="{{ media_url('videos', $user_videos->snd_video) }}" target="_blank">View 2nd Activity Video</a>
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </div> 
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="tab-pane" id="testimonial">
-                                    @if(!empty($user_testimonial?->testimonial_note))
-                                    <div class="note_div mt-3 mb-3">
-                                        <span class="note-text">Note: {{ $user_testimonial->testimonial_note }}</span>
-                                    </div>
-                                    @endif
-                                    <span class="d-hed">Upload Testimonial Video</span>
-                                    @if(!empty($user_testimonial?->testimonial_video))
-                                        <i class="bi-check-circle-fill nav-icn success-icon"></i>
-                                    @else
-                                        <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
-                                    @endif
-                                    <div class="flex items-center justify-center w-full">
-                                        <div class="file-div ">
-                                            <input id="dropzone-file-testimonial" name="testimonial_video" type="file" class="file-input" accept=".mp4,video/mp4">
-                                            <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="tab-pane" id="image">
-                                    @if(isset($user_images->image_note) != null)
-                                    <div class="note_div mt-3 mb-3">
-                                        <span class="note-text">Note: {{ $user_images->image_note }}</span>
-                                    </div>
-                                    @endif
-                                    <ul class="main-data-div" >
-                                        <li class="main-data-tab"><a  href="#1st-i" class="main-data-a" data-toggle="tab">In front of School Board Image</a>@if(isset($user_images->ifsb_image))<i class="bi-check-circle-fill nav-icn success-icon"></i> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li>
-
-                                        <li class="main-data-tab"><a href="#2nd-i" class="main-data-a" data-toggle="tab">Group Image</a>@if(isset($user_images->group_image))<i class="bi-check-circle-fill nav-icn success-icon"></i> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li>
-
-                                        <li class="main-data-tab"><a  href="#3rd-i" class="main-data-a" data-toggle="tab">1st Activity Image</a>@if(isset($user_images->fst_aimage))<i class="bi-check-circle-fill nav-icn success-icon"></i> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li>
-
-                                        <li class="main-data-tab"><a href="#4th-i" class="main-data-a" data-toggle="tab">2nd Activity Image</a>@if(isset($user_images->snd_aimage))<i class="bi-check-circle-fill nav-icn success-icon"></i> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li> 
-                                        
-                                        <li class="main-data-tab"><a  href="#5th-i" class="main-data-a" data-toggle="tab">3rd Activity Image</a>@if(isset($user_images->trd_aimage))<i class="bi-check-circle-fill nav-icn success-icon"></i> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif</li>        
-                                    </ul>
-                                    <div class="tab-content clearfix">
-                                        <div class="tab-pane" id="1st-i">
-                                            <span class="d-hed">Upload In front of School Board Image</span>
-                                            <div class="flex items-center justify-center w-full">
-                                                 <div class="file-div ">
-
-                                                    <input id="dropzone-file" name="ifsb_image" type="file" class="file-input" accept=".png , .JPG , .JPEG" />
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400"> PNG, JPEG or JPG</p>
-                                                </div>
-                                            </div> 
-                                        </div>
-                                        <div class="tab-pane" id="2nd-i">
-                                            <span class="d-hed">Upload Group Image</span>
-                                             <div class="flex items-center justify-center w-full">
-                                                <div class="file-div ">
-
-                                                    <input id="dropzone-file" name="group_image" type="file" class="file-input" accept=".png , .JPG , .JPEG"/>
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400"> PNG, JPEG or JPG</p>
-                                                </div>
-                                            </div> 
-                                        </div>
-                                         <div class="tab-pane" id="3rd-i">
-                                            <span class="d-hed">Upload 1st Activity Image</span>
-                                             <div class="flex items-center justify-center w-full">
-                                                <div class="file-div ">
-
-                                                     <input id="dropzone-file" name="fst_aimage" type="file" class="file-input" accept=".png , .JPG , .JPEG"/>
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400"> PNG, JPEG or JPG</p>
-                                                </div>  
-                                            </div> 
-                                        </div>
-                                        <div class="tab-pane" id="4th-i">
-                                            <span class="d-hed">Upload 2nd Activity Image</span>
-                                              <div class="flex items-center justify-center w-full">
-                                                <div class="file-div ">
-
-                                                    <input id="dropzone-file" name="snd_aimage" type="file" class="file-input" accept=".png , .JPG , .JPEG"/>
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400"> PNG, JPEG or JPG</p>
-                                                </div>  
-                                            </div> 
-                                        </div>
-                                         <div class="tab-pane" id="5th-i">
-                                            <span class="d-hed">Upload 3rd Activity Image</span>
-                                             <div class="flex items-center justify-center w-full">
-                                                <div class="file-div ">
-
-                                                    <input id="dropzone-file" name="trd_aimage" type="file" class="file-input" accept=".png , .JPG , .JPEG"/>
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400"> PNG, JPEG or JPG</p>
-                                                </div>
-                                            </div> 
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="tab-pane mt-3" id="completion">
-                                    @if(isset($user_completion->completion_note) != null)
-                                    <div class="note_div mt-3 mb-3">
-                                        <span class="note-text">Note: {{ $user_completion->completion_note }}</span>
-                                    </div>
-                                    @endif
-                                   <span class="d-hed">Upload Completion Certificate</span>
-                                    @if(isset($user_completion->completion_file))<i class="bi-check-circle-fill nav-icn success-icon"></i> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif 
-                                   <div class="flex items-center justify-center w-full">
-                                        <div class="file-div ">
-                                            <input id="dropzone-file" name="completion_file" type="file" class="file-input" accept=".png , .JPG , .JPEG , .pdf"/>
-                                            <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG or PDF</p>
-                                        </div>
-                                    </div> 
-                                </div>
-                                <div class="tab-pane mt-3" id="distribution">
-                                    @if(isset($user_distribution->distribution_note) != null)
-                                    <div class="note_div mt-3 mb-3">
-                                        <span class="note-text">Note: {{ $user_distribution->distribution_note }}</span>
-                                    </div>
-                                    @endif
-                                    @if(isset($user_distribution->complete_students) != null)
-                                        <input type="number" name="complete_students" class="form-control mt-3 mb-3" value="{{$user_distribution->complete_students}}" placeholder="Complete Students for this School">
-                                    @else
-                                         <input type="number" name="complete_students" class="form-control mt-3 mb-3" placeholder="Complete Students for this School">
-                                    @endif
-                                    <span class="d-hed">Upload Distribution Certificate</span>
-                                    @if(isset($user_distribution->complete_students))<i class="bi-check-circle-fill nav-icn success-icon"></i> @else <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i> @endif
-                                   <div class="flex items-center justify-center w-full">
-                                        <div class="file-div ">
-                                            <input id="dropzone-file" name="distribution_file" type="file" class="file-input" accept=".png , .JPG , .JPEG , .pdf"/>
-                                            <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG or PDF</p>
-                                        </div>
-                                    </div> 
                                 </div>
                             </div>
-                        </div>
-                        <div class="btn-div flex">
-                            <button type="button" class="btn-submit justify-center"  id="documents-save" onclick="callAjax()">Submit</button>
-                        </div>    
-                    </form>    
+                            <div id="mynewTab">
+                                <ul class="nav nav-pills" id="newTab">
+                                    <li class="active data-tab"><a href="#video" class="data-tab-a mytab"
+                                            data-toggle="tab">Upload Videos</a> </li>
+                                    <li class="data-tab"><a href="#image" class="data-tab-a mytab" data-toggle="tab">Upload
+                                            Images</a></li>
+                                    <li class="data-tab"><a href="#completion" class="data-tab-a mytab"
+                                            data-toggle="tab">Upload Completion Certificate</a></li>
+                                    <li class="data-tab"><a href="#distribution" class="data-tab-a mytab"
+                                            data-toggle="tab">Upload Distribution Certificate</a></li>
+                                    <li class="data-tab"><a href="#attendance" class="data-tab-a mytab"
+                                            data-toggle="tab">Upload Attendance</a></li>
+                                    <li class="data-tab"><a href="#testimonial" class="data-tab-a mytab"
+                                            data-toggle="tab">Upload Testimonials</a></li>
+                                </ul>
+                                <div class="progress mt-2">
+                                    <div class="progress-bar"></div>
+                                </div>
+                                <div class="tab-content clearfix">
+                                    <div class="tab-pane active" id="video">
+                                        @if (isset($user_videos->video_note) != null)
+                                            <div class="note_div mt-3 mb-3">
+                                                <span class="note-text">Note: {{ $user_videos->video_note }}</span>
+                                            </div>
+                                        @endif
+                                        <ul class="main-data-div">
+                                            <li class="main-data-tab"><a href="#1st-v" class="main-data-a"
+                                                    data-toggle="tab">1st Activity Video</a>
+                                                @if (isset($user_videos->fst_video))
+                                                    <i class="bi-check-circle-fill nav-icn success-icon"></i><a
+                                                        href="{{ media_url('videos', $user_videos->fst_video) }}"
+                                                        target="_blank" class="uploaded-view-link">View</a>
+                                                @else
+                                                    <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                                @endif
+                                            </li>
+                                            <li class="main-data-tab"><a href="#2nd-v" class="main-data-a"
+                                                    data-toggle="tab">2nd Activity Video</a>
+                                                @if (isset($user_videos->snd_video))
+                                                    <i class="bi-check-circle-fill nav-icn success-icon"></i><a
+                                                        href="{{ media_url('videos', $user_videos->snd_video) }}"
+                                                        target="_blank" class="uploaded-view-link">View</a>
+                                                @else
+                                                    <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                                @endif
+                                            </li>
+                                        </ul>
+                                        <div class="tab-content clearfix">
+                                            <div class="tab-pane" id="1st-v">
+                                                <span class="d-hed">Upload 1st Activity Video</span>
+                                                <div class="flex items-center justify-center w-full">
+                                                    <div class="file-div ">
+                                                        <input id="dropzone-file-fst" name="fst_videos" type="file"
+                                                            class="file-input video-upload" accept=".mp4,video/mp4"
+                                                            data-label="1st Activity Video">
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only · Max
+                                                            {{ round(config('uploads.video_max_kb', 20480) / 1024) }} MB
+                                                        </p>
+                                                        @if (!empty($user_videos?->fst_video))
+                                                            <div class="uploaded-preview">
+                                                                Uploaded: <a
+                                                                    href="{{ media_url('videos', $user_videos->fst_video) }}"
+                                                                    target="_blank">View 1st Activity Video</a>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                            <div class="tab-pane" id="2nd-v">
+                                                <span class="d-hed">Upload 2nd Activity Video </span>
+                                                <div class="flex items-center justify-center w-full">
+                                                    <div class="file-div ">
+                                                        <input id="dropzone-file-snd" name="snd_videos" type="file"
+                                                            class="file-input video-upload" accept=".mp4,video/mp4"
+                                                            data-label="2nd Activity Video">
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only · Max
+                                                            {{ round(config('uploads.video_max_kb', 20480) / 1024) }} MB
+                                                        </p>
+                                                        @if (!empty($user_videos?->snd_video))
+                                                            <div class="uploaded-preview">
+                                                                Uploaded: <a
+                                                                    href="{{ media_url('videos', $user_videos->snd_video) }}"
+                                                                    target="_blank">View 2nd Activity Video</a>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane" id="testimonial">
+                                        @if (!empty($user_testimonial?->testimonial_note))
+                                            <div class="note_div mt-3 mb-3">
+                                                <span class="note-text">Note:
+                                                    {{ $user_testimonial->testimonial_note }}</span>
+                                            </div>
+                                        @endif
+                                        <span class="d-hed">Upload Testimonial Video</span>
+                                        @if (!empty($user_testimonial?->testimonial_video))
+                                            <i class="bi-check-circle-fill nav-icn success-icon"></i>
+                                            <a href="{{ media_url('testimonials', $user_testimonial->testimonial_video) }}"
+                                                target="_blank" class="uploaded-view-link">View</a>
+                                        @else
+                                            <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                        @endif
+                                        <div class="flex items-center justify-center w-full">
+                                            <div class="file-div ">
+                                                <input id="dropzone-file-testimonial" name="testimonial_video"
+                                                    type="file" class="file-input" accept=".mp4,video/mp4">
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">MP4 only</p>
+                                                @if (!empty($user_testimonial?->testimonial_video))
+                                                    <div class="uploaded-preview">
+                                                        Uploaded: <a
+                                                            href="{{ media_url('testimonials', $user_testimonial->testimonial_video) }}"
+                                                            target="_blank">View Testimonial Video</a>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane" id="image">
+                                        @if (isset($user_images->image_note) != null)
+                                            <div class="note_div mt-3 mb-3">
+                                                <span class="note-text">Note: {{ $user_images->image_note }}</span>
+                                            </div>
+                                        @endif
+                                        <ul class="main-data-div">
+                                            <li class="main-data-tab"><a href="#1st-i" class="main-data-a"
+                                                    data-toggle="tab">In front of School Board Image</a>
+                                                @if (!empty($user_images->ifsb_image))
+                                                    <i class="bi-check-circle-fill nav-icn success-icon"></i><a
+                                                        href="{{ media_url('images', $user_images->ifsb_image) }}"
+                                                        target="_blank" class="uploaded-view-link">View</a>
+                                                @else
+                                                    <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                                @endif
+                                            </li>
+                                            <li class="main-data-tab"><a href="#2nd-i" class="main-data-a"
+                                                    data-toggle="tab">Group Image</a>
+                                                @if (!empty($user_images->group_image))
+                                                    <i class="bi-check-circle-fill nav-icn success-icon"></i><a
+                                                        href="{{ media_url('images', $user_images->group_image) }}"
+                                                        target="_blank" class="uploaded-view-link">View</a>
+                                                @else
+                                                    <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                                @endif
+                                            </li>
+                                            <li class="main-data-tab"><a href="#3rd-i" class="main-data-a"
+                                                    data-toggle="tab">1st Activity Image</a>
+                                                @if (!empty($user_images->fst_aimage))
+                                                    <i class="bi-check-circle-fill nav-icn success-icon"></i><a
+                                                        href="{{ media_url('images', $user_images->fst_aimage) }}"
+                                                        target="_blank" class="uploaded-view-link">View</a>
+                                                @else
+                                                    <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                                @endif
+                                            </li>
+                                            <li class="main-data-tab"><a href="#4th-i" class="main-data-a"
+                                                    data-toggle="tab">2nd Activity Image</a>
+                                                @if (!empty($user_images->snd_aimage))
+                                                    <i class="bi-check-circle-fill nav-icn success-icon"></i><a
+                                                        href="{{ media_url('images', $user_images->snd_aimage) }}"
+                                                        target="_blank" class="uploaded-view-link">View</a>
+                                                @else
+                                                    <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                                @endif
+                                            </li>
+                                            <li class="main-data-tab"><a href="#5th-i" class="main-data-a"
+                                                    data-toggle="tab">3rd Activity Image</a>
+                                                @if (!empty($user_images->trd_aimage))
+                                                    <i class="bi-check-circle-fill nav-icn success-icon"></i><a
+                                                        href="{{ media_url('images', $user_images->trd_aimage) }}"
+                                                        target="_blank" class="uploaded-view-link">View</a>
+                                                @else
+                                                    <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                                @endif
+                                            </li>
+                                        </ul>
+                                        <div class="tab-content clearfix">
+                                            <div class="tab-pane" id="1st-i">
+                                                <span class="d-hed">Upload In front of School Board Image</span>
+                                                <div class="flex items-center justify-center w-full">
+                                                    <div class="file-div ">
+
+                                                        <input id="dropzone-file" name="ifsb_image" type="file"
+                                                            class="file-input" accept=".png , .JPG , .JPEG" />
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400"> PNG, JPEG or
+                                                            JPG</p>
+                                                        @if (!empty($user_images->ifsb_image))
+                                                            <div class="uploaded-preview">
+                                                                Uploaded: <a
+                                                                    href="{{ media_url('images', $user_images->ifsb_image) }}"
+                                                                    target="_blank">View In front of School Board Image</a>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane" id="2nd-i">
+                                                <span class="d-hed">Upload Group Image</span>
+                                                <div class="flex items-center justify-center w-full">
+                                                    <div class="file-div ">
+
+                                                        <input id="dropzone-file" name="group_image" type="file"
+                                                            class="file-input" accept=".png , .JPG , .JPEG" />
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400"> PNG, JPEG or
+                                                            JPG</p>
+                                                        @if (!empty($user_images->group_image))
+                                                            <div class="uploaded-preview">
+                                                                Uploaded: <a
+                                                                    href="{{ media_url('images', $user_images->group_image) }}"
+                                                                    target="_blank">View Group Image</a>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane" id="3rd-i">
+                                                <span class="d-hed">Upload 1st Activity Image</span>
+                                                <div class="flex items-center justify-center w-full">
+                                                    <div class="file-div ">
+
+                                                        <input id="dropzone-file" name="fst_aimage" type="file"
+                                                            class="file-input" accept=".png , .JPG , .JPEG" />
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400"> PNG, JPEG or
+                                                            JPG</p>
+                                                        @if (!empty($user_images->fst_aimage))
+                                                            <div class="uploaded-preview">
+                                                                Uploaded: <a
+                                                                    href="{{ media_url('images', $user_images->fst_aimage) }}"
+                                                                    target="_blank">View 1st Activity Image</a>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane" id="4th-i">
+                                                <span class="d-hed">Upload 2nd Activity Image</span>
+                                                <div class="flex items-center justify-center w-full">
+                                                    <div class="file-div ">
+
+                                                        <input id="dropzone-file" name="snd_aimage" type="file"
+                                                            class="file-input" accept=".png , .JPG , .JPEG" />
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400"> PNG, JPEG or
+                                                            JPG</p>
+                                                        @if (!empty($user_images->snd_aimage))
+                                                            <div class="uploaded-preview">
+                                                                Uploaded: <a
+                                                                    href="{{ media_url('images', $user_images->snd_aimage) }}"
+                                                                    target="_blank">View 2nd Activity Image</a>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane" id="5th-i">
+                                                <span class="d-hed">Upload 3rd Activity Image</span>
+                                                <div class="flex items-center justify-center w-full">
+                                                    <div class="file-div ">
+
+                                                        <input id="dropzone-file" name="trd_aimage" type="file"
+                                                            class="file-input" accept=".png , .JPG , .JPEG" />
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400"> PNG, JPEG or
+                                                            JPG</p>
+                                                        @if (!empty($user_images->trd_aimage))
+                                                            <div class="uploaded-preview">
+                                                                Uploaded: <a
+                                                                    href="{{ media_url('images', $user_images->trd_aimage) }}"
+                                                                    target="_blank">View 3rd Activity Image</a>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane mt-3" id="completion">
+                                        @if (isset($user_completion->completion_note) != null)
+                                            <div class="note_div mt-3 mb-3">
+                                                <span class="note-text">Note:
+                                                    {{ $user_completion->completion_note }}</span>
+                                            </div>
+                                        @endif
+                                        <span class="d-hed">Upload Completion Certificate</span>
+                                        @if (!empty($user_completion->completion_file))
+                                            <i class="bi-check-circle-fill nav-icn success-icon"></i><a
+                                                href="{{ media_url('completion', $user_completion->completion_file) }}"
+                                                target="_blank" class="uploaded-view-link">View</a>
+                                        @else
+                                            <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                        @endif
+                                        <div class="flex items-center justify-center w-full">
+                                            <div class="file-div ">
+                                                <input id="dropzone-file" name="completion_file" type="file"
+                                                    class="file-input" accept=".png , .JPG , .JPEG , .pdf" />
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG or PDF</p>
+                                                @if (!empty($user_completion->completion_file))
+                                                    <div class="uploaded-preview">
+                                                        Uploaded: <a
+                                                            href="{{ media_url('completion', $user_completion->completion_file) }}"
+                                                            target="_blank">View Completion Certificate</a>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane mt-3" id="distribution">
+                                        @if (isset($user_distribution->distribution_note) != null)
+                                            <div class="note_div mt-3 mb-3">
+                                                <span class="note-text">Note:
+                                                    {{ $user_distribution->distribution_note }}</span>
+                                            </div>
+                                        @endif
+                                        @if (isset($user_distribution->complete_students) != null)
+                                            <input type="number" name="complete_students" class="form-control mt-3 mb-3"
+                                                value="{{ $user_distribution->complete_students }}"
+                                                placeholder="Complete Students for this School">
+                                        @else
+                                            <input type="number" name="complete_students" class="form-control mt-3 mb-3"
+                                                placeholder="Complete Students for this School">
+                                        @endif
+                                        <span class="d-hed">Upload Distribution Certificate</span>
+                                        @if (!empty($user_distribution->distribution_file))
+                                            <i class="bi-check-circle-fill nav-icn success-icon"></i><a
+                                                href="{{ media_url('distribution', $user_distribution->distribution_file) }}"
+                                                target="_blank" class="uploaded-view-link">View</a>
+                                        @else
+                                            <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                        @endif
+                                        <div class="flex items-center justify-center w-full">
+                                            <div class="file-div ">
+                                                <input id="dropzone-file" name="distribution_file" type="file"
+                                                    class="file-input" accept=".png , .JPG , .JPEG , .pdf" />
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG or PDF</p>
+                                                @if (!empty($user_distribution->distribution_file))
+                                                    <div class="uploaded-preview">
+                                                        Uploaded: <a
+                                                            href="{{ media_url('distribution', $user_distribution->distribution_file) }}"
+                                                            target="_blank">View Distribution Certificate</a>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane mt-3" id="attendance">
+                                        @if (isset($user_attendance->attendance_note) != null)
+                                            <div class="note_div mt-3 mb-3">
+                                                <span class="note-text">Note:
+                                                    {{ $user_attendance->attendance_note }}</span>
+                                            </div>
+                                        @endif
+                                        <span class="d-hed">Upload Attendance Sheet</span>
+                                        @php
+                                            $attFiles = $user_attendance ? $user_attendance->getAllFiles() : [];
+                                        @endphp
+                                        @if (!empty($attFiles))
+                                            <i class="bi-check-circle-fill nav-icn success-icon"></i>
+                                            <span class="text-success font-weight-bold ml-2" style="font-size: 13px;">({{ count($attFiles) }} file(s) uploaded)</span>
+                                        @else
+                                            <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                        @endif
+                                        <div class="flex items-center justify-center w-full">
+                                            <div class="file-div ">
+                                                <input id="dropzone-file-attendance" name="attendance_files[]" type="file"
+                                                    multiple class="file-input" accept=".png, .jpg, .jpeg, .pdf, .PNG, .JPG, .JPEG, .PDF" />
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, JPEG or PDF </p>
+                                                @if (!empty($attFiles))
+                                                    <div class="uploaded-preview">
+                                                        <strong>Uploaded Attendance Sheet(s):</strong>
+                                                        <ul class="list-unstyled mt-2 mb-0">
+                                                            @foreach ($attFiles as $idx => $attPath)
+                                                                <li class="mb-1">
+                                                                    <a href="{{ media_url('attendances', $attPath) }}" target="_blank">
+                                                                        <i class="bi bi-file-earmark-check"></i> View Page / File {{ $idx + 1 }}
+                                                                    </a>
+                                                                </li>
+                                                            @endforeach
+                                                        </ul>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane mt-3" id="testimonial">
+                                        @if (isset($user_testimonial->testimonial_note) != null)
+                                            <div class="note_div mt-3 mb-3">
+                                                <span class="note-text">Note:
+                                                    {{ $user_testimonial->testimonial_note }}</span>
+                                            </div>
+                                        @endif
+                                        <span class="d-hed">Upload Testimonial Video</span>
+                                        @if (!empty($user_testimonial->testimonial_video))
+                                            <i class="bi-check-circle-fill nav-icn success-icon"></i><a
+                                                href="{{ media_url('testimonials', $user_testimonial->testimonial_video) }}"
+                                                target="_blank" class="uploaded-view-link">View</a>
+                                        @else
+                                            <i class="bi bi-dash-circle-fill nav-icn padding-icon"></i>
+                                        @endif
+                                        <div class="flex items-center justify-center w-full">
+                                            <div class="file-div ">
+                                                <input id="dropzone-file-testimonial" name="testimonial_video" type="file"
+                                                    class="file-input video-upload" data-label="Testimonial Video" accept=".mp4" />
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">MP4 (max 20 MB)</p>
+                                                @if (!empty($user_testimonial->testimonial_video))
+                                                    <div class="uploaded-preview">
+                                                        Uploaded: <a
+                                                            href="{{ media_url('testimonials', $user_testimonial->testimonial_video) }}"
+                                                            target="_blank">View Testimonial Video</a>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="btn-div flex">
+                                <button type="button" class="btn-submit justify-center" id="documents-save"
+                                    onclick="callAjax()">Submit</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
-<script type="text/javascript">
-   $('.mytab').click(function (e) {
-        e.preventDefault();
-        $(this).tab('show');
-    });
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <script type="text/javascript">
+        $('.mytab').click(function(e) {
+            e.preventDefault();
+            $(this).tab('show');
+        });
 
-    $('.mytab').on("shown.bs.tab", function (e) {
-        var id = $(e.target).attr("href");
-        localStorage.setItem('activeTab', id)
-    });
+        $('.mytab').on("shown.bs.tab", function(e) {
+            var id = $(e.target).attr("href");
+            localStorage.setItem('activeTab', id)
+        });
 
-    var selectedTab = localStorage.getItem('activeTab');
-    console.log(selectedTab);
-    if (selectedTab != null) {
-        $('.mytab[href="' + selectedTab + '"]').tab('show');
-    }
-
-    var videoMaxBytes = {{ (int) config('uploads.video_max_kb', 20480) * 1024 }};
-    var videoMaxMb = {{ round(config('uploads.video_max_kb', 20480) / 1024) }};
-
-    $(document).on('change', '.video-upload', function () {
-        var input = this;
-        var file = input.files && input.files[0];
-        if (!file) {
-            return;
+        var selectedTab = localStorage.getItem('activeTab');
+        console.log(selectedTab);
+        if (selectedTab != null) {
+            $('.mytab[href="' + selectedTab + '"]').tab('show');
         }
-        var label = $(input).data('label') || 'Video';
-        var name = (file.name || '').toLowerCase();
-        if (!name.endsWith('.mp4') && file.type !== 'video/mp4') {
-            input.value = '';
-            Swal.fire({ icon: 'error', title: label + ' must be an MP4 file.' });
-            return;
-        }
-        if (file.size > videoMaxBytes) {
-            input.value = '';
-            Swal.fire({
-                icon: 'error',
-                title: label + ' is too large',
-                text: 'Maximum allowed size is ' + videoMaxMb + ' MB.'
+
+        var videoMaxBytes = {{ (int) config('uploads.video_max_kb', 20480) * 1024 }};
+        var videoMaxMb = {{ round(config('uploads.video_max_kb', 20480) / 1024) }};
+
+        $(document).on('change', '.video-upload', function() {
+            var input = this;
+            var file = input.files && input.files[0];
+            if (!file) {
+                return;
+            }
+            var label = $(input).data('label') || 'Video';
+            var name = (file.name || '').toLowerCase();
+            if (!name.endsWith('.mp4') && file.type !== 'video/mp4') {
+                input.value = '';
+                Swal.fire({
+                    icon: 'error',
+                    title: label + ' must be an MP4 file.'
+                });
+                return;
+            }
+            if (file.size > videoMaxBytes) {
+                input.value = '';
+                Swal.fire({
+                    icon: 'error',
+                    title: label + ' is too large',
+                    text: 'Maximum allowed size is ' + videoMaxMb + ' MB.'
+                });
+            }
+        });
+
+        function callAjax(e) {
+            var oversized = null;
+            $('.video-upload').each(function() {
+                var file = this.files && this.files[0];
+                if (file && file.size > videoMaxBytes) {
+                    oversized = ($(this).data('label') || 'Video') + ' must not be larger than ' + videoMaxMb +
+                        ' MB.';
+                    return false;
+                }
+            });
+            if (oversized) {
+                Swal.fire({
+                    icon: 'error',
+                    title: oversized
+                });
+                return;
+            }
+
+            $(".btn-submit").prepend('<i class="fa fa-spinner fa-spin"></i>');
+
+            $(".btn-submit").attr("disabled", 'disabled');
+
+            window.User = {!! json_encode(optional(auth()->user())->only('instructor_name')) !!}
+
+            $.ajax({
+                xhr: function() {
+                    var xhr = new window.XMLHttpRequest();
+                    xhr.upload.addEventListener("progress", function(evt) {
+                        if (evt.lengthComputable) {
+                            var percentComplete = parseInt((evt.loaded / evt.total) * 100);
+                            $(".progress-bar").width(percentComplete + '%');
+                            $(".progress-bar").html(percentComplete + '%');
+                        }
+                    }, false);
+                    return xhr;
+                },
+                url: '{{ route('create-data') }}',
+                method: "POST",
+                data: new FormData(document.getElementById("documentsForm")),
+                dataType: 'JSON',
+                contentType: false,
+                cache: false,
+                processData: false,
+                success: function(response) {
+                    $(".btn-submit").find(".fa-spinner").remove();
+                    $(".btn-submit").removeAttr("disabled");
+                    Swal.fire({
+                            position: 'center',
+                            icon: 'success',
+                            title: ' Thank You ' + window.User.instructor_name + ' 😊',
+                            showConfirmButton: true,
+                            confirmButtonText: `<i class="fa fa-thumbs-up"></i>&nbsp;&nbsp; OK`,
+                        })
+                        .then(function(isConfirm) {
+                            if (isConfirm) {
+                                location.reload();
+                            }
+                        });
+                },
+                error: function(data) {
+                    $(".btn-submit").find(".fa-spinner").remove();
+                    $(".btn-submit").removeAttr("disabled");
+                    var title = 'Upload failed. Please try again.';
+                    try {
+                        var obj = typeof data.responseText === 'string' ? JSON.parse(data.responseText) : data
+                            .responseJSON;
+                        if (obj && obj.errors) {
+                            var firstKey = Object.keys(obj.errors)[0];
+                            title = obj.errors[firstKey][0];
+                        } else if (obj && obj.message) {
+                            title = obj.message;
+                        }
+                    } catch (err) {}
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'error',
+                        title: title,
+                        showConfirmButton: true
+                    });
+                }
             });
         }
-    });
-
-    function callAjax(e){
-        var oversized = null;
-        $('.video-upload').each(function () {
-            var file = this.files && this.files[0];
-            if (file && file.size > videoMaxBytes) {
-                oversized = ($(this).data('label') || 'Video') + ' must not be larger than ' + videoMaxMb + ' MB.';
-                return false;
-            }
-        });
-        if (oversized) {
-            Swal.fire({ icon: 'error', title: oversized });
-            return;
-        }
-
-        $(".btn-submit").prepend('<i class="fa fa-spinner fa-spin"></i>');
-
-        $(".btn-submit").attr("disabled", 'disabled');
-
-        window.User = {!! json_encode(optional(auth()->user())->only('instructor_name')) !!}
-
-        $.ajax({
-            xhr: function() {
-                var xhr = new window.XMLHttpRequest();
-                xhr.upload.addEventListener("progress", function(evt) {
-                    if (evt.lengthComputable) {
-                        var percentComplete = parseInt((evt.loaded / evt.total) * 100);
-                        $(".progress-bar").width(percentComplete + '%');
-                        $(".progress-bar").html(percentComplete+'%');
-                    }
-                }, false);
-                return xhr;
-            },
-            url:'{{route('create-data')}}',
-            method:"POST",
-            data: new FormData(document.getElementById("documentsForm")),
-            dataType:'JSON',
-            contentType: false,
-            cache: false,
-            processData: false,
-            success: function(response){
-                $(".btn-submit").find(".fa-spinner").remove();
-                $(".btn-submit").removeAttr("disabled");
-                Swal.fire({
-                  position: 'center',
-                  icon: 'success',
-                  title: ' Thank You '+window.User.instructor_name+' 😊',
-                  showConfirmButton: true,
-                   confirmButtonText: `<i class="fa fa-thumbs-up"></i>&nbsp;&nbsp; OK`,
-                })
-                .then(function(isConfirm) {
-                if (isConfirm) {
-                    location.reload();
-                  } 
-                });
-            },
-            error: function (data) {
-                $(".btn-submit").find(".fa-spinner").remove();
-                $(".btn-submit").removeAttr("disabled");
-                var title = 'Upload failed. Please try again.';
-                try {
-                    var obj = typeof data.responseText === 'string' ? JSON.parse(data.responseText) : data.responseJSON;
-                    if (obj && obj.errors) {
-                        var firstKey = Object.keys(obj.errors)[0];
-                        title = obj.errors[firstKey][0];
-                    } else if (obj && obj.message) {
-                        title = obj.message;
-                    }
-                } catch (err) {}
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'error',
-                    title: title,
-                    showConfirmButton: true
-                });
-            }
-        });
-    }
-</script>
+    </script>
 @endsection

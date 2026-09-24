@@ -52,6 +52,11 @@ class School extends Model
         return $this->hasMany(Completion::class, 'school_id');
     }
 
+    public function attendances()
+    {
+        return $this->hasMany(Attendance::class, 'school_id');
+    }
+
     public function assignedSchools()
     {
         return $this->hasMany(AsignedSchool::class, 'school_name', 'school_name');

@@ -123,7 +123,7 @@
                         <td class="school-cell">{{ $data['school_name'] }}</td>
                         <td class="date-cell">
                             <div class="dt-stack">
-                                @php $shownAt = $data['updated_at'] ?? $data['created_at']; @endphp
+                                @php $shownAt = $data['created_at'] ?? $data['created_date'] ?? $data['updated_at']; @endphp
                                 {{ date('d/m/y', strtotime($shownAt)) }}
                                 <small>{{ date('g:i A', strtotime($shownAt)) }}</small>
                             </div>
@@ -160,17 +160,20 @@
                         </td>
                         <td style="text-align:center;">{{ $data['complete_students'] ?? '—' }}</td>
                         <td>
-                            <label class="container-ck12">
+                            <div class="approval-cell-wrap text-center">
                                 @if($data['status'] == 1)
-                                    <span class="approve">Approved</span>
+                                    <span class="badge badge-success py-1 px-2" style="background:#28a745; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-check-circle-fill"></i> Approved</span>
                                 @elseif($data['distribution_note'] != null)
-                                    <span class="not-started">Rejected</span>
+                                    <span class="badge badge-danger py-1 px-2" style="background:#dc3545; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-x-circle-fill"></i> Rejected</span>
                                 @else
-                                    <span class="disapproved">Approval Pending</span>
-                                    <input class="distributions-status approve-button" data-id="{{ $data['id'] }}" type="checkbox">
-                                    <div class="checkmark"></div>
+                                    <div class="d-flex flex-column align-items-center justify-content-center" style="gap: 2px;">
+                                        <span class="badge badge-warning py-1 px-2" style="background:#ffc107; color:#000; font-size: 10px; font-weight: 600; border-radius: 3px; white-space: nowrap;">Pending</span>
+                                        <button type="button" class="btn btn-sm btn-success btn-approve-distribution" data-id="{{ $data['id'] }}" style="padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 4px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; line-height: 1.2;">
+                                            <i class="bi bi-check-lg" style="font-size: 12px;"></i> <span>Approve</span>
+                                        </button>
+                                    </div>
                                 @endif
-                            </label>
+                            </div>
                         </td>
                     </tr>
                 @endforeach
@@ -230,15 +233,40 @@
         });
     });
 
-    $('.distributions-status').change(function () {
+    $(document).on('click', '.btn-approve-distribution', function () {
+        let $btn = $(this);
+        let distributions_id = $btn.data('id');
+        let $cellWrap = $btn.closest('.approval-cell-wrap');
+
+        $btn.prop('disabled', true).text('Approving...');
+
         $.ajax({
-            type: 'GET', dataType: 'json', url: '/distributions-status',
-            data: { distributions_status: $(this).prop('checked') ? 1 : 0, distributions_id: $(this).data('id') },
+            type: 'GET',
+            dataType: 'json',
+            url: '/distributions-status',
+            data: { distributions_status: 1, distributions_id: distributions_id },
             success: function () {
-                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Approve Distributions status are changed !', showConfirmButton: false, timer: 2000 });
+                $cellWrap.html('<span class="badge badge-success py-1 px-2" style="background:#28a745; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-check-circle-fill"></i> Approved</span>');
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+                Toast.fire({
+                    icon: 'success',
+                    title: 'Distribution (DC) approved successfully!'
+                });
             },
-            error: function () {
-                Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Somethig Wrong Please Check!', showConfirmButton: false, timer: 4000 });
+            error: function (xhr) {
+                $btn.prop('disabled', false).html('<i class="bi bi-check-lg" style="font-size: 12px;"></i> <span>Approve</span>');
+                let errMsg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Something went wrong. Please check!';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: errMsg
+                });
             }
         });
     });

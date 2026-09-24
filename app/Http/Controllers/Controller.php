@@ -23,6 +23,7 @@ use App\Models\Cordinator;
 use App\Models\AsignedSchool;
 use App\Models\PaidSchool;
 use App\Models\Testimonial;
+use App\Models\Attendance;
 use App\Services\AcademicSessionService;
 use App\Services\CoordinatorScopeService;
 use App\Services\HolidayService;
@@ -179,7 +180,6 @@ class Controller extends BaseController
 
     public function uploadData()
     {
-        $this->schoolCompleteStatus();
         if (Auth::user() == null) {
             return redirect()->route('login');
         }
@@ -188,9 +188,9 @@ class Controller extends BaseController
         $isStateCoordinator = CoordinatorScopeService::isStateCoordinator($auth);
         $activeSession = AcademicSessionService::active();
         $district = StateService::districtsQuery()->orderBy('district')->get()->toArray();
-        $schools = StateService::schoolsQuery()->orderBy('school_name')->get();
 
         if ($isStateCoordinator) {
+            $schools = StateService::schoolsQuery()->orderBy('school_name')->get();
             $districtModels = StateService::districtsQuery()->orderBy('district')->get();
             $assignedBySchool = AsignedSchool::query()
                 ->select('school_name')
@@ -279,6 +279,9 @@ class Controller extends BaseController
         }
 
         $user = User::where('id', $auth->id)->with('asigned_schools')->first()->toArray();
+        $assignedSchoolIds = collect($user['asigned_schools'] ?? [])->pluck('school_name')->filter()->unique()->values();
+        $schools = School::whereIn('id', $assignedSchoolIds)->get();
+
         $videos = Video::where('user_id', $auth->id)->get()->toArray();
         $images = Image::where('user_id', $auth->id)->get()->toArray();
         $completion = Completion::where('user_id', $auth->id)->get()->toArray();
@@ -320,14 +323,96 @@ class Controller extends BaseController
 
     public function trainerClaimNote(Request $request)
     {
-        $request->validate([
-            'claim_note' => 'required'
-        ]);
-        $routeData = User::findOrFail($request->id);
-        $routeData->claim_note = $request->claim_note;
+        $trainerId = $request->input('id') ?: Auth::id();
+        $routeData = User::findOrFail($trainerId);
+
+        $hasExistingBankDetails = !empty($routeData->account_number) 
+            && !empty($routeData->ifsc_code) 
+            && !empty($routeData->pan_doc) 
+            && !empty($routeData->passbook_doc);
+
+        $rules = [
+            'claim_schools' => 'nullable|array',
+            'claim_schools.*' => 'integer',
+            'claim_note' => 'nullable|string|max:1000',
+            'bank_name' => ($hasExistingBankDetails ? 'nullable' : 'required') . '|string|max:255',
+            'account_holder_name' => ($hasExistingBankDetails ? 'nullable' : 'required') . '|string|max:255',
+            'account_number' => ($hasExistingBankDetails ? 'nullable' : 'required') . '|string|max:50',
+            'ifsc_code' => ($hasExistingBankDetails ? 'nullable' : 'required') . '|string|max:20',
+            'pan_number' => ($hasExistingBankDetails ? 'nullable' : 'required') . '|string|max:20',
+            'pan_doc' => [
+                ($routeData->pan_doc ? 'nullable' : 'required'),
+                'file',
+                'mimes:jpg,jpeg,png,pdf',
+                'max:5120',
+            ],
+            'passbook_doc' => [
+                ($routeData->passbook_doc ? 'nullable' : 'required'),
+                'file',
+                'mimes:jpg,jpeg,png,pdf',
+                'max:5120',
+            ],
+        ];
+
+        $request->validate($rules);
+
+        $safeCode = preg_replace('/[^A-Za-z0-9_\-]/', '_', (string) ($routeData->instructor_code ?: $routeData->id));
+
+        if ($request->hasFile('pan_doc')) {
+            if ($routeData->pan_doc) {
+                Storage::disk('public')->delete($routeData->pan_doc);
+            }
+            $file = $request->file('pan_doc');
+            $ext = strtolower($file->getClientOriginalExtension());
+            $name = $safeCode.'_pan_doc.'.$ext;
+            $routeData->pan_doc = $file->storeAs('trainer_data', $name, 'public');
+        }
+
+        if ($request->hasFile('passbook_doc')) {
+            if ($routeData->passbook_doc) {
+                Storage::disk('public')->delete($routeData->passbook_doc);
+            }
+            $file = $request->file('passbook_doc');
+            $ext = strtolower($file->getClientOriginalExtension());
+            $name = $safeCode.'_passbook.'.$ext;
+            $routeData->passbook_doc = $file->storeAs('trainer_data', $name, 'public');
+        }
+
+        if ($request->filled('pan_number')) {
+            $routeData->pan_number = strtoupper(trim($request->input('pan_number')));
+        }
+        if ($request->filled('bank_name')) {
+            $routeData->bank_name = trim($request->input('bank_name'));
+        }
+        if ($request->filled('account_holder_name')) {
+            $routeData->account_holder_name = trim($request->input('account_holder_name'));
+        }
+        if ($request->filled('account_number')) {
+            $routeData->account_number = trim($request->input('account_number'));
+        }
+        if ($request->filled('ifsc_code')) {
+            $routeData->ifsc_code = strtoupper(trim($request->input('ifsc_code')));
+        }
+
+        if ($request->filled('claim_note')) {
+            $routeData->claim_note = $request->input('claim_note');
+        }
         $routeData->salary_status = 0;
         $routeData->save();
-        return redirect()->back();
+
+        $selectedSchools = $request->input('claim_schools', []);
+
+        if (!empty($selectedSchools)) {
+            AsignedSchool::withoutGlobalScopes()
+                ->where('user_id', $routeData->id)
+                ->whereIn('id', $selectedSchools)
+                ->update([
+                    'claim_status' => 1,
+                    'claimed_at' => now(),
+                ]);
+        }
+
+        return redirect()->back()->with('success', 'Claim request submitted successfully.');
     }
 
     public function CordinatorTrainerReporting()
@@ -741,6 +826,71 @@ class Controller extends BaseController
                     $distribution->save();
                 }
             }
+
+            if ($request->hasFile('attendance_files') || $request->hasFile('attendance_file')) {
+                $request->validate([
+                    'attendance_files' => 'nullable|array',
+                    'attendance_files.*' => 'mimes:jpeg,jpg,png,pdf',
+                    'attendance_file' => 'nullable|mimes:jpeg,jpg,png,pdf',
+                ]);
+
+                $uploadedFiles = [];
+                if ($request->hasFile('attendance_files')) {
+                    $uploadedFiles = $request->file('attendance_files');
+                } elseif ($request->hasFile('attendance_file')) {
+                    $uploadedFiles = [$request->file('attendance_file')];
+                }
+
+                $storedPaths = [];
+                foreach ($uploadedFiles as $index => $file) {
+                    if ($file) {
+                        $attName = Auth::user()->instructor_code . '_att_' . ($index + 1) . '_' . $file->getClientOriginalName();
+                        $storedPaths[] = $uploadPaths->store($file, $schoolId, 'attendances', $attName, $sessionId);
+                    }
+                }
+
+                if (!empty($storedPaths)) {
+                    $user = Attendance::where('user_id', $request->input('user_id'))
+                        ->where(function ($q) use ($request) {
+                            $q->where('school_name', $request->school_name)
+                              ->orWhere('school_id', $request->school_id);
+                        })->first();
+
+                    if ($user == null) {
+                        $attendance = new Attendance();
+                        $attendance->user_id = $request->input('user_id');
+                        $attendance->uploaded_user = Auth::user()->id;
+                        $attendance->cordinator = $request->input('cordinator');
+                        $attendance->district = $request->input('district');
+                        $attendance->block = $request->input('block');
+                        $attendance->school_name = $request->input('school_name');
+                        $attendance->school_address = $request->input('school_address');
+                        $attendance->intime = $request->input('intime');
+                        $attendance->outtime = $request->input('outtime');
+                        $attendance->route_date = $request->input('route_date');
+                        $attendance->school_id = $request->input('school_id');
+                        $attendance->session_id = $sessionId;
+                        $attendance->attendance_file = $storedPaths[0];
+                        $attendance->attendance_files = $storedPaths;
+                        $attendance->created_date = date('d-m-y - h:i');
+                        $attendance->status = 0;
+                        $attendance->save();
+                    } else {
+                        $attendance = Attendance::find($user->id);
+                        $oldFiles = $attendance->getAllFiles();
+                        foreach ($oldFiles as $oldFile) {
+                            TrainerUploadPathService::delete('attendances', $oldFile);
+                        }
+                        $attendance->attendance_file = $storedPaths[0];
+                        $attendance->attendance_files = $storedPaths;
+                        $attendance->attendance_note = null;
+                        $attendance->status = 0;
+                        $attendance->uploaded_user = Auth::user()->id;
+                        $attendance->created_date = date('d-m-y - h:i');
+                        $attendance->save();
+                    }
+                }
+            }
         SessionUploadService::syncAssignmentStatuses();
         return Response::json();
     }
@@ -802,6 +952,11 @@ class Controller extends BaseController
         $user_testimonial = Testimonial::where('user_id', $asch['user_id'])
             ->where('school_id', $school_data['school_name'])
             ->first();
+        $user_attendance = Attendance::where('user_id', $asch['user_id'])
+            ->where(function ($q) use ($schoolName, $school_data) {
+                $q->where('school_name', $schoolName)
+                  ->orWhere('school_id', $school_data['school_name']);
+            })->first();
 
         return view('trainer.add_data')
             ->with('user_images', $user_images)
@@ -809,6 +964,7 @@ class Controller extends BaseController
             ->with('user_completion', $user_completion)
             ->with('user_distribution', $user_distribution)
             ->with('user_testimonial', $user_testimonial)
+            ->with('user_attendance', $user_attendance)
             ->with('school_data', $school_data)
             ->with('cordinators', $cordinators)
             ->with('district', $district)

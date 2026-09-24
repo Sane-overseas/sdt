@@ -218,30 +218,157 @@
 				        <label>Aadhar Document</label>
 				        <input type="file" class="form-control" name="aadhar_doc" accept=".jpg,.jpeg,.png,.pdf" @if($lockProfile) disabled @endif>
 				        @if(!empty($trainer_data['aadhar_doc']))
-				            <small><a href="{{ asset('storage/'.$trainer_data['aadhar_doc']) }}" target="_blank">View current</a></small>
+				            <small><a href="{{ media_url('trainer_data', basename($trainer_data['aadhar_doc'])) ?: url('/m/r/'.basename($trainer_data['aadhar_doc'])) }}" target="_blank">View current Aadhar</a></small>
 				        @endif
 				    </div>
 				    <div class="form-group col-md-6">
 				        <label>Qualification</label>
 				        <input type="file" class="form-control" name="qualification_doc" accept=".jpg,.jpeg,.png,.pdf" @if($lockProfile) disabled @endif>
 				        @if(!empty($trainer_data['qualification_doc']))
-				            <small><a href="{{ asset('storage/'.$trainer_data['qualification_doc']) }}" target="_blank">View current</a></small>
+				            <small><a href="{{ media_url('trainer_data', basename($trainer_data['qualification_doc'])) ?: url('/m/r/'.basename($trainer_data['qualification_doc'])) }}" target="_blank">View current Qualification</a></small>
 				        @endif
 				    </div>
 				    <div class="form-group col-md-6">
 				        <label>Martial Art Certificate</label>
 				        <input type="file" class="form-control" name="martial_art_doc" accept=".jpg,.jpeg,.png,.pdf" @if($lockProfile) disabled @endif>
 				        @if(!empty($trainer_data['martial_art_doc']))
-				            <small><a href="{{ asset('storage/'.$trainer_data['martial_art_doc']) }}" target="_blank">View current</a></small>
+				            <small><a href="{{ media_url('trainer_data', basename($trainer_data['martial_art_doc'])) ?: url('/m/r/'.basename($trainer_data['martial_art_doc'])) }}" target="_blank">View current Certificate</a></small>
 				        @endif
 				    </div>
 				    <div class="form-group col-md-6">
 				        <label>Photo</label>
 				        <input type="file" class="form-control" name="photo" accept=".jpg,.jpeg,.png" @if($lockProfile) disabled @endif>
 				        @if(!empty($trainer_data['photo']))
-				            <small><a href="{{ asset('storage/'.$trainer_data['photo']) }}" target="_blank">View current</a></small>
+				            <small><a href="{{ media_url('trainer_data', basename($trainer_data['photo'])) ?: url('/m/r/'.basename($trainer_data['photo'])) }}" target="_blank">View current Photo</a></small>
 				        @endif
 				    </div>
+				</div>
+
+				<div class="mt-4 mb-3" style="border-top: 1px solid #e2e8f0; padding-top: 16px;">
+				    <div class="d-flex justify-content-between align-items-center mb-3">
+				        <h5 class="font-weight-bold text-primary mb-0">
+				            <i class="bi bi-bank2 mr-1"></i> Bank &amp; KYC Details
+				        </h5>
+				        @if($canEditTrainer)
+				        <button type="button" class="btn btn-sm btn-outline-primary" id="toggleBankEditBtn" onclick="toggleBankKycEdit()">
+				            <i class="bi bi-pencil-square mr-1"></i> <span id="bankEditBtnText">Edit Bank &amp; KYC</span>
+				        </button>
+				        @endif
+				    </div>
+				    @php
+				        $hasBankDetails = !empty($trainer_data['bank_name']) 
+				            || !empty($trainer_data['account_number']) 
+				            || !empty($trainer_data['ifsc_code']) 
+				            || !empty($trainer_data['pan_number']) 
+				            || !empty($trainer_data['pan_doc']) 
+				            || !empty($trainer_data['passbook_doc']);
+				    @endphp
+
+				    {{-- View-Only Mode --}}
+				    <div id="bankDetailsView">
+				        @if($hasBankDetails)
+				            <div class="table-responsive" style="max-width: 100%;">
+				                <table class="table table-sm table-bordered mb-0" style="background: #fafafa; font-size: 13px;">
+				                    <tbody>
+				                        <tr>
+				                            <th style="width: 25%; background: #f1f5f9;">Bank Name</th>
+				                            <td style="width: 25%;"><strong>{{ $trainer_data['bank_name'] ?? '—' }}</strong></td>
+				                            <th style="width: 25%; background: #f1f5f9;">Account Holder Name</th>
+				                            <td style="width: 25%;"><strong>{{ $trainer_data['account_holder_name'] ?? ($trainer_data['instructor_name'] ?? '—') }}</strong></td>
+				                        </tr>
+				                        <tr>
+				                            <th style="background: #f1f5f9;">Account Number</th>
+				                            <td><strong>{{ $trainer_data['account_number'] ?? '—' }}</strong></td>
+				                            <th style="background: #f1f5f9;">IFSC Code</th>
+				                            <td><strong class="text-uppercase">{{ $trainer_data['ifsc_code'] ?? '—' }}</strong></td>
+				                        </tr>
+				                        <tr>
+				                            <th style="background: #f1f5f9;">PAN Number</th>
+				                            <td colspan="3"><strong class="text-uppercase">{{ $trainer_data['pan_number'] ?? '—' }}</strong></td>
+				                        </tr>
+				                        <tr>
+				                            <th style="background: #f1f5f9;">Uploaded KYC Documents</th>
+				                            <td colspan="3">
+				                                <div class="d-flex flex-wrap gap-2">
+				                                    @if(!empty($trainer_data['pan_doc']))
+				                                        <a href="{{ media_url('trainer_data', basename($trainer_data['pan_doc'])) ?: url('/m/r/'.basename($trainer_data['pan_doc'])) }}" target="_blank" class="btn btn-sm btn-info text-white mr-2" style="font-size: 11px; padding: 4px 8px;">
+				                                            <i class="bi bi-file-earmark-image"></i> View PAN Card
+				                                        </a>
+				                                    @endif
+				                                    @if(!empty($trainer_data['passbook_doc']))
+				                                        <a href="{{ media_url('trainer_data', basename($trainer_data['passbook_doc'])) ?: url('/m/r/'.basename($trainer_data['passbook_doc'])) }}" target="_blank" class="btn btn-sm btn-info text-white" style="font-size: 11px; padding: 4px 8px;">
+				                                            <i class="bi bi-file-earmark-image"></i> View Passbook / Cheque
+				                                        </a>
+				                                    @endif
+				                                    @if(empty($trainer_data['pan_doc']) && empty($trainer_data['passbook_doc']))
+				                                        <span class="text-muted">No documents uploaded</span>
+				                                    @endif
+				                                </div>
+				                            </td>
+				                        </tr>
+				                    </tbody>
+				                </table>
+				            </div>
+				        @else
+				            <div class="alert alert-light border py-2 mb-0" style="font-size: 13px;">
+				                <i class="bi bi-info-circle mr-1 text-muted"></i> No bank details uploaded by this trainer yet. Click <strong>Edit Bank &amp; KYC</strong> above to add bank details.
+				            </div>
+				        @endif
+				    </div>
+
+				    {{-- Edit Mode --}}
+				    @if($canEditTrainer)
+				    <div id="bankDetailsEdit" style="display: none; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px;">
+				        <div class="form-row">
+				            <div class="form-group col-md-6">
+				                <label>Bank Name</label>
+				                <input type="text" class="form-control" name="bank_name" id="bank_name" placeholder="e.g. State Bank of India" value="{{ $trainer_data['bank_name'] ?? '' }}">
+				            </div>
+				            <div class="form-group col-md-6">
+				                <label>Account Holder Name</label>
+				                <input type="text" class="form-control" name="account_holder_name" id="account_holder_name" placeholder="Name as per bank records" value="{{ $trainer_data['account_holder_name'] ?? ($trainer_data['instructor_name'] ?? '') }}">
+				            </div>
+				        </div>
+				        <div class="form-row">
+				            <div class="form-group col-md-6">
+				                <label>Account Number</label>
+				                <input type="text" class="form-control" name="account_number" id="account_number" placeholder="Enter bank account number" value="{{ $trainer_data['account_number'] ?? '' }}">
+				            </div>
+				            <div class="form-group col-md-6">
+				                <label>IFSC Code</label>
+				                <input type="text" class="form-control text-uppercase" name="ifsc_code" id="ifsc_code" placeholder="e.g. SBIN0001234" maxlength="11" value="{{ $trainer_data['ifsc_code'] ?? '' }}" oninput="this.value = this.value.toUpperCase()">
+				            </div>
+				        </div>
+				        <div class="form-row">
+				            <div class="form-group col-md-4">
+				                <label>PAN Number</label>
+				                <input type="text" class="form-control text-uppercase" name="pan_number" id="pan_number" placeholder="e.g. ABCDE1234F" maxlength="10" value="{{ $trainer_data['pan_number'] ?? '' }}" oninput="this.value = this.value.toUpperCase()">
+				            </div>
+				            <div class="form-group col-md-4">
+				                <label>PAN Card Document</label>
+				                <input type="file" class="form-control" name="pan_doc" accept=".jpg,.jpeg,.png,.pdf">
+				                @if(!empty($trainer_data['pan_doc']))
+				                    <small class="d-block mt-1"><a href="{{ media_url('trainer_data', basename($trainer_data['pan_doc'])) ?: url('/m/r/'.basename($trainer_data['pan_doc'])) }}" target="_blank"><i class="bi bi-file-earmark-check"></i> View current PAN Document</a></small>
+				                @endif
+				            </div>
+				            <div class="form-group col-md-4">
+				                <label>Passbook / Cancelled Cheque</label>
+				                <input type="file" class="form-control" name="passbook_doc" accept=".jpg,.jpeg,.png,.pdf">
+				                @if(!empty($trainer_data['passbook_doc']))
+				                    <small class="d-block mt-1"><a href="{{ media_url('trainer_data', basename($trainer_data['passbook_doc'])) ?: url('/m/r/'.basename($trainer_data['passbook_doc'])) }}" target="_blank"><i class="bi bi-file-earmark-check"></i> View current Passbook</a></small>
+				                @endif
+				            </div>
+				        </div>
+				        <div class="d-flex justify-content-between align-items-center mt-3 pt-2" style="border-top: 1px dashed #cbd5e1;">
+				            <button type="button" class="btn btn-sm btn-secondary" onclick="toggleBankKycEdit()">
+				                <i class="bi bi-x-circle mr-1"></i> Cancel
+				            </button>
+				            <button type="button" class="btn btn-sm btn-success px-3" onclick="$('#btn-save').click();">
+				                <i class="bi bi-check2-circle mr-1"></i> Save Bank &amp; KYC Details
+				            </button>
+				        </div>
+				    </div>
+				    @endif
 				</div>
 				@if($canEditTrainer)
 				<div class="row">
@@ -597,4 +724,31 @@
 		  }
 		})
    });
+
+   function toggleBankKycEdit() {
+       var viewDiv = document.getElementById('bankDetailsView');
+       var editDiv = document.getElementById('bankDetailsEdit');
+       var btnText = document.getElementById('bankEditBtnText');
+       var btn = document.getElementById('toggleBankEditBtn');
+
+       if (!editDiv) return;
+
+       if (editDiv.style.display === 'none' || editDiv.style.display === '') {
+           editDiv.style.display = 'block';
+           if (viewDiv) viewDiv.style.display = 'none';
+           if (btnText) btnText.innerText = 'Close Bank & KYC Edit';
+           if (btn) {
+               btn.classList.remove('btn-outline-primary');
+               btn.classList.add('btn-outline-secondary');
+           }
+       } else {
+           editDiv.style.display = 'none';
+           if (viewDiv) viewDiv.style.display = 'block';
+           if (btnText) btnText.innerText = 'Edit Bank & KYC';
+           if (btn) {
+               btn.classList.remove('btn-outline-secondary');
+               btn.classList.add('btn-outline-primary');
+           }
+       }
+   }
 </script>

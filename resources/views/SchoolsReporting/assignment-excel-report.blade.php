@@ -25,6 +25,8 @@
     .status-completed { background: #d4edda; color: #155724; }
     .status-ongoing { background: #fff3cd; color: #856404; }
     .status-not-started { background: #d1ecf1; color: #0c5460; }
+    .payment-paid { background: #d4edda; color: #155724; }
+    .payment-unpaid { background: #f8d7da; color: #721c24; }
     .trainer-phone {
         display: block;
         font-size: 12px;
@@ -43,7 +45,7 @@
             <p class="text-muted mb-0">District, District Coordinator, Block, Trainer &amp; School details</p>
         </div>
         <div class="col-lg-4 text-right margin-tb">
-            <a href="{{ route('schools-reporting.assignment-excel.export', request()->only(['district_id', 'status'])) }}"
+            <a href="{{ route('schools-reporting.assignment-excel.export', request()->only(['district_id', 'status', 'payment_status'])) }}"
                class="btn btn-success">
                 Download Excel
             </a>
@@ -72,6 +74,14 @@
             </select>
         </div>
         <div class="col-md-2">
+            <label for="payment_status" class="mb-1"><strong>Payment Status</strong></label>
+            <select name="payment_status" id="payment_status" class="form-control">
+                <option value="">All Payment Status</option>
+                <option value="paid" {{ ($paymentStatusFilter ?? '') === 'paid' ? 'selected' : '' }}>Paid</option>
+                <option value="unpaid" {{ ($paymentStatusFilter ?? '') === 'unpaid' ? 'selected' : '' }}>Unpaid</option>
+            </select>
+        </div>
+        <div class="col-md-2">
             <label for="per_page" class="mb-1"><strong>Per page</strong></label>
             <select name="per_page" id="per_page" class="form-control">
                 @foreach([25, 50, 100] as $n)
@@ -79,7 +89,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-md-4 mt-2 mt-md-0">
+        <div class="col-md-3 mt-2 mt-md-0">
             <button type="submit" class="btn btn-primary">Filter</button>
             <a href="{{ route('schools-reporting.assignment-excel') }}" class="btn btn-secondary">Reset</a>
         </div>
@@ -106,6 +116,7 @@
                     <th>School Code</th>
                     <th>Total Students</th>
                     <th>Status</th>
+                    <th>Payment Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -135,10 +146,16 @@
                             @endphp
                             <span class="status-badge {{ $statusClass }}">{{ $row['status'] }}</span>
                         </td>
+                        <td>
+                            @php
+                                $paymentClass = ($row['payment_status'] === 'Paid') ? 'payment-paid' : 'payment-unpaid';
+                            @endphp
+                            <span class="status-badge {{ $paymentClass }}">{{ $row['payment_status'] }}</span>
+                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="10" class="text-center text-muted">No approved assigned schools found for this filter.</td>
+                        <td colspan="11" class="text-center text-muted">No approved assigned schools found for this filter.</td>
                     </tr>
                 @endforelse
             </tbody>

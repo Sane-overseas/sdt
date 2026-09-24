@@ -132,7 +132,7 @@
                         <td>{{ $schoolCode ?: '—' }}</td>
                         <td class="date-cell">
                             <div class="dt-stack">
-                                @php $shownAt = $data['updated_at'] ?? $data['created_at']; @endphp
+                                @php $shownAt = $data['created_at'] ?? $data['created_date'] ?? $data['updated_at']; @endphp
                                 {{ date('d/m/y', strtotime($shownAt)) }}
                                 <small>{{ date('g:i A', strtotime($shownAt)) }}</small>
                             </div>
@@ -181,21 +181,23 @@
                             @endif
                         </td>
                         <td>
-                            <label class="container-ck12">
-                                @if($data['completion_note'] != null && $data['emergency_approved'] == 0)
-                                    <a href="{{ url('getData/'.$data['user_id']) }}" target="_blank"><span class="pending-data">Upload Correct UC</span></a>
-                                @elseif($data['emergency_approved'] == 1 && $data['completion_note'] != null)
-                                    <span class="approve">Emergency Approved</span>
+                            <div class="approval-cell-wrap text-center">
+                                @if($data['emergency_approved'] == 1 && $data['completion_note'] != null)
+                                    <span class="badge badge-success py-1 px-2" style="background:#28a745; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-check-circle-fill"></i> Emergency Approved</span>
                                 @elseif($data['status'] == 1 && $data['emergency_approved'] == 0)
-                                    <span class="approve">Approved</span>
+                                    <span class="badge badge-success py-1 px-2" style="background:#28a745; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-check-circle-fill"></i> Approved</span>
+                                @elseif($data['completion_note'] != null && $data['emergency_approved'] == 0)
+                                    <span class="badge badge-danger mb-1 py-1 px-2" style="background:#dc3545; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-x-circle-fill"></i> Rejected</span>
+                                    <br><a href="{{ url('getData/'.$data['user_id']) }}" target="_blank"><span class="badge badge-info" style="font-size:10px; padding: 2px 6px;">Upload Correct UC</span></a>
                                 @else
-                                    <span class="disapproved">Pending</span>
+                                    <div class="d-flex flex-column align-items-center justify-content-center" style="gap: 2px;">
+                                        <span class="badge badge-warning py-1 px-2" style="background:#ffc107; color:#000; font-size: 10px; font-weight: 600; border-radius: 3px; white-space: nowrap;">Pending</span>
+                                        <button type="button" class="btn btn-sm btn-success btn-approve-completion" data-id="{{ $data['id'] }}" style="padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 4px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; line-height: 1.2;">
+                                            <i class="bi bi-check-lg" style="font-size: 12px;"></i> <span>Approve</span>
+                                        </button>
+                                    </div>
                                 @endif
-                                @if($data['completion_note'] == null)
-                                    <input class="completion-status approve-button" data-id="{{ $data['id'] }}" type="checkbox" {{ $data['status'] == 1 ? 'checked' : '' }}>
-                                    <div class="checkmark"></div>
-                                @endif
-                            </label>
+                            </div>
                         </td>
                     </tr>
                 @endforeach
@@ -256,15 +258,40 @@
         });
     });
 
-    $('.completion-status').change(function () {
+    $(document).on('click', '.btn-approve-completion', function () {
+        let $btn = $(this);
+        let completion_id = $btn.data('id');
+        let $cellWrap = $btn.closest('.approval-cell-wrap');
+
+        $btn.prop('disabled', true).text('Approving...');
+
         $.ajax({
-            type: 'GET', dataType: 'json', url: '/completion-status',
-            data: { completion_status: $(this).prop('checked') ? 1 : 0, completion_id: $(this).data('id') },
+            type: 'GET',
+            dataType: 'json',
+            url: '/completion-status',
+            data: { completion_status: 1, completion_id: completion_id },
             success: function () {
-                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Approve Completion status are changed !', showConfirmButton: false, timer: 2000 });
+                $cellWrap.html('<span class="badge badge-success py-1 px-2" style="background:#28a745; color:#fff; font-size: 11px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"><i class="bi bi-check-circle-fill"></i> Approved</span>');
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+                Toast.fire({
+                    icon: 'success',
+                    title: 'Completion (UC) approved successfully!'
+                });
             },
-            error: function () {
-                Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Somethig Wrong Please Check!', showConfirmButton: false, timer: 4000 });
+            error: function (xhr) {
+                $btn.prop('disabled', false).html('<i class="bi bi-check-lg" style="font-size: 12px;"></i> <span>Approve</span>');
+                let errMsg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Something went wrong. Please check!';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: errMsg
+                });
             }
         });
     });

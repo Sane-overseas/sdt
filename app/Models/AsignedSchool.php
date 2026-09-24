@@ -25,6 +25,8 @@ class AsignedSchool extends Model
         'status',
         'asigned_by',
         'paid_status',
+        'claim_status',
+        'claimed_at',
         'add_route_plan_date',
         'added_by_route_plan',
         'working_days',
@@ -44,6 +46,7 @@ class AsignedSchool extends Model
 
     protected $casts = [
         'approved_at' => 'datetime',
+        'claimed_at' => 'datetime',
     ];
 
     public function user()

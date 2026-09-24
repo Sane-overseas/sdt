@@ -27,6 +27,11 @@ class AppServiceProvider extends ServiceProvider
             $view->with('isReadOnlySessionView', AcademicSessionService::isArchiveView());
             $view->with('currentState', StateService::current());
             $view->with('allStates', StateService::all());
+
+            if (\Illuminate\Support\Facades\Auth::check() && (int) \Illuminate\Support\Facades\Auth::user()->role === 1) {
+                $view->with('pendingClaimNotifications', \App\Services\ClaimNotificationService::getPendingClaimNotifications());
+                $view->with('pendingClaimsCount', \App\Services\ClaimNotificationService::getPendingClaimsCount());
+            }
         });
     }
 }

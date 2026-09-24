@@ -23,6 +23,9 @@ use App\Http\Controllers\SchoolRequestController;
 */
 
 Route::get('/', function () {
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
     return view('auth.login');
 });
 
@@ -36,6 +39,9 @@ Route::get('/clear', function() {
 });
 
 Route::get('login', function () {
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
     return view('auth.login');
 })->name('login');
 
@@ -152,6 +158,7 @@ Route::get('custom-data', [AdminController::class, 'trainersLogs'])->name('custo
 
 Route::get('/video-status', [AdminController::class, 'videoStatus']);
 Route::get('/testimonial-status', [AdminController::class, 'testimonialStatus']);
+Route::get('/attendance-status', [AdminController::class, 'attendanceStatus']);
 Route::get('/trainer-status', [AdminController::class, 'trainerStatusDetail']);
 Route::get('/school-paid-status', [AdminController::class, 'schoolPaidStatus']);
 Route::get('1stvideo/{id}',[AdminController::class, 'fstvideoDetail'])->name('1stvideo');
@@ -163,9 +170,11 @@ Route::get('images/{id}/{imgid}',[AdminController::class, 'imagesDetail'])->name
 Route::get('delete-images/{id}/{sid}',[AdminController::class, 'deleteImages'])->name('delete-images');
 Route::get('delete-videos/{id}/{sid}',[AdminController::class, 'deleteVideos'])->name('delete-videos');
 Route::get('delete-testimonial/{id}',[AdminController::class, 'deleteTestimonial'])->name('delete-testimonial');
+Route::get('delete-attendance/{id}',[AdminController::class, 'deleteAttendance'])->name('delete-attendance');
 //Notes
 Route::post('video-note',[AdminController::class, 'videoNote'])->name('video-note');
 Route::post('testimonial-note',[AdminController::class, 'testimonialNote'])->name('testimonial-note');
+Route::post('attendance-note',[AdminController::class, 'attendanceNote'])->name('attendance-note');
 Route::post('image-note',[AdminController::class, 'imageNote'])->name('image-note');
 Route::post('distribution-note',[AdminController::class, 'distributionNote'])->name('distribution-note');
 Route::post('completion-note',[AdminController::class, 'completionNote'])->name('completion-note');
