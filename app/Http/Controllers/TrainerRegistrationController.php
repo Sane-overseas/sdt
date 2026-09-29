@@ -102,8 +102,9 @@ class TrainerRegistrationController extends BaseController
         $districtName = trim((string) $district->district);
         $districtNameLower = mb_strtolower($districtName);
 
-        // Only district-level coordinators assigned to this district (never fall back to whole state).
+        // Only district-level active coordinators assigned to this district (never fall back to whole state).
         $users = User::where('role', 2)
+            ->where('active_status', 1)
             ->where('state_id', $district->state_id)
             ->where(function ($q) {
                 $q->whereNull('coordinator_level')

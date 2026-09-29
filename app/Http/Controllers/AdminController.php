@@ -1957,6 +1957,375 @@ class AdminController extends BaseController
         return 'Not Started';
     }
 
+    public function trainerDetailedReport(Request $request)
+    {
+        $districts = StateService::districtsQuery()->orderBy('district')->get();
+        $districtFilter = $request->filled('district_id') ? (int) $request->district_id : null;
+        if ($districtFilter) {
+            StateService::assertDistrictInScope($districtFilter);
+        }
+
+        $trainers = User::query()
+            ->where('role', 0)
+            ->when(StateService::scopeStateId(), fn($q, $sId) => $q->where('state_id', $sId))
+            ->orderBy('instructor_name')
+            ->get(['id', 'instructor_name', 'instructor_code']);
+
+        $trainerFilter = $request->filled('trainer_id') ? (int) $request->trainer_id : null;
+        $statusFilter = $this->normalizeAssignmentStatusFilter($request->input('status'));
+        $claimFilter = $request->filled('claim_status') ? strtolower(trim((string) $request->claim_status)) : null;
+        $paymentFilter = $this->normalizePaymentStatusFilter($request->input('payment_status'));
+        $search = $request->input('search');
+
+        $perPage = (int) $request->input('per_page', 50);
+        if (!in_array($perPage, [25, 50, 100, 200], true)) {
+            $perPage = 50;
+        }
+
+        $rows = $this->trainerDetailedReportQuery(
+            $districtFilter,
+            $trainerFilter,
+            $statusFilter,
+            $claimFilter,
+            $paymentFilter,
+            $search
+        )->paginate($perPage)->withQueryString();
+
+        return view('TrainersReporting.trainer-detailed-report', [
+            'rows' => $rows,
+            'districts' => $districts,
+            'trainers' => $trainers,
+            'districtFilter' => $districtFilter,
+            'trainerFilter' => $trainerFilter,
+            'statusFilter' => $statusFilter,
+            'claimFilter' => $claimFilter,
+            'paymentFilter' => $paymentFilter,
+            'search' => $search,
+            'perPage' => $perPage,
+        ]);
+    }
+
+    public function trainerDetailedReportExport(Request $request)
+    {
+        $districtFilter = $request->filled('district_id') ? (int) $request->district_id : null;
+        if ($districtFilter) {
+            StateService::assertDistrictInScope($districtFilter);
+        }
+
+        $trainerFilter = $request->filled('trainer_id') ? (int) $request->trainer_id : null;
+        $statusFilter = $this->normalizeAssignmentStatusFilter($request->input('status'));
+        $claimFilter = $request->filled('claim_status') ? strtolower(trim((string) $request->claim_status)) : null;
+        $paymentFilter = $this->normalizePaymentStatusFilter($request->input('payment_status'));
+        $search = $request->input('search');
+
+        $rows = $this->trainerDetailedReportQuery(
+            $districtFilter,
+            $trainerFilter,
+            $statusFilter,
+            $claimFilter,
+            $paymentFilter,
+            $search
+        )->get();
+
+        $grouped = $rows->groupBy('user_id');
+        $exportRows = [];
+        $mergeRanges = [];
+        $currentRow = 2; // Row 1 is header
+
+        foreach ($grouped as $userId => $trainerSchools) {
+            $count = count($trainerSchools);
+            $startRow = $currentRow;
+            $endRow = $currentRow + $count - 1;
+
+            if ($count > 1) {
+                $mergeRanges[] = "A{$startRow}:A{$endRow}";
+                $mergeRanges[] = "B{$startRow}:B{$endRow}";
+                $mergeRanges[] = "C{$startRow}:C{$endRow}";
+                $mergeRanges[] = "D{$startRow}:D{$endRow}";
+                $mergeRanges[] = "E{$startRow}:E{$endRow}";
+                $mergeRanges[] = "F{$startRow}:F{$endRow}";
+                $mergeRanges[] = "G{$startRow}:G{$endRow}";
+                $mergeRanges[] = "H{$startRow}:H{$endRow}";
+            }
+
+            foreach ($trainerSchools as $idx => $row) {
+                $isFirst = ($idx === 0);
+
+                $trainerCell = $isFirst ? ($row->trainer_name . ($row->trainer_code ? "\n" . $row->trainer_code : '')) : '';
+                $contactCell = $isFirst ? (($row->trainer_email ?: '—') . "\n" . ($row->trainer_phone ?: '—')) : '';
+                $bankHolder = $isFirst ? (string) ($row->account_holder_name ?: '—') : '';
+                $accountNo = $isFirst ? (string) ($row->account_number ?: '—') : '';
+                $ifsc = $isFirst ? (string) ($row->ifsc_code ?: '—') : '';
+                $pan = $isFirst ? (string) ($row->pan_number ?: '—') : '';
+                $districtName = $isFirst ? ($row->school_district_name ?: ($row->assignment_district_name ?: '—')) : '';
+                $blockName = $isFirst ? ($row->assignment_block ?: ($row->school_block ?: '—')) : '';
+
+                $trainingStatus = 'Pending';
+                if ((int) $row->assignment_status === 1 || (int) ($row->uc_submitted ?? 0) === 1) {
+                    $trainingStatus = 'Complete';
+                } elseif (!empty($row->assignment_end_date)) {
+                    $trainingStatus = 'In Progress';
+                }
+
+                $claimStatus = 'Not Claimed';
+                if ((int) $row->assignment_claim_status === 1) {
+                    $claimStatus = 'Claimed';
+                } elseif ((int) $row->assignment_claim_status === 2 || (int) $row->assignment_paid_status === 1) {
+                    $claimStatus = 'Paid';
+                }
+
+                $claimDate = $row->assignment_claimed_at ? date('d-m-Y', strtotime($row->assignment_claimed_at)) : '—';
+                $paidDate = $row->paid_date ? date('d-m-Y', strtotime($row->paid_date)) : '—';
+
+                $exportRows[] = [
+                    $trainerCell,
+                    $contactCell,
+                    $bankHolder,
+                    $accountNo,
+                    $ifsc,
+                    $pan,
+                    $districtName,
+                    $blockName,
+                    $row->school_title . ($row->school_code_value ? ' (' . $row->school_code_value . ')' : ''),
+                    $trainingStatus,
+                    $claimStatus,
+                    $claimDate,
+                    $paidDate,
+                    (string) ($row->assignment_remark ?: ''),
+                ];
+                $currentRow++;
+            }
+        }
+
+        $filename = 'trainer_detailed_report_' . date('Y-m-d_His') . '.xlsx';
+
+        return Excel::download(new class($exportRows, $mergeRanges) implements FromArray, WithHeadings, WithStyles {
+            private array $data;
+            private array $mergeRanges;
+
+            public function __construct(array $data, array $mergeRanges)
+            {
+                $this->data = $data;
+                $this->mergeRanges = $mergeRanges;
+            }
+
+            public function array(): array
+            {
+                return $this->data;
+            }
+
+            public function headings(): array
+            {
+                return [
+                    'Name(trainer/dc id)',
+                    'email & phone number',
+                    'bank holder name',
+                    'bank account number',
+                    'IFSC Code',
+                    'pan number',
+                    'district',
+                    'block',
+                    'school name',
+                    'training status',
+                    'claim',
+                    'claim date',
+                    'paid date',
+                    'remarks',
+                ];
+            }
+
+            public function styles(Worksheet $sheet)
+            {
+                $lastRow = count($this->data) + 1;
+
+                // Merge cells vertically for each trainer group
+                foreach ($this->mergeRanges as $range) {
+                    $sheet->mergeCells($range);
+                }
+
+                $sheet->getColumnDimension('A')->setWidth(26);
+                $sheet->getColumnDimension('B')->setWidth(32);
+                $sheet->getColumnDimension('C')->setWidth(24);
+                $sheet->getColumnDimension('D')->setWidth(22);
+                $sheet->getColumnDimension('E')->setWidth(18);
+                $sheet->getColumnDimension('F')->setWidth(18);
+                $sheet->getColumnDimension('G')->setWidth(18);
+                $sheet->getColumnDimension('H')->setWidth(18);
+                $sheet->getColumnDimension('I')->setWidth(36);
+                $sheet->getColumnDimension('J')->setWidth(18);
+                $sheet->getColumnDimension('K')->setWidth(16);
+                $sheet->getColumnDimension('L')->setWidth(16);
+                $sheet->getColumnDimension('M')->setWidth(16);
+                $sheet->getColumnDimension('N')->setWidth(28);
+
+                if ($lastRow > 1) {
+                    $sheet->getStyle('A2:B' . $lastRow)->getAlignment()->setWrapText(true);
+                    $sheet->getStyle('I2:I' . $lastRow)->getAlignment()->setWrapText(true);
+                    $sheet->getStyle('N2:N' . $lastRow)->getAlignment()->setWrapText(true);
+
+                    // Vertically center all data rows
+                    $sheet->getStyle('A2:N' . $lastRow)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+                    // Add full grid borders across all cells
+                    $sheet->getStyle('A1:N' . $lastRow)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+                }
+
+                return [
+                    1 => [
+                        'font' => [
+                            'bold' => true,
+                            'color' => ['rgb' => '000000'],
+                        ],
+                        'fill' => [
+                            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                            'startColor' => ['rgb' => 'F2F2F2'],
+                        ],
+                        'alignment' => [
+                            'horizontal' => 'left',
+                            'vertical' => 'center',
+                        ],
+                    ],
+                ];
+            }
+        }, $filename);
+    }
+
+    private function trainerDetailedReportQuery(?int $districtFilter = null, ?int $trainerFilter = null, ?string $statusFilter = null, ?string $claimFilter = null, ?string $paymentFilter = null, ?string $search = null)
+    {
+        $sessionId = $this->reportSessionId();
+        $districtIds = $this->reportDistrictIds();
+
+        if ($districtFilter) {
+            $districtIds = in_array($districtFilter, $districtIds, true)
+                ? [$districtFilter]
+                : [];
+        }
+
+        $query = DB::table('asigned_schools')
+            ->join('schools', 'schools.id', '=', 'asigned_schools.school_name')
+            ->leftJoin('users as trainers', 'trainers.id', '=', 'asigned_schools.user_id')
+            ->leftJoin('districts as school_districts', 'school_districts.id', '=', 'schools.district_id')
+            ->leftJoin('districts as assignment_districts', 'assignment_districts.id', '=', 'asigned_schools.district')
+            ->leftJoin('paid_schools', function ($join) use ($sessionId) {
+                $join->on('paid_schools.school_id', '=', 'asigned_schools.school_name')
+                    ->where('paid_schools.session_id', '=', $sessionId);
+            })
+            ->where(function ($q) use ($districtIds) {
+                $ids = $districtIds ?: [0];
+                $q->whereIn('schools.district_id', $ids)
+                    ->orWhereIn('asigned_schools.district', $ids);
+            })
+            ->when($sessionId, fn($q) => $q->where('asigned_schools.session_id', $sessionId))
+            ->where(function ($q) {
+                $q->whereNull('asigned_schools.approval_status')
+                    ->orWhere('asigned_schools.approval_status', AsignedSchool::APPROVAL_APPROVED);
+            });
+
+        if ($trainerFilter) {
+            $query->where('asigned_schools.user_id', $trainerFilter);
+        }
+
+        $this->applyAssignmentStatusFilter($query, $statusFilter);
+
+        if ($claimFilter === 'claimed') {
+            $query->where('asigned_schools.claim_status', 1);
+        } elseif ($claimFilter === 'unclaimed') {
+            $query->where(function ($q) {
+                $q->whereNull('asigned_schools.claim_status')
+                    ->orWhere('asigned_schools.claim_status', 0);
+            });
+        } elseif ($claimFilter === 'paid') {
+            $query->where('asigned_schools.claim_status', 2);
+        }
+
+        if ($paymentFilter === 'paid') {
+            $query->where('asigned_schools.paid_status', 1);
+        } elseif ($paymentFilter === 'unpaid') {
+            $query->where(function ($q) {
+                $q->whereNull('asigned_schools.paid_status')
+                    ->orWhere('asigned_schools.paid_status', 0);
+            });
+        }
+
+        if ($search !== null && trim($search) !== '') {
+            $s = '%' . trim($search) . '%';
+            $query->where(function ($q) use ($s) {
+                $q->where('trainers.instructor_name', 'LIKE', $s)
+                    ->orWhere('trainers.instructor_code', 'LIKE', $s)
+                    ->orWhere('trainers.email', 'LIKE', $s)
+                    ->orWhere('trainers.instructor_number', 'LIKE', $s)
+                    ->orWhere('trainers.account_number', 'LIKE', $s)
+                    ->orWhere('trainers.pan_number', 'LIKE', $s)
+                    ->orWhere('schools.school_name', 'LIKE', $s)
+                    ->orWhere('asigned_schools.remark', 'LIKE', $s);
+            });
+        }
+
+        return $query->select(
+            'asigned_schools.id as assignment_id',
+            'asigned_schools.user_id',
+            'asigned_schools.route_date as assignment_route_date',
+            'asigned_schools.end_date as assignment_end_date',
+            'asigned_schools.status as assignment_status',
+            'asigned_schools.uc_submitted',
+            'asigned_schools.paid_status as assignment_paid_status',
+            'asigned_schools.claim_status as assignment_claim_status',
+            'asigned_schools.claimed_at as assignment_claimed_at',
+            'asigned_schools.remark as assignment_remark',
+            'asigned_schools.block as assignment_block',
+            'schools.id as school_id',
+            'schools.school_name as school_title',
+            'schools.school_code as school_code_value',
+            'schools.block as school_block',
+            'school_districts.district as school_district_name',
+            'assignment_districts.district as assignment_district_name',
+            'trainers.instructor_name as trainer_name',
+            'trainers.instructor_code as trainer_code',
+            'trainers.email as trainer_email',
+            'trainers.instructor_number as trainer_phone',
+            'trainers.bank_name',
+            'trainers.account_holder_name',
+            'trainers.account_number',
+            'trainers.ifsc_code',
+            'trainers.pan_number',
+            'paid_schools.created_at as paid_date'
+        )->orderBy('trainers.instructor_name', 'ASC')
+         ->orderBy('asigned_schools.user_id', 'ASC')
+         ->orderBy('asigned_schools.id', 'DESC');
+    }
+
+    public function saveSchoolRemark(Request $request, $id)
+    {
+        $request->validate([
+            'remark' => 'nullable|string',
+        ]);
+
+        $assignment = AsignedSchool::findOrFail($id);
+        $newRemark = trim((string) $request->remark);
+
+        if ($request->input('append', false)) {
+            if ($assignment->remark) {
+                $assignment->remark = $assignment->remark . " OR " . date("d/m/y") . " - " . $newRemark;
+            } else {
+                $assignment->remark = date("d/m/y") . " - " . $newRemark;
+            }
+        } else {
+            $assignment->remark = $newRemark;
+        }
+
+        $assignment->save();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Remark saved successfully.',
+                'remark' => $assignment->remark,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Remark saved successfully.');
+    }
+
     public function districtsData($id)
     {
         $districtRecord = District::find($id);

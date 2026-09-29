@@ -193,6 +193,9 @@ Route::get('schools-reporting/trainer-needs',[AdminController::class, 'trainerNe
 Route::get('schools-reporting/assignment-excel',[AdminController::class, 'assignmentExcelReport'])->name('schools-reporting.assignment-excel');
 Route::get('schools-reporting/assignment-excel/export',[AdminController::class, 'assignmentExcelExport'])->name('schools-reporting.assignment-excel.export');
 Route::get('trainers-reporting',[AdminController::class, 'trainersReporting'])->name('trainers-reporting');
+Route::get('trainers-reporting/detailed-report', [AdminController::class, 'trainerDetailedReport'])->name('trainers-reporting.detailed-report');
+Route::get('trainers-reporting/detailed-report/export', [AdminController::class, 'trainerDetailedReportExport'])->name('trainers-reporting.detailed-report.export');
+Route::post('trainers-reporting/save-remark/{id}', [AdminController::class, 'saveSchoolRemark'])->name('trainers-reporting.save-remark');
 
 Route::get('/image-status', [AdminController::class, 'imageStatus']);
 Route::get('/completion-status', [AdminController::class, 'completionStatus']);

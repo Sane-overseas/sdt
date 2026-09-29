@@ -102,6 +102,7 @@
                                                 @endif
                                             </a>
                                             <a href="{{ route('advance-payment') }}">Advance Payment</a>
+                                            <a href="{{ route('trainers-reporting.detailed-report') }}">Trainer Detailed &amp; Bank Report</a>
                                         </div>
                                     </li>
                                 </div>
