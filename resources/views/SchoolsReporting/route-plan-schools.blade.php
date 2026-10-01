@@ -9,10 +9,10 @@
         }
     </style>
     <div class="container">
-        <div class="row">
+        <div class="row align-items-center">
             <div class="col-lg-10 margin-tb">
                 <h2 class="heading">Route Plans Schools</h2>
-                @if(!empty($showAll))
+                @if (!empty($showAll))
                     <p class="text-muted mb-0">Showing all dates</p>
                 @elseif(!empty($customDate))
                     <p class="text-muted mb-0">Date: {{ date('d-m-Y', strtotime($customDate)) }}</p>
@@ -20,13 +20,19 @@
                     <p class="text-muted mb-0">Today’s route plans</p>
                 @endif
             </div>
+            <div class="col-lg-2 text-right margin-tb">
+                <button type="button" id="downloadRoutePlanExcel" class="btn btn-success">
+                    <i class="fas fa-file-excel mr-1"></i> Download Excel
+                </button>
+            </div>
         </div>
         <form id="custom_form" action="{{ route('route-plan-custom-date') }}" method="get">
             <div style="margin: 20px 0px;" class="row align-items-center">
                 <strong class="mr-2">Date Filter:</strong>
                 <input type="date" name="custom_date" class="form-control col-3" value="{{ $customDate ?? '' }}" />
                 <button type="submit" class="btn btn-success filter ml-2 col-2">Submit</button>
-                <a href="{{ route('route-plan-schools', ['show_all' => 1]) }}" class="btn btn-primary ml-2 col-2">Show All</a>
+                <a href="{{ route('route-plan-schools', ['show_all' => 1]) }}" class="btn btn-primary ml-2 col-2">Show
+                    All</a>
                 <a href="{{ route('route-plan-schools') }}" class="btn btn-secondary ml-2 col-2">Today</a>
             </div>
         </form>
@@ -102,15 +108,55 @@
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
     <script type="text/javascript">
         const routeplanSchools = $('#routeplanSchools').DataTable({
             ordering: false,
-            dom: 'lifrtp',
+            dom: 'lfrtip',
             pageLength: 30,
             stateSave: true,
-            searchHighlight: true,
-            buttons: ['excel']
+            searchHighlight: true
         });
+
+        function cleanCellText(value) {
+            return String(value || '')
+                .replace(/\u00a0/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function exportRoutePlanToExcel() {
+            const table = document.getElementById('routeplanSchools');
+            const rows = [];
+
+            table.querySelectorAll('thead tr, tbody tr').forEach(function(row) {
+                const cells = Array.from(row.querySelectorAll('th, td')).map(function(cell) {
+                    return cleanCellText(cell.innerText);
+                });
+
+                if (cells.some(function(cell) {
+                        return cell !== '';
+                    })) {
+                    rows.push(cells);
+                }
+            });
+
+            if (!rows.length) {
+                return;
+            }
+
+            const worksheet = XLSX.utils.aoa_to_sheet(rows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Route Plans');
+            XLSX.writeFile(workbook, 'route-plan-schools.xlsx');
+        }
+
+        $('#downloadRoutePlanExcel').on('click', function(e) {
+            e.preventDefault();
+            exportRoutePlanToExcel();
+        });
+
         $('#routeplanSchools tfoot th').each(function() {
             var title = $(this).text();
             $(this).html('<input type="text" class="form-control" placeholder="' + title + '" />');

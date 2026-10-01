@@ -394,7 +394,7 @@
                                 $trainingStatus = 'Pending';
                                 $statusClass = 'status-pending';
                                 $statusIcon = 'bi-clock';
-                                if ((int)$row->assignment_status === 1 || (int)($row->uc_submitted ?? 0) === 1) {
+                                if ((int)$row->assignment_status === 1) {
                                     $trainingStatus = 'Complete';
                                     $statusClass = 'status-complete';
                                     $statusIcon = 'bi-check-circle-fill';

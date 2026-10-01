@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\AsignedSchool;
+use App\Models\Attendance;
 use App\Models\Completion;
+use App\Models\Distribution;
 use App\Models\Image;
 use App\Models\School;
 use App\Models\User;
@@ -170,10 +172,13 @@ class SessionUploadService
             $video = $uploadQuery(Video::class)->first();
             $image = $uploadQuery(Image::class)->first();
             $completion = $uploadQuery(Completion::class)->first();
+            $attendance = $uploadQuery(Attendance::class)->first();
+            $distribution = $uploadQuery(Distribution::class)->first();
 
             $complete = $video && (int) $video->status === 1
                 && $image && (int) $image->status === 1
-                && $completion && (int) $completion->status === 1;
+                && $completion && (int) $completion->status === 1
+                && $attendance && (int) $attendance->status === 1;
 
             AsignedSchool::withoutGlobalScopes()
                 ->where('id', $assignment->id)
@@ -183,6 +188,7 @@ class SessionUploadService
                 $school->video_status = $video ? (int) $video->status : 0;
                 $school->image_status = $image ? (int) $image->status : 0;
                 $school->completion_status = $completion ? (int) $completion->status : 0;
+                $school->distribution_status = $distribution ? (int) $distribution->status : 0;
                 $school->status = $complete ? 1 : 0;
                 $school->save();
             }

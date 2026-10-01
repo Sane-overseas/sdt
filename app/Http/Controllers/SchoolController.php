@@ -350,7 +350,7 @@ class SchoolController extends Controller
     {
         $districts = StateService::districtsQuery()->orderBy('district')->get();
         $schools = StateService::schoolsQuery()
-            ->with(['images', 'videos', 'completions', 'assignedSchools.user'])
+            ->with(['images', 'videos', 'completions', 'attendances', 'assignedSchools.user'])
             ->get()
             ->map(fn ($school) => $this->enrichSchoolMeta($school));
 
@@ -359,7 +359,7 @@ class SchoolController extends Controller
 
     public function exportSchools(Request $request)
     {
-        $schools = School::with(['district', 'images', 'videos', 'completions', 'assignedSchools.user'])
+        $schools = School::with(['district', 'images', 'videos', 'completions', 'attendances', 'assignedSchools.user'])
             ->get()
             ->map(fn ($school) => $this->enrichSchoolMeta($school));
 
@@ -515,6 +515,7 @@ class SchoolController extends Controller
         $school->image_status_value = $statusValues['image'];
         $school->video_status_value = $statusValues['video'];
         $school->uc_status_value = $statusValues['uc'];
+        $school->attendance_status_value = $statusValues['attendance'];
         $school->trainer_name = $this->getTrainerNameForSchool($school);
         // training_hours already on school model
 
@@ -526,11 +527,13 @@ class SchoolController extends Controller
         $latestImage = $school->images()->orderBy('created_at', 'desc')->first();
         $latestVideo = $school->videos()->orderBy('created_at', 'desc')->first();
         $latestCompletion = $school->completions()->orderBy('created_at', 'desc')->first();
+        $latestAttendance = $school->attendances()->orderBy('created_at', 'desc')->first();
 
         return [
             'image' => $latestImage->status ?? null,
             'video' => $latestVideo->status ?? null,
             'uc' => $latestCompletion->status ?? null,
+            'attendance' => $latestAttendance->status ?? null,
         ];
     }
 
@@ -557,8 +560,9 @@ class SchoolController extends Controller
         $imageStatus = $request->filled('image_status') ? $request->input('image_status') : null;
         $videoStatus = $request->filled('video_status') ? $request->input('video_status') : null;
         $ucStatus = $request->filled('uc_status') ? $request->input('uc_status') : null;
+        $attendanceStatus = $request->filled('attendance_status') ? $request->input('attendance_status') : null;
 
-        return $schools->filter(function ($school) use ($search, $districtId, $trainer, $block, $imageStatus, $videoStatus, $ucStatus) {
+        return $schools->filter(function ($school) use ($search, $districtId, $trainer, $block, $imageStatus, $videoStatus, $ucStatus, $attendanceStatus) {
             $schoolName = strtolower($school->school_name ?? '');
             $schoolCode = strtolower($school->school_code ?? '');
             $trainerName = strtolower($school->trainer_name ?? '');
@@ -589,6 +593,10 @@ class SchoolController extends Controller
             }
 
             if ($ucStatus !== null && $this->normalizeStatusValue($school->uc_status_value) !== $ucStatus) {
+                return false;
+            }
+
+            if ($attendanceStatus !== null && $this->normalizeStatusValue($school->attendance_status_value) !== $attendanceStatus) {
                 return false;
             }
 

@@ -1156,6 +1156,7 @@ class AdminController extends BaseController
                 $school_distributions->distribution_status = $request->distributions_status;
                 $school_distributions->save();
             }
+            SessionUploadService::syncAssignmentStatuses($dc->session_id);
             return response()->json(['success' => 'User status updated successfully.']);
         } else {
             return redirect()->back()->with('error', 'Somethig Wrong Please Check!');
@@ -1168,8 +1169,11 @@ class AdminController extends BaseController
         if ($blocked = $this->approvedDeleteBlocked($distribution, 'distribution')) {
             return $blocked;
         }
+        $sessionId = $distribution->session_id;
         $this->deletePublicStorageFile(MediaPath::diskPath('distribution', $distribution->distribution_file));
         $distribution->delete();
+
+        SessionUploadService::syncAssignmentStatuses($sessionId);
 
         return response()->json(['success' => true]);
     }
@@ -1195,6 +1199,7 @@ class AdminController extends BaseController
         $video->video_note = $request->video_note;
         $video->status = 0;
         $video->save();
+        SessionUploadService::syncAssignmentStatuses($video->session_id);
         return redirect()->back();
     }
 
@@ -1262,6 +1267,8 @@ class AdminController extends BaseController
         $row->status = (int) $request->attendance_status;
         $row->save();
 
+        SessionUploadService::syncAssignmentStatuses($row->session_id);
+
         return response()->json(['success' => 'Attendance status updated successfully.']);
     }
 
@@ -1277,6 +1284,8 @@ class AdminController extends BaseController
         $attendance->status = 0;
         $attendance->save();
 
+        SessionUploadService::syncAssignmentStatuses($attendance->session_id);
+
         return redirect()->back();
     }
 
@@ -1286,11 +1295,14 @@ class AdminController extends BaseController
         if ($blocked = $this->approvedDeleteBlocked($attendance, 'attendance')) {
             return $blocked;
         }
+        $sessionId = $attendance->session_id;
         $files = $attendance->getAllFiles();
         foreach ($files as $file) {
             Storage::disk('public')->delete(MediaPath::diskPath('attendances', $file));
         }
         $attendance->delete();
+
+        SessionUploadService::syncAssignmentStatuses($sessionId);
 
         return response()->json(['success' => true]);
     }
@@ -1305,6 +1317,7 @@ class AdminController extends BaseController
         $video->image_note = $request->image_note;
         $video->status = 0;
         $video->save();
+        SessionUploadService::syncAssignmentStatuses($video->session_id);
         return redirect()->back();
     }
 
@@ -1318,6 +1331,7 @@ class AdminController extends BaseController
         $video->distribution_note = $request->distribution_note;
         $video->status = 0;
         $video->save();
+        SessionUploadService::syncAssignmentStatuses($video->session_id);
         return redirect()->back();
     }
 
@@ -1340,6 +1354,7 @@ class AdminController extends BaseController
             $completion_note->emergency_approved = 0;
             $completion_note->save();
         }
+        SessionUploadService::syncAssignmentStatuses($completion_note->session_id);
         return redirect()->back();
     }
 
@@ -2061,7 +2076,7 @@ class AdminController extends BaseController
                 $blockName = $isFirst ? ($row->assignment_block ?: ($row->school_block ?: '—')) : '';
 
                 $trainingStatus = 'Pending';
-                if ((int) $row->assignment_status === 1 || (int) ($row->uc_submitted ?? 0) === 1) {
+                if ((int) $row->assignment_status === 1) {
                     $trainingStatus = 'Complete';
                 } elseif (!empty($row->assignment_end_date)) {
                     $trainingStatus = 'In Progress';

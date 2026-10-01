@@ -89,6 +89,17 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold">
+                        <i class="fas fa-clipboard-check"></i> Attendance Status
+                    </label>
+                    <select id="attendanceStatusFilter" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="null">Not Uploaded</option>
+                        <option value="0">Uploaded</option>
+                        <option value="1">Approved</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">
                         <i class="fas fa-layer-group"></i> Block
                     </label>
                     <input type="text" id="blockFilter" class="form-control" placeholder="Block name">
@@ -130,6 +141,7 @@
                     <th>Image Status</th>
                     <th>Video Status</th>
                     <th>UC Status</th>
+                    <th>Attendance Status</th>
                     <th>Trainer Name</th>
                     <th>Action</th>
                 </tr>
@@ -144,7 +156,8 @@
                 data-trainer-name="{{ $school->trainer_name ? strtolower($school->trainer_name) : '' }}"
                 data-image-status="{{ $school->image_status_value === null ? 'null' : $school->image_status_value }}"
                 data-video-status="{{ $school->video_status_value === null ? 'null' : $school->video_status_value }}"
-                data-uc-status="{{ $school->uc_status_value === null ? 'null' : $school->uc_status_value }}">
+                data-uc-status="{{ $school->uc_status_value === null ? 'null' : $school->uc_status_value }}"
+                data-attendance-status="{{ $school->attendance_status_value === null ? 'null' : $school->attendance_status_value }}">
                 <td contenteditable="true" name="school_name" class="school_name">{{ $school->school_name }}</td>
                 <td contenteditable="true" name="school_code" class="school_code">{{ $school->school_code }}</td>
                 <td contenteditable="true" name="block" class="block">{{ $school->block }}</td>
@@ -198,6 +211,19 @@
                     @elseif($school->uc_status_value == 0)
                         <span class="badge bg-warning text-dark">Uploaded</span>
                     @elseif($school->uc_status_value == 1)
+                        <span class="badge bg-success">Approved</span>
+                    @else
+                        <span class="badge bg-secondary">Not Uploaded</span>
+                    @endif
+                </td>
+
+                {{-- Attendance Status --}}
+                <td class="text-center">
+                    @if($school->attendance_status_value === null)
+                        <span class="badge bg-secondary">Not Uploaded</span>
+                    @elseif($school->attendance_status_value == 0)
+                        <span class="badge bg-warning text-dark">Uploaded</span>
+                    @elseif($school->attendance_status_value == 1)
                         <span class="badge bg-success">Approved</span>
                     @else
                         <span class="badge bg-secondary">Not Uploaded</span>
@@ -288,6 +314,7 @@ function applyFilters() {
     const imageStatus = document.getElementById("imageStatusFilter").value;
     const videoStatus = document.getElementById("videoStatusFilter").value;
     const ucStatus = document.getElementById("ucStatusFilter").value;
+    const attendanceStatus = document.getElementById("attendanceStatusFilter").value;
 
     const rows = document.querySelectorAll("#schoolTable tr");
     let visibleCount = 0;
@@ -301,6 +328,7 @@ function applyFilters() {
         const rowImageStatus = row.getAttribute("data-image-status") || "";
         const rowVideoStatus = row.getAttribute("data-video-status") || "";
         const rowUcStatus = row.getAttribute("data-uc-status") || "";
+        const rowAttendanceStatus = row.getAttribute("data-attendance-status") || "";
 
         let show = true;
 
@@ -339,6 +367,11 @@ function applyFilters() {
             show = false;
         }
 
+        // Attendance status filter
+        if (attendanceStatus !== "" && rowAttendanceStatus !== attendanceStatus) {
+            show = false;
+        }
+
         if (show) {
             row.style.display = "";
             visibleCount++;
@@ -360,7 +393,7 @@ function applyFilters() {
             noResultsMsg = document.createElement("tr");
             noResultsMsg.id = "noResultsMessage";
             noResultsMsg.innerHTML = `
-                <td colspan="9" class="text-center py-4 text-muted">
+                <td colspan="10" class="text-center py-4 text-muted">
                     <i class="fas fa-search"></i> No schools found matching the selected filters.
                 </td>
             `;
@@ -381,6 +414,7 @@ document.getElementById("clearFilters").addEventListener("click", function() {
     document.getElementById("imageStatusFilter").value = "";
     document.getElementById("videoStatusFilter").value = "";
     document.getElementById("ucStatusFilter").value = "";
+    document.getElementById("attendanceStatusFilter").value = "";
     applyFilters();
 });
 
@@ -392,6 +426,7 @@ document.getElementById("blockFilter").addEventListener("keyup", applyFilters);
 document.getElementById("imageStatusFilter").addEventListener("change", applyFilters);
 document.getElementById("videoStatusFilter").addEventListener("change", applyFilters);
 document.getElementById("ucStatusFilter").addEventListener("change", applyFilters);
+document.getElementById("attendanceStatusFilter").addEventListener("change", applyFilters);
 
 
 
@@ -409,6 +444,7 @@ if (exportButton) {
         const imageValue = document.getElementById("imageStatusFilter").value;
         const videoValue = document.getElementById("videoStatusFilter").value;
         const ucValue = document.getElementById("ucStatusFilter").value;
+        const attendanceValue = document.getElementById("attendanceStatusFilter").value;
 
         if (searchValue) params.append("search", searchValue);
         if (districtValue) params.append("district_id", districtValue);
@@ -417,6 +453,7 @@ if (exportButton) {
         if (imageValue !== "") params.append("image_status", imageValue);
         if (videoValue !== "") params.append("video_status", videoValue);
         if (ucValue !== "") params.append("uc_status", ucValue);
+        if (attendanceValue !== "") params.append("attendance_status", attendanceValue);
 
         const exportUrl = "{{ route('schools.export') }}";
         const query = params.toString();

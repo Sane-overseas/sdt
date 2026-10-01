@@ -169,6 +169,7 @@
 						<th>Videos</th>
 						<th>Images</th>
 						<th>Completion</th>
+						<th>Attendance</th>
 						<th>Distribution</th>
 						<th>Status</th>
 					</tr>
@@ -274,6 +275,26 @@
 											@endif
 										@endif
 									@endforeach
+								@else
+									Pending
+								@endif
+							</td>
+							<td class="upload-cell">
+								@if ($schoolRow && !empty($trainer_data['attendances']))
+									@php $attFound = false; @endphp
+									@foreach ($trainer_data['attendances'] as $attendance)
+										@if ($schoolRow['school_name'] == $attendance['school_name'])
+											@php $attFound = true; @endphp
+											@if ($attendance['status'] == 1)
+												Complete <i class="bi-check-circle-fill nav-icn success-icon"></i>
+											@else
+												Pending <i class="bi bi-info-circle-fill dash-pending"></i>
+											@endif
+										@endif
+									@endforeach
+									@if (!$attFound)
+										Pending
+									@endif
 								@else
 									Pending
 								@endif
